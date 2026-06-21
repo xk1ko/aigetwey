@@ -1,0 +1,281 @@
+@import "tailwindcss";
+
+/*
+ * aigetwey console — warm near-black surfaces, soft lime accent, floating
+ * icon-rail. Dark-only. Depth from diffuse shadows, not hard lines.
+ */
+@theme {
+  --color-bg: #0f0f0e;
+  --color-bg-alt: #141413;
+  --color-surface: #1a1a18;
+  --color-surface-2: #222220;
+  --color-surface-3: #2c2c29;
+  --color-sidebar: #131312;
+
+  --color-border: #2a2a27;
+  --color-border-subtle: #1f1f1d;
+
+  --color-text: #ededec;
+  --color-text-muted: #8d8d86;
+  --color-text-subtle: #5c5c56;
+
+  --color-accent: #cbe85a;
+  --color-accent-hover: #d6f06a;
+  --color-accent-ink: #14140f;
+  --color-accent-soft: #3a3f1c;
+
+  --color-success: #7dd87f;
+  --color-warning: #e8c55a;
+  --color-danger: #e8806a;
+  --color-info: #7fb0e8;
+
+  --radius-brand: 12px;
+  --radius-brand-lg: 16px;
+
+  --shadow-soft: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --shadow-warm: 0 4px 16px -4px rgba(203, 232, 90, 0.18);
+  --shadow-elevated: 0 16px 40px -8px rgba(0, 0, 0, 0.55);
+
+  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Material Symbols — hold the icon font's variation axes steady */
+.material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  font-size: 20px;
+  line-height: 1;
+  user-select: none;
+}
+
+/* tabular figures wherever numbers live */
+.tnum {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.dark select option {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+}
+
+/* status lamp — green when live, red pulse on cooldown */
+.lamp {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+.lamp-live {
+  background: var(--color-success);
+  box-shadow: 0 0 6px 1px color-mix(in srgb, var(--color-success) 60%, transparent);
+}
+.lamp-idle {
+  background: var(--color-text-subtle);
+}
+.lamp-down {
+  background: var(--color-danger);
+  box-shadow: 0 0 6px 1px color-mix(in srgb, var(--color-danger) 60%, transparent);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lamp-down {
+    animation: none;
+  }
+}
+
+/* console shell — floating icon-island rail + main column with sticky top bar */
+.console-grid {
+  display: grid;
+  grid-template-columns: 108px 1fr;
+  min-height: 100vh;
+}
+.console-rail {
+  margin: 20px 0 20px 32px;
+  position: sticky;
+  top: 20px;
+  align-self: center;
+  background: var(--color-sidebar);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 24px;
+  box-shadow: var(--shadow-soft);
+  padding: 1.25rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+.rail-divider {
+  width: 26px;
+  height: 1px;
+  background: var(--color-border);
+  margin: 0.2rem 0 0.4rem;
+  flex: none;
+}
+.console-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.console-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0 1.5rem;
+  height: 56px;
+  background: var(--color-bg);
+}
+.console-main {
+  padding: 2rem 3rem 4rem;
+  min-width: 0;
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+/* circular icon buttons in the rail */
+.rail-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  color: var(--color-text-subtle);
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.rail-icon:hover {
+  color: var(--color-text);
+  background: var(--color-surface-3);
+}
+.rail-icon-active {
+  color: var(--color-bg);
+  background: var(--color-text);
+}
+.rail-icon-active:hover {
+  color: var(--color-bg);
+  background: #ffffff;
+}
+.rail-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+  font-weight: 700;
+  font-size: 17px;
+  box-shadow: var(--shadow-warm);
+  flex: none;
+}
+/* tooltip on hover */
+.rail-icon[data-label]::after {
+  content: attr(data-label);
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  background: var(--color-surface-3);
+  color: var(--color-text);
+  font-size: 12px;
+  padding: 4px 9px;
+  border-radius: 7px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+  z-index: 40;
+  box-shadow: var(--shadow-soft);
+}
+.rail-icon:hover[data-label]::after {
+  opacity: 1;
+}
+
+/* KPI chip in the top bar */
+.kpi {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.kpi-k {
+  color: var(--color-text-subtle);
+}
+.kpi-v {
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 760px) {
+  .console-grid {
+    grid-template-columns: 72px 1fr;
+  }
+  .console-main {
+    padding: 1.25rem 1.1rem 3rem;
+  }
+  .console-topbar {
+    padding: 0 1rem;
+  }
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
