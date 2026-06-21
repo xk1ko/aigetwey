@@ -20,6 +20,7 @@ import { parseSSE, encodeSSE } from "../stream/sse.js";
 import { streamAdapterFor } from "../stream/index.js";
 import type { CanonicalChunk } from "../stream/chunk.js";
 import type { KeyPool } from "./keypool.js";
+import type { QuotaTracker } from "./quota.js";
 import { executeWithFallback } from "./fallback.js";
 import { type UsageDB, computeCost } from "../db.js";
 import { compressMessages } from "../rtk/index.js";
@@ -46,6 +47,7 @@ export interface HandleDeps {
   config: GatewayConfig;
   pool: KeyPool;
   db?: UsageDB;
+  quota?: QuotaTracker;
   log?: (msg: string) => void;
   now?: () => number;
 }
@@ -58,9 +60,11 @@ function recordUsage(
   latencyMs: number,
   stream: boolean,
 ): void {
-  if (!deps.db) return;
   const tokensIn = usage?.prompt_tokens ?? 0;
   const tokensOut = usage?.completion_tokens ?? 0;
+  // count the full request against the served provider's window budget.
+  deps.quota?.consume(route.provider, tokensIn + tokensOut);
+  if (!deps.db) return;
   deps.db.record({
     alias: route.alias,
     provider: route.provider.id,
@@ -128,6 +132,7 @@ export async function handle(
     won = await executeWithFallback(routes, pool, canonical, {
       stream: wantStream,
       signal,
+      isExhausted: deps.quota ? (p) => deps.quota!.isExhausted(p) : undefined,
       onAttempt: (a) =>
         deps.log?.(`[fallback] ${a.provider} ${a.status ?? "-"} -> ${a.outcome}${a.detail ? ` (${a.detail})` : ""}`),
     });

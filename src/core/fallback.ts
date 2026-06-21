@@ -30,6 +30,8 @@ export interface FallbackOpts {
   onAttempt?: (log: AttemptLog) => void;
   /** which key the pool handed out for the winning attempt (handler uses it for usage). */
   onServed?: (route: ResolvedRoute, key: string) => void;
+  /** when set, a provider this returns true for is skipped (quota exhausted). */
+  isExhausted?: (provider: ResolvedRoute["provider"]) => boolean;
 }
 
 export interface FallbackResult {
@@ -49,6 +51,14 @@ export async function executeWithFallback(
 
   for (const route of routes) {
     const { provider } = route;
+
+    // skip a provider whose token budget is spent for this window — like a key
+    // cooling down, but for the whole provider. Falls through to the next route.
+    if (opts.isExhausted?.(provider)) {
+      log({ provider: provider.id, outcome: "skip", detail: "quota exhausted" });
+      continue;
+    }
+
     const attempts = provider.max_retries + 1;
 
     for (let i = 0; i < attempts; i++) {

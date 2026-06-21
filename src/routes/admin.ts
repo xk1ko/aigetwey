@@ -72,6 +72,11 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     reply.send({ providers: deps.state.pool.snapshot(deps.state.config.listProviders()) });
   });
 
+  // per-provider quota: consumed, limit, and ms until the next scheduled reset.
+  app.get("/admin/quota", requireAdmin, (_req, reply) => {
+    reply.send({ quota: deps.state.quota.snapshot(deps.state.config.listProviders()) });
+  });
+
   // current config, secrets masked
   app.get("/admin/config", requireAdmin, (_req, reply) => {
     reply.send(maskedConfig(deps.state.config.raw));

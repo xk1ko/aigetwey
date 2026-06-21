@@ -26,6 +26,7 @@ export function registerV1Routes(app: FastifyInstance, state: GatewayState, db?:
   const depsNow = (): HandleDeps => ({
     config: state.config,
     pool: state.pool,
+    quota: state.quota,
     db,
     log: (msg) => app.log.info(msg),
   });
