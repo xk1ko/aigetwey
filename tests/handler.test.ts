@@ -6,6 +6,7 @@ vi.mock("undici", () => ({ request: (...args: unknown[]) => requestMock(...args)
 
 import { handle, GatewayError, type HandleDeps } from "../src/core/handler.js";
 import { validateConfig } from "../src/config.js";
+import { KeyPool } from "../src/core/keypool.js";
 
 function depsWith(): HandleDeps {
   const config = validateConfig({
@@ -18,7 +19,7 @@ function depsWith(): HandleDeps {
       { alias: "claude-ish", target: ["an"], model: "claude-3" },
     ],
   });
-  return { config };
+  return { config, pool: new KeyPool() };
 }
 
 /** Build a fake undici response object. */

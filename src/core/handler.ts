@@ -3,21 +3,22 @@
  *
  *   client body (clientFormat)
  *     -> ingress adapter        -> canonical request
- *     -> config.resolve(model)  -> provider chain + upstream model
- *     -> upstream call          (canonical -> provider format, inside client)
+ *     -> config.resolve(model)  -> prioritized provider chain + upstream model
+ *     -> fallback engine        -> rotate keys, walk the chain until one serves
  *     -> provider reply         -> canonical -> egress adapter -> client body
  *
- * Phase 2 ships non-streaming; Phase 3 adds the streaming path (provider SSE ->
- * canonical chunks -> client SSE). Both try only the FIRST route with the FIRST
- * key — fallback across the chain + key rotation land in Phase 4; RTK/inject in
- * Phase 6; usage logging in Phase 5. Each plugs into this same pipeline.
+ * Streaming (Phase 3): provider SSE -> canonical chunks -> client SSE. Fallback
+ * + key rotation (Phase 4) run here. RTK/inject (Phase 6) and usage logging
+ * (Phase 5) plug into this same pipeline.
  */
 import type { GatewayConfig } from "../config.js";
 import type { WireFormat } from "./canonical.js";
 import { adapterFor } from "../adapters/index.js";
-import { callUpstream, type UpstreamError } from "../upstream/client.js";
+import type { UpstreamError } from "../upstream/client.js";
 import { parseSSE, encodeSSE } from "../stream/sse.js";
 import { streamAdapterFor } from "../stream/index.js";
+import type { KeyPool } from "./keypool.js";
+import { executeWithFallback } from "./fallback.js";
 
 export interface HandleResult {
   status: number;
@@ -38,13 +39,8 @@ export class GatewayError extends Error {
 
 export interface HandleDeps {
   config: GatewayConfig;
+  pool: KeyPool;
   log?: (msg: string) => void;
-}
-
-/** First configured key for a provider (keypool rotation arrives in Phase 4). */
-function firstKey(provider: { api_key?: string; api_keys?: string[] }): string | undefined {
-  if (provider.api_keys && provider.api_keys.length > 0) return provider.api_keys[0];
-  return provider.api_key;
 }
 
 export async function handle(
@@ -53,7 +49,7 @@ export async function handle(
   body: unknown,
   signal?: AbortSignal,
 ): Promise<HandleResult> {
-  const { config } = deps;
+  const { config, pool } = deps;
   const ingress = adapterFor(clientFormat);
   const canonical = ingress.requestToCanonical(body);
 
@@ -67,15 +63,14 @@ export async function handle(
   }
 
   const wantStream = canonical.stream === true;
-  const route = routes[0]!;
-  const provider = route.provider;
 
-  let result;
+  let won;
   try {
-    result = await callUpstream(provider, canonical, route.model, {
+    won = await executeWithFallback(routes, pool, canonical, {
       stream: wantStream,
-      key: firstKey(provider),
       signal,
+      onAttempt: (a) =>
+        deps.log?.(`[fallback] ${a.provider} ${a.status ?? "-"} -> ${a.outcome}${a.detail ? ` (${a.detail})` : ""}`),
     });
   } catch (e) {
     const err = e as UpstreamError;
@@ -91,6 +86,8 @@ export async function handle(
     throw new GatewayError(status, payload);
   }
 
+  const { route, result } = won;
+
   if (!result.stream) {
     const clientBody = ingress.responseFromCanonical(result.response);
     return { status: 200, json: clientBody };
@@ -99,7 +96,7 @@ export async function handle(
   // streaming: provider SSE -> canonical chunks -> client SSE bytes. The
   // provider and client formats may differ (e.g. an Anthropic client talking to
   // an OpenAI provider), so both ends translate through the canonical chunk.
-  const providerStream = streamAdapterFor(provider.format);
+  const providerStream = streamAdapterFor(route.provider.format);
   const clientStream = streamAdapterFor(clientFormat);
   const canonicalChunks = providerStream.streamToCanonical(parseSSE(result.body));
   const clientEvents = clientStream.streamFromCanonical(canonicalChunks);

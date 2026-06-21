@@ -21,9 +21,10 @@ export function registerV1Routes(app: FastifyInstance, state: GatewayState): voi
     },
   };
 
-  // build deps from the live holder per request (never close over config).
+  // build deps from the live holder per request (never close over config/pool).
   const depsNow = (): HandleDeps => ({
     config: state.config,
+    pool: state.pool,
     log: (msg) => app.log.info(msg),
   });
 
