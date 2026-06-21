@@ -47,8 +47,11 @@ async function main(): Promise<void> {
   process.on("SIGTERM", close);
 
   try {
-    await app.listen({ host: config.server.host, port: config.server.port });
-    app.log.info(`aigetwey listening on http://${config.server.host}:${config.server.port}`);
+    // AIGETWEY_PORT (set by the CLI launcher) overrides the config port so the
+    // launcher can pin the gateway port without editing config.yaml.
+    const port = process.env.AIGETWEY_PORT ? Number(process.env.AIGETWEY_PORT) : config.server.port;
+    await app.listen({ host: config.server.host, port });
+    app.log.info(`aigetwey listening on http://${config.server.host}:${port}`);
   } catch (e) {
     app.log.error(e);
     process.exit(1);
