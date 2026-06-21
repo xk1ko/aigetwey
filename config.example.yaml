@@ -1,0 +1,57 @@
+# aigetwey — example config. Copy to config.yaml and fill in.
+# Hot-reloaded: edits via the dashboard apply without a restart.
+
+server:
+  host: 127.0.0.1
+  port: 18080
+  # Gateway keys clients must present (Bearer or x-api-key).
+  # Empty => auth disabled (localhost only — set before exposing remotely).
+  api_keys:
+    - my-key
+
+# Token-saver toggles, applied per request before routing.
+endpoint:
+  rtk: false # compress tool_result blocks in the request
+  caveman: off # off | lite | full | ultra — terser model output
+  ponytail: off # off | lite | full | ultra — minimal-code system prompt
+
+# Upstream providers. Add real ones; see the shapes below.
+providers: []
+# Example shapes (uncomment + fill in):
+#
+#  - id: anthropic
+#    format: anthropic
+#    base_url: https://api.anthropic.com/v1
+#    api_keys: [sk-ant-xxx]
+#    quota: { window: weekly, reset_at: monday, timezone: Asia/Jakarta }
+#
+#  - id: openai
+#    format: openai
+#    base_url: https://api.openai.com/v1
+#    api_key: sk-xxx
+#    models:
+#      - { id: gpt-4o, price_in: 2.5, price_out: 10 }
+#
+#  - id: opencode-free
+#    format: openai
+#    base_url: https://opencode.ai/zen/v1
+#    free: true
+#    auto_models: true
+#
+#  - id: vertex
+#    format: gemini
+#    base_url: https://us-central1-aiplatform.googleapis.com/v1
+#    service_account: /path/to/sa.json
+#    quota: { window: monthly, limit_tokens: 300000000 }
+
+# Routing layer: client-facing alias -> prioritized provider chain (fallback).
+models: []
+# Example:
+#  - alias: claude-sonnet-4-6
+#    target: [anthropic, opencode-free]
+#    model: [claude-sonnet-4-6, claude-sonnet-4-5]
+#    price_in: 3
+#    price_out: 15
+
+# Named snapshots of the routing layer.
+combos: []

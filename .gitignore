@@ -1,5 +1,8 @@
 node_modules/
 dist/
+config.yaml
+config.yaml.bak
+config.yaml.tmp
 .next/
 data/
 *.sqlite
