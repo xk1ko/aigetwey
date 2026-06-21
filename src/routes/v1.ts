@@ -3,13 +3,14 @@ import { checkAuth } from "../middleware/auth.js";
 import type { GatewayState } from "../core/state.js";
 import { handle, GatewayError, type HandleDeps } from "../core/handler.js";
 import type { WireFormat } from "../core/canonical.js";
+import type { UsageDB } from "../db.js";
 
 /**
  * /v1 proxy surface. Auth-gates on the gateway's own keys (read from state each
  * request so a hot-reload takes effect immediately), then runs the translation
- * pipeline. Streaming replies arrive in Phase 3.
+ * pipeline (non-stream JSON or SSE stream).
  */
-export function registerV1Routes(app: FastifyInstance, state: GatewayState): void {
+export function registerV1Routes(app: FastifyInstance, state: GatewayState, db?: UsageDB): void {
   const requireAuth = {
     preHandler: (req: FastifyRequest, reply: FastifyReply, done: (err?: Error) => void) => {
       const res = checkAuth(req, state.config.server.api_keys);
@@ -25,6 +26,7 @@ export function registerV1Routes(app: FastifyInstance, state: GatewayState): voi
   const depsNow = (): HandleDeps => ({
     config: state.config,
     pool: state.pool,
+    db,
     log: (msg) => app.log.info(msg),
   });
 

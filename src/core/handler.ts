@@ -11,14 +11,16 @@
  * + key rotation (Phase 4) run here. RTK/inject (Phase 6) and usage logging
  * (Phase 5) plug into this same pipeline.
  */
-import type { GatewayConfig } from "../config.js";
-import type { WireFormat } from "./canonical.js";
+import type { GatewayConfig, ResolvedRoute } from "../config.js";
+import type { WireFormat, CanonicalUsage } from "./canonical.js";
 import { adapterFor } from "../adapters/index.js";
 import type { UpstreamError } from "../upstream/client.js";
 import { parseSSE, encodeSSE } from "../stream/sse.js";
 import { streamAdapterFor } from "../stream/index.js";
+import type { CanonicalChunk } from "../stream/chunk.js";
 import type { KeyPool } from "./keypool.js";
 import { executeWithFallback } from "./fallback.js";
+import { type UsageDB, computeCost } from "../db.js";
 
 export interface HandleResult {
   status: number;
@@ -40,7 +42,34 @@ export class GatewayError extends Error {
 export interface HandleDeps {
   config: GatewayConfig;
   pool: KeyPool;
+  db?: UsageDB;
   log?: (msg: string) => void;
+  now?: () => number;
+}
+
+function recordUsage(
+  deps: HandleDeps,
+  route: ResolvedRoute,
+  usage: CanonicalUsage | undefined,
+  status: number,
+  latencyMs: number,
+  stream: boolean,
+): void {
+  if (!deps.db) return;
+  const tokensIn = usage?.prompt_tokens ?? 0;
+  const tokensOut = usage?.completion_tokens ?? 0;
+  deps.db.record({
+    alias: route.alias,
+    provider: route.provider.id,
+    model: route.model,
+    tokens_in: tokensIn,
+    tokens_out: tokensOut,
+    cached_tokens: usage?.cached_tokens ?? 0,
+    cost: computeCost(tokensIn, tokensOut, route.price_in, route.price_out),
+    status,
+    latency_ms: latencyMs,
+    stream: stream ? 1 : 0,
+  });
 }
 
 export async function handle(
@@ -50,6 +79,8 @@ export async function handle(
   signal?: AbortSignal,
 ): Promise<HandleResult> {
   const { config, pool } = deps;
+  const now = deps.now ?? Date.now;
+  const startedAt = now();
   const ingress = adapterFor(clientFormat);
   const canonical = ingress.requestToCanonical(body);
 
@@ -90,6 +121,7 @@ export async function handle(
 
   if (!result.stream) {
     const clientBody = ingress.responseFromCanonical(result.response);
+    recordUsage(deps, route, result.response.usage, 200, now() - startedAt, false);
     return { status: 200, json: clientBody };
   }
 
@@ -99,11 +131,35 @@ export async function handle(
   const providerStream = streamAdapterFor(route.provider.format);
   const clientStream = streamAdapterFor(clientFormat);
   const canonicalChunks = providerStream.streamToCanonical(parseSSE(result.body));
-  const clientEvents = clientStream.streamFromCanonical(canonicalChunks);
+
+  // tap the canonical chunk stream to capture usage from the final chunk(s),
+  // which arrive as partial fields across multiple chunks.
+  let lastUsage: CanonicalUsage | undefined;
+  async function* tap(): AsyncGenerator<CanonicalChunk> {
+    for await (const chunk of canonicalChunks) {
+      if (chunk.usage) {
+        lastUsage = {
+          prompt_tokens: chunk.usage.prompt_tokens ?? lastUsage?.prompt_tokens ?? 0,
+          completion_tokens: chunk.usage.completion_tokens ?? lastUsage?.completion_tokens ?? 0,
+          total_tokens: 0,
+          cached_tokens: chunk.usage.cached_tokens ?? lastUsage?.cached_tokens,
+        };
+      }
+      yield chunk;
+    }
+  }
+
+  const clientEvents = clientStream.streamFromCanonical(tap());
 
   async function* toBytes(): AsyncGenerator<Uint8Array> {
-    for await (const ev of clientEvents) {
-      yield encodeSSE(ev);
+    try {
+      for await (const ev of clientEvents) {
+        yield encodeSSE(ev);
+      }
+    } finally {
+      // record once the stream drains (or the client disconnects) so usage is
+      // captured even on early termination.
+      recordUsage(deps, route, lastUsage, 200, now() - startedAt, true);
     }
   }
 

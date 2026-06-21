@@ -1,0 +1,100 @@
+import { describe, it, expect } from "vitest";
+import { UsageDB, computeCost } from "../src/db.js";
+
+/** Fresh in-memory DB with a controllable clock. */
+function db(now = () => 1_000_000) {
+  return new UsageDB(":memory:", now);
+}
+
+describe("computeCost", () => {
+  it("prices input and output per 1M tokens", () => {
+    expect(computeCost(1_000_000, 1_000_000, 3, 15)).toBeCloseTo(18);
+  });
+  it("is zero when no prices are set", () => {
+    expect(computeCost(1000, 2000)).toBe(0);
+  });
+  it("prices only the side that has a price", () => {
+    expect(computeCost(2_000_000, 500_000, 2)).toBeCloseTo(4);
+  });
+});
+
+describe("UsageDB.record + summary", () => {
+  it("aggregates totals, by-provider, and by-model", () => {
+    const d = db();
+    d.record({ alias: "smart", provider: "oa", model: "gpt-4o", tokens_in: 100, tokens_out: 50, cached_tokens: 0, cost: 0.5, status: 200, latency_ms: 120, stream: 0 });
+    d.record({ alias: "smart", provider: "oa", model: "gpt-4o", tokens_in: 200, tokens_out: 80, cached_tokens: 0, cost: 1.0, status: 200, latency_ms: 90, stream: 1 });
+    d.record({ alias: "claude", provider: "an", model: "claude-3", tokens_in: 50, tokens_out: 20, cached_tokens: 10, cost: 0.2, status: 200, latency_ms: 200, stream: 0 });
+
+    const s = d.summary();
+    expect(s.total.requests).toBe(3);
+    expect(s.total.tokens_in).toBe(350);
+    expect(s.total.tokens_out).toBe(150);
+    expect(s.total.cost).toBeCloseTo(1.7);
+
+    const oa = s.by_provider.find((p) => p.provider === "oa")!;
+    expect(oa.requests).toBe(2);
+    expect(oa.tokens_in).toBe(300);
+
+    const gpt = s.by_model.find((m) => m.model === "gpt-4o")!;
+    expect(gpt.requests).toBe(2);
+  });
+
+  it("filters the summary by since timestamp", () => {
+    let t = 1000;
+    const d = db(() => t);
+    t = 1000;
+    d.record({ alias: "a", provider: "p", model: "m", tokens_in: 1, tokens_out: 1, cached_tokens: 0, cost: 0, status: 200, latency_ms: 1, stream: 0 });
+    t = 5000;
+    d.record({ alias: "a", provider: "p", model: "m", tokens_in: 1, tokens_out: 1, cached_tokens: 0, cost: 0, status: 200, latency_ms: 1, stream: 0 });
+    expect(d.summary(0).total.requests).toBe(2);
+    expect(d.summary(2000).total.requests).toBe(1); // only the ts=5000 row
+  });
+});
+
+describe("UsageDB.recent", () => {
+  it("returns rows newest-first", () => {
+    let t = 1000;
+    const d = db(() => t);
+    d.record({ alias: "first", provider: "p", model: "m", tokens_in: 0, tokens_out: 0, cached_tokens: 0, cost: 0, status: 200, latency_ms: 0, stream: 0 });
+    t = 2000;
+    d.record({ alias: "second", provider: "p", model: "m", tokens_in: 0, tokens_out: 0, cached_tokens: 0, cost: 0, status: 200, latency_ms: 0, stream: 0 });
+    const rows = d.recent(10);
+    expect(rows[0]!.alias).toBe("second");
+    expect(rows[1]!.alias).toBe("first");
+  });
+
+  it("clamps the limit to a sane range", () => {
+    const d = db();
+    expect(d.recent(99999)).toHaveLength(0); // no rows, but does not throw
+  });
+});
+
+describe("UsageDB.series", () => {
+  it("buckets rows and zero-fills gaps", () => {
+    let t = 0;
+    const d = db(() => t);
+    // two rows in the first hour bucket
+    t = 1000;
+    d.record({ alias: "a", provider: "p", model: "m", tokens_in: 10, tokens_out: 5, cached_tokens: 0, cost: 0.1, status: 200, latency_ms: 0, stream: 0 });
+    t = 2000;
+    d.record({ alias: "a", provider: "p", model: "m", tokens_in: 20, tokens_out: 5, cached_tokens: 0, cost: 0.2, status: 200, latency_ms: 0, stream: 0 });
+    // jump the clock two hours ahead so the series spans empty buckets
+    t = 2 * 3600 * 1000 + 500;
+
+    const hour = 3600 * 1000;
+    const points = d.series(0, hour);
+    expect(points.length).toBeGreaterThanOrEqual(3);
+    expect(points[0]!.requests).toBe(2); // first bucket has both rows
+    expect(points[0]!.tokens_in).toBe(30);
+    expect(points[1]!.requests).toBe(0); // zero-filled gap
+  });
+});
+
+describe("UsageDB.log", () => {
+  it("records a debug log row without throwing", () => {
+    const d = db();
+    expect(() =>
+      d.log({ direction: "error", provider: "oa", status: 502, request_summary: "smart", response_summary: "ECONNRESET" }),
+    ).not.toThrow();
+  });
+});

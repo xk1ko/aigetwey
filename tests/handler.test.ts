@@ -7,19 +7,20 @@ vi.mock("undici", () => ({ request: (...args: unknown[]) => requestMock(...args)
 import { handle, GatewayError, type HandleDeps } from "../src/core/handler.js";
 import { validateConfig } from "../src/config.js";
 import { KeyPool } from "../src/core/keypool.js";
+import { UsageDB } from "../src/db.js";
 
-function depsWith(): HandleDeps {
+function depsWith(db?: UsageDB): HandleDeps {
   const config = validateConfig({
     providers: [
       { id: "oa", format: "openai", base_url: "https://oa.test/v1", api_key: "sk-oa" },
       { id: "an", format: "anthropic", base_url: "https://an.test/v1", api_key: "sk-an" },
     ],
     models: [
-      { alias: "smart", target: ["oa"], model: "gpt-4o" },
+      { alias: "smart", target: ["oa"], model: "gpt-4o", price_in: 3, price_out: 15 },
       { alias: "claude-ish", target: ["an"], model: "claude-3" },
     ],
   });
-  return { config, pool: new KeyPool() };
+  return { config, pool: new KeyPool(), db };
 }
 
 /** Build a fake undici response object. */
@@ -127,5 +128,25 @@ describe("handle — non-stream pipeline", () => {
     await expect(
       handle(depsWith(), "openai", { model: "smart", messages: [{ role: "user", content: "x" }] }),
     ).rejects.toMatchObject({ status: 502 });
+  });
+
+  it("records usage with computed cost on a successful non-stream request", async () => {
+    const upstreamJson = {
+      id: "chatcmpl-1",
+      model: "gpt-4o",
+      created: 1,
+      choices: [{ index: 0, message: { role: "assistant", content: "hi" }, finish_reason: "stop" }],
+      usage: { prompt_tokens: 1_000_000, completion_tokens: 1_000_000, total_tokens: 2_000_000 },
+    };
+    requestMock.mockResolvedValue(fakeResponse(200, upstreamJson));
+    const db = new UsageDB(":memory:");
+
+    await handle(depsWith(db), "openai", { model: "smart", messages: [{ role: "user", content: "hi" }] });
+
+    const rows = db.recent(10);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ alias: "smart", provider: "oa", model: "gpt-4o", tokens_in: 1_000_000, tokens_out: 1_000_000, stream: 0 });
+    // price_in 3 + price_out 15 over 1M each => 18
+    expect(rows[0]!.cost).toBeCloseTo(18);
   });
 });
