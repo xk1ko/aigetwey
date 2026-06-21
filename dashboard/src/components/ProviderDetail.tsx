@@ -1,0 +1,195 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { adminApi } from "@/lib/client";
+import { Lamp } from "@/components/Lamp";
+import { Badge, FormatBadge } from "@/components/Badge";
+import { CooldownTimer } from "@/components/CooldownTimer";
+import { RichCard, CardTitle } from "@/components/RichCard";
+import { Button, Input } from "@/components/Button";
+import { Icon } from "@/components/Icon";
+import { fmt, Empty } from "@/components/ui";
+import type { MaskedConfig, MaskedProvider, ProviderSnapshot, PingResult } from "@/lib/gateway";
+
+export function ProviderDetail({ id }: { id: string }) {
+  const router = useRouter();
+  const [provider, setProvider] = useState<MaskedProvider | null>(null);
+  const [health, setHealth] = useState<ProviderSnapshot | null>(null);
+  const [error, setError] = useState("");
+  const [ping, setPing] = useState<PingResult | null>(null);
+  const [busy, setBusy] = useState("");
+  const [newKey, setNewKey] = useState("");
+  const [newModel, setNewModel] = useState("");
+
+  const reload = useCallback(async () => {
+    const [cfgRes, provRes] = await Promise.all([fetch("/api/gw/admin/config"), adminApi.providers()]);
+    if (!cfgRes.ok) {
+      setError("could not reach the gateway");
+      return;
+    }
+    const cfg = (await cfgRes.json()) as MaskedConfig;
+    const p = cfg.providers.find((x) => x.id === id) ?? null;
+    if (!p) {
+      setError(`provider "${id}" not found`);
+      return;
+    }
+    setError("");
+    setProvider(p);
+    setHealth(provRes.data?.providers.find((x) => x.id === id) ?? null);
+  }, [id]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  if (error) return <Empty>{error}</Empty>;
+  if (!provider) return <Empty>Loading…</Empty>;
+
+  const keys = provider.api_keys ?? (provider.api_key ? [provider.api_key] : []);
+
+  async function run(label: string, fn: () => Promise<{ ok: boolean; error?: string }>) {
+    setBusy(label);
+    const res = await fn();
+    setBusy("");
+    if (!res.ok) setError(res.error ?? "action failed");
+    else {
+      setError("");
+      await reload();
+    }
+  }
+
+  return (
+    <div>
+      <button onClick={() => router.push("/providers")} className="mb-4 inline-flex items-center gap-1 text-[12px] text-text-muted hover:text-text">
+        <Icon name="arrow_back" size={15} /> Providers
+      </button>
+
+      <div className="mb-6 flex items-center gap-3">
+        <Lamp state={health?.keys.some((k) => k.healthy) ?? true ? "live" : "down"} />
+        <h1 className="text-[22px] font-semibold tracking-tight text-text">{provider.id}</h1>
+        <FormatBadge format={provider.format} />
+        {provider.free && <Badge tone="info">free</Badge>}
+        {provider.service_account && <Badge tone="info">service-account</Badge>}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <RichCard header={<CardTitle title="Connection" />}>
+          <div className="space-y-2 text-[13px]">
+            <Row k="Base URL" v={provider.base_url} />
+            <Row k="Format" v={provider.format} />
+            <Row k="Cooldown base" v={`${provider.cooldown_base_ms}ms`} />
+            <Row k="Max retries" v={String(provider.max_retries)} />
+          </div>
+          <div className="mt-4 flex items-center gap-2">
+            <Button variant="ghost" disabled={busy === "test"} onClick={() => run("test", async () => {
+              const r = await adminApi.testProvider(id);
+              if (r.ok) setPing(r.data);
+              return r;
+            })}>
+              <Icon name="wifi_tethering" size={16} /> {busy === "test" ? "Testing…" : "Test connection"}
+            </Button>
+            {(provider.free || provider.auto_models) && (
+              <Button variant="ghost" disabled={busy === "connect"} onClick={() => run("connect", () => adminApi.connectProvider(id))}>
+                <Icon name="sync" size={16} /> Fetch models
+              </Button>
+            )}
+          </div>
+          {ping && (
+            <div className="mt-3 text-[12px]">
+              <Badge tone={ping.ok ? "live" : ping.reachable ? "warn" : "down"}>
+                {ping.ok ? `ok (${ping.status})` : ping.reachable ? `reachable (${ping.status})` : "unreachable"}
+              </Badge>
+              {ping.error && <span className="ml-2 text-text-subtle">{ping.error}</span>}
+            </div>
+          )}
+        </RichCard>
+
+        <RichCard header={<CardTitle title="Keys" sub={`${keys.length} configured`} />}>
+          {keys.length === 0 ? (
+            <Empty>No keys (free / service-account provider).</Empty>
+          ) : (
+            <div className="space-y-1.5">
+              {keys.map((k, i) => {
+                const ks = health?.keys[i];
+                return (
+                  <div key={i} className="flex items-center justify-between rounded-brand border border-border-subtle px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <Lamp state={ks ? (ks.healthy ? "live" : "down") : "idle"} />
+                      <span className="tnum text-[12.5px] text-text">{k}</span>
+                      {ks && ks.cooldown_ms > 0 && <CooldownTimer ms={ks.cooldown_ms} />}
+                    </div>
+                    <button
+                      onClick={() => run(`rmkey${i}`, () => adminApi.removeKey(id, i))}
+                      className="text-text-subtle hover:text-danger"
+                      aria-label="Remove key"
+                    >
+                      <Icon name="delete" size={16} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <div className="mt-3 flex gap-2">
+            <Input value={newKey} onChange={(e) => setNewKey(e.target.value)} placeholder="add a key…" />
+            <Button disabled={!newKey || busy === "addkey"} onClick={() => run("addkey", async () => {
+              const r = await adminApi.addKey(id, newKey);
+              if (r.ok) setNewKey("");
+              return r;
+            })}>Add</Button>
+          </div>
+        </RichCard>
+
+        <RichCard className="lg:col-span-2" header={<CardTitle title="Models served" sub={`${provider.models.length} in catalog`} />}>
+          {provider.models.length === 0 ? (
+            <Empty>No models. Add one, or fetch them for a free/auto provider.</Empty>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {provider.models.map((m) => (
+                <span key={m.id} className="inline-flex items-center gap-2 rounded-brand border border-border-subtle bg-bg px-2.5 py-1.5 text-[12.5px]">
+                  <span className="text-text">{m.id}</span>
+                  {(m.price_in !== undefined || m.price_out !== undefined) && (
+                    <span className="tnum text-[11px] text-text-subtle">
+                      {fmt.cost(m.price_in ?? 0)}/{fmt.cost(m.price_out ?? 0)} per 1M
+                    </span>
+                  )}
+                  <button onClick={() => run(`rmmodel${m.id}`, () => adminApi.removeModel(id, m.id))} className="text-text-subtle hover:text-danger" aria-label="Remove model">
+                    <Icon name="close" size={14} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="mt-3 flex gap-2">
+            <Input value={newModel} onChange={(e) => setNewModel(e.target.value)} placeholder="add a model id…" />
+            <Button disabled={!newModel || busy === "addmodel"} onClick={() => run("addmodel", async () => {
+              const r = await adminApi.addModel(id, newModel);
+              if (r.ok) setNewModel("");
+              return r;
+            })}>Add</Button>
+          </div>
+        </RichCard>
+      </div>
+
+      <div className="mt-6">
+        <Button variant="danger" disabled={busy === "rmprov"} onClick={() => run("rmprov", async () => {
+          const r = await adminApi.removeProvider(id);
+          if (r.ok) router.push("/providers");
+          return r;
+        })}>
+          <Icon name="delete" size={16} /> Remove provider
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function Row({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-text-subtle">{k}</span>
+      <span className="truncate text-text">{v}</span>
+    </div>
+  );
+}
