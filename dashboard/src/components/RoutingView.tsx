@@ -5,7 +5,7 @@ import { adminApi } from "@/lib/client";
 import { Lamp } from "@/components/Lamp";
 import { Badge } from "@/components/Badge";
 import { RichCard, CardTitle } from "@/components/RichCard";
-import { Button, Input, Field } from "@/components/Button";
+import { Button, Input, Select, Field } from "@/components/Button";
 import { Icon } from "@/components/Icon";
 import { fmt, Empty } from "@/components/ui";
 import type { MaskedConfig, MaskedRoute, ProviderSnapshot } from "@/lib/gateway";
@@ -57,14 +57,16 @@ export function RoutingView() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-5 flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-[16px] font-semibold tracking-tight text-text">Model Routing</h2>
-          <p className="mt-0.5 text-[13px] text-text-muted">Client alias → prioritized provider chain. First healthy one serves.</p>
+          <h1 className="text-[22px] font-semibold tracking-tight text-text">Combos &amp; Routing</h1>
+          <p className="mt-1 text-[13px] text-text-muted">
+            A combo is an alias your CLI tool calls, routed to a chain of providers. Fallback tries them in order; round-robin spreads load.
+          </p>
         </div>
         <Button onClick={() => setAdding((v) => !v)}>
           <Icon name={adding ? "close" : "add"} size={17} />
-          {adding ? "Cancel" : "Add alias"}
+          {adding ? "Cancel" : "Add combo"}
         </Button>
       </div>
 
@@ -76,7 +78,7 @@ export function RoutingView() {
       )}
 
       {config.models.length === 0 ? (
-        <Empty>No routing aliases. Add one to expose a model to your CLI tools.</Empty>
+        <Empty>No combos yet. Add one to expose a model alias to your CLI tools.</Empty>
       ) : (
         <div className="grid gap-3 lg:grid-cols-2">
           {config.models.map((route) => (
@@ -86,6 +88,7 @@ export function RoutingView() {
                 <>
                   <CardTitle title={route.alias} sub={`${route.target.length} in chain`} />
                   <div className="flex items-center gap-2">
+                    <Badge tone={route.strategy === "round-robin" ? "info" : "neutral"}>{route.strategy}</Badge>
                     {(route.price_in !== undefined || route.price_out !== undefined) && (
                       <Badge tone="neutral">
                         {fmt.cost(route.price_in ?? 0)}/{fmt.cost(route.price_out ?? 0)} per 1M
@@ -120,6 +123,7 @@ function RouteForm({ providers, onDone }: { providers: string[]; onDone: () => v
   const [alias, setAlias] = useState("");
   const [targets, setTargets] = useState<string[]>([]);
   const [models, setModels] = useState("");
+  const [strategy, setStrategy] = useState<"fallback" | "round-robin">("fallback");
   const [priceIn, setPriceIn] = useState("");
   const [priceOut, setPriceOut] = useState("");
   const [busy, setBusy] = useState(false);
@@ -141,6 +145,7 @@ function RouteForm({ providers, onDone }: { providers: string[]; onDone: () => v
     const r = await adminApi.setRoute(alias, {
       target: targets,
       model: modelList.length === 0 ? undefined : modelList.length === 1 ? modelList[0] : modelList,
+      strategy,
       price_in: priceIn ? Number(priceIn) : undefined,
       price_out: priceOut ? Number(priceOut) : undefined,
     });
@@ -179,6 +184,14 @@ function RouteForm({ providers, onDone }: { providers: string[]; onDone: () => v
             );
           })}
         </div>
+      </div>
+      <div className="mt-3 max-w-[280px]">
+        <Field label="Strategy" hint="how the chain is tried">
+          <Select value={strategy} onChange={(e) => setStrategy(e.target.value as "fallback" | "round-robin")}>
+            <option value="fallback">Fallback — try in order, next on failure</option>
+            <option value="round-robin">Round Robin — rotate to spread load</option>
+          </Select>
+        </Field>
       </div>
       {err && <div className="mt-2 text-[12px] text-danger">{err}</div>}
       <div className="mt-3 flex justify-end">

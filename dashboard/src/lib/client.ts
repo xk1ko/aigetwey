@@ -14,7 +14,6 @@ import type {
   ProviderSnapshot,
   QuotaSnapshot,
   WireFormat,
-  ComboSnapshot,
 } from "./gateway";
 
 export interface ApiResult<T> {
@@ -84,18 +83,11 @@ export const adminApi = {
       `/admin/providers/${encodeURIComponent(id)}/connect`,
     ),
 
-  setRoute: (alias: string, body: { target: string[]; model?: string | string[]; price_in?: number; price_out?: number }) =>
-    api<ConfigReply>("PUT", `/admin/routes/${encodeURIComponent(alias)}`, body),
+  setRoute: (
+    alias: string,
+    body: { target: string[]; model?: string | string[]; strategy?: "fallback" | "round-robin"; price_in?: number; price_out?: number },
+  ) => api<ConfigReply>("PUT", `/admin/routes/${encodeURIComponent(alias)}`, body),
   removeRoute: (alias: string) => api<ConfigReply>("DELETE", `/admin/routes/${encodeURIComponent(alias)}`),
-
-  combos: () => api<{ combos: ComboSnapshot[] }>("GET", "/admin/combos"),
-  createCombo: (name: string) => api<ConfigReply>("POST", "/admin/combos", { name }),
-  activateCombo: (name: string) => api<ConfigReply>("POST", `/admin/combos/${encodeURIComponent(name)}/activate`),
-  deleteCombo: (name: string) => api<ConfigReply>("DELETE", `/admin/combos/${encodeURIComponent(name)}`),
-  renameCombo: (name: string, newName: string) =>
-    api<ConfigReply>("POST", `/admin/combos/${encodeURIComponent(name)}/rename`, { newName }),
-  copyCombo: (name: string, newName: string) =>
-    api<ConfigReply>("POST", `/admin/combos/${encodeURIComponent(name)}/copy`, { newName }),
 
   endpoint: () => api<EndpointPayload>("GET", "/admin/endpoint"),
   setRtk: (enabled: boolean) => api<ConfigReply>("PUT", "/admin/endpoint/rtk", { enabled }),

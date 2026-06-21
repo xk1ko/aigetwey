@@ -33,7 +33,6 @@ export default async function OverviewPage() {
   const config = cfgRes.data;
 
   const healthyCount = providers.filter((p) => p.keys.some((k) => k.healthy)).length;
-  const activeCombo = config?.combos.find((c) => c.active);
   const ep = config?.endpoint;
 
   return (
@@ -87,10 +86,7 @@ export default async function OverviewPage() {
 
         <RichCard header={<CardTitle title="Active configuration" />}>
           <div className="space-y-3 text-[13px]">
-            <Row label="Active combo">
-              {activeCombo ? <Badge tone="live">{activeCombo.name}</Badge> : <span className="text-text-muted">none (live routing)</span>}
-            </Row>
-            <Row label="Routing aliases">
+            <Row label="Combos">
               <span className="tnum text-text">{config?.models.length ?? 0}</span>
             </Row>
             <Row label="RTK">

@@ -100,20 +100,12 @@ export const gateway = {
       `/admin/providers/${encodeURIComponent(id)}/connect`,
     ),
 
-  // ---- routing aliases ----
-  setRoute: (alias: string, body: { target: string[]; model?: string | string[]; price_in?: number; price_out?: number }) =>
-    call<ConfigReply>("PUT", `/admin/routes/${encodeURIComponent(alias)}`, body),
+  // ---- combos: alias + ordered provider chain + strategy ----
+  setRoute: (
+    alias: string,
+    body: { target: string[]; model?: string | string[]; strategy?: "fallback" | "round-robin"; price_in?: number; price_out?: number },
+  ) => call<ConfigReply>("PUT", `/admin/routes/${encodeURIComponent(alias)}`, body),
   removeRoute: (alias: string) => call<ConfigReply>("DELETE", `/admin/routes/${encodeURIComponent(alias)}`),
-
-  // ---- combos ----
-  combos: () => call<{ combos: ComboSnapshot[] }>("GET", "/admin/combos"),
-  createCombo: (name: string) => call<ConfigReply>("POST", "/admin/combos", { name }),
-  activateCombo: (name: string) => call<ConfigReply>("POST", `/admin/combos/${encodeURIComponent(name)}/activate`),
-  deleteCombo: (name: string) => call<ConfigReply>("DELETE", `/admin/combos/${encodeURIComponent(name)}`),
-  renameCombo: (name: string, newName: string) =>
-    call<ConfigReply>("POST", `/admin/combos/${encodeURIComponent(name)}/rename`, { newName }),
-  copyCombo: (name: string, newName: string) =>
-    call<ConfigReply>("POST", `/admin/combos/${encodeURIComponent(name)}/copy`, { newName }),
 
   // ---- endpoint: toggles + gateway keys ----
   endpoint: () => call<EndpointPayload>("GET", "/admin/endpoint"),
@@ -138,6 +130,7 @@ export interface MaskedRoute {
   alias: string;
   target: string[];
   model?: string | string[];
+  strategy: "fallback" | "round-robin";
   price_in?: number;
   price_out?: number;
 }
@@ -155,17 +148,11 @@ export interface MaskedProvider {
   cooldown_base_ms: number;
   max_retries: number;
 }
-export interface ComboSnapshot {
-  name: string;
-  active: boolean;
-  models: MaskedRoute[];
-}
 export interface MaskedConfig {
   server: { host: string; port: number; api_keys: string[] };
   endpoint: { rtk: boolean; caveman: InjectLevel; ponytail: InjectLevel };
   providers: MaskedProvider[];
   models: MaskedRoute[];
-  combos: ComboSnapshot[];
 }
 
 export interface EndpointPayload {

@@ -26,11 +26,6 @@ import {
   clearProviderModels,
   setRoute,
   removeRoute,
-  createCombo,
-  activateCombo,
-  deleteCombo,
-  renameCombo,
-  copyCombo,
   setRtk,
   setCaveman,
   setPonytail,
@@ -260,58 +255,35 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     reply.send({ providers, routes });
   });
 
-  // ---- routing aliases ----
+  // ---- combos: client alias -> ordered provider chain + strategy ----
 
   app.put("/admin/routes/:alias", requireAdmin, (req, reply) => {
     const { alias } = req.params as { alias: string };
-    const b = req.body as { target?: string[]; model?: string | string[]; price_in?: number; price_out?: number };
+    const b = req.body as {
+      target?: string[];
+      model?: string | string[];
+      strategy?: "fallback" | "round-robin";
+      price_in?: number;
+      price_out?: number;
+    };
     if (!Array.isArray(b?.target) || b.target.length === 0) {
       return reply.code(400).send({ error: "target[] required" });
     }
     applyMutation(reply, (c) =>
-      setRoute(c, { alias, target: b.target!, model: b.model, price_in: b.price_in, price_out: b.price_out }),
+      setRoute(c, {
+        alias: decodeURIComponent(alias),
+        target: b.target!,
+        model: b.model,
+        strategy: b.strategy,
+        price_in: b.price_in,
+        price_out: b.price_out,
+      }),
     );
   });
 
   app.delete("/admin/routes/:alias", requireAdmin, (req, reply) => {
     const { alias } = req.params as { alias: string };
     applyMutation(reply, (c) => removeRoute(c, decodeURIComponent(alias)));
-  });
-
-  // ---- combos: named snapshots of the routing table ----
-
-  app.get("/admin/combos", requireAdmin, (_req, reply) => {
-    reply.send({ combos: deps.state.config.listCombos() });
-  });
-
-  app.post("/admin/combos", requireAdmin, (req, reply) => {
-    const b = req.body as { name?: string };
-    if (!b?.name) return reply.code(400).send({ error: "name required" });
-    applyMutation(reply, (c) => createCombo(c, b.name!));
-  });
-
-  app.post("/admin/combos/:name/activate", requireAdmin, (req, reply) => {
-    const { name } = req.params as { name: string };
-    applyMutation(reply, (c) => activateCombo(c, decodeURIComponent(name)));
-  });
-
-  app.delete("/admin/combos/:name", requireAdmin, (req, reply) => {
-    const { name } = req.params as { name: string };
-    applyMutation(reply, (c) => deleteCombo(c, decodeURIComponent(name)));
-  });
-
-  app.post("/admin/combos/:name/rename", requireAdmin, (req, reply) => {
-    const { name } = req.params as { name: string };
-    const b = req.body as { newName?: string };
-    if (!b?.newName) return reply.code(400).send({ error: "newName required" });
-    applyMutation(reply, (c) => renameCombo(c, decodeURIComponent(name), b.newName!));
-  });
-
-  app.post("/admin/combos/:name/copy", requireAdmin, (req, reply) => {
-    const { name } = req.params as { name: string };
-    const b = req.body as { newName?: string };
-    if (!b?.newName) return reply.code(400).send({ error: "newName required" });
-    applyMutation(reply, (c) => copyCombo(c, decodeURIComponent(name), b.newName!));
   });
 
   // ---- endpoint: token-saver toggles + gateway keys ----

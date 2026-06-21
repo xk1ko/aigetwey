@@ -12,11 +12,6 @@ import {
   clearProviderModels,
   setRoute,
   removeRoute,
-  createCombo,
-  activateCombo,
-  deleteCombo,
-  renameCombo,
-  copyCombo,
   setRtk,
   setCaveman,
   setPonytail,
@@ -142,37 +137,30 @@ describe("routing aliases", () => {
   });
 });
 
-describe("combos — snapshot + activate", () => {
-  it("createCombo snapshots the current routing table", () => {
-    const c = createCombo(base(), "preset-a");
-    const combo = reval(c).listCombos().find((x) => x.name === "preset-a")!;
-    expect(combo.models).toHaveLength(1);
-    expect(combo.models[0]!.alias).toBe("smart");
-    expect(combo.active).toBe(false);
-  });
-
-  it("activateCombo swaps its snapshot into models[] and flags exactly one active", () => {
-    // snapshot the original, then change routing, then activate the snapshot back
-    let c = createCombo(base(), "original");
-    c = setRoute(c, { alias: "smart", target: ["an"], model: "claude-3" }); // mutate live
-    c = createCombo(c, "modified");
-    c = activateCombo(c, "original");
-    const cfg = reval(c);
-    // live routing restored to the original snapshot (oa first)
+describe("combos — strategy + round-robin", () => {
+  it("a combo defaults to fallback (config order preserved)", () => {
+    const cfg = reval(setRoute(base(), { alias: "smart", target: ["oa", "an"], model: "m" }));
+    expect(cfg.listRoutes().find((r) => r.alias === "smart")!.strategy).toBe("fallback");
     expect(cfg.resolve("smart").map((r) => r.provider.id)).toEqual(["oa", "an"]);
-    const actives = cfg.listCombos().filter((x) => x.active).map((x) => x.name);
-    expect(actives).toEqual(["original"]);
   });
 
-  it("rename / copy / delete behave and guard collisions", () => {
-    let c = createCombo(base(), "a");
-    c = copyCombo(c, "a", "b");
-    expect(reval(c).listCombos().map((x) => x.name)).toEqual(["a", "b"]);
-    c = renameCombo(c, "a", "a2");
-    expect(reval(c).listCombos().some((x) => x.name === "a2")).toBe(true);
-    expect(() => renameCombo(c, "a2", "b")).toThrow(/already exists/);
-    c = deleteCombo(c, "b");
-    expect(reval(c).listCombos().some((x) => x.name === "b")).toBe(false);
+  it("setRoute persists a round-robin strategy", () => {
+    const cfg = reval(setRoute(base(), { alias: "smart", target: ["oa", "an"], model: "m", strategy: "round-robin" }));
+    expect(cfg.listRoutes().find((r) => r.alias === "smart")!.strategy).toBe("round-robin");
+  });
+
+  it("round-robin rotates the first target tried per request", () => {
+    const cfg = reval(setRoute(base(), { alias: "smart", target: ["oa", "an"], model: "m", strategy: "round-robin" }));
+    // each resolve rotates the chain so load spreads across the two providers
+    expect(cfg.resolve("smart").map((r) => r.provider.id)).toEqual(["oa", "an"]);
+    expect(cfg.resolve("smart").map((r) => r.provider.id)).toEqual(["an", "oa"]);
+    expect(cfg.resolve("smart").map((r) => r.provider.id)).toEqual(["oa", "an"]);
+  });
+
+  it("fallback never rotates", () => {
+    const cfg = reval(setRoute(base(), { alias: "smart", target: ["oa", "an"], model: "m" }));
+    expect(cfg.resolve("smart").map((r) => r.provider.id)).toEqual(["oa", "an"]);
+    expect(cfg.resolve("smart").map((r) => r.provider.id)).toEqual(["oa", "an"]);
   });
 });
 

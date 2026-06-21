@@ -60,23 +60,20 @@ const ProviderSchema = z
   });
 
 /**
- * Routing entry: a client-facing `alias` resolved to a prioritized chain of
- * providers. `model[i]` pairs with `target[i]`; a single string applies to all
- * targets; omitted falls back to the alias name as the upstream model id.
+ * A combo (9router term): a client-facing `alias` resolved to an ordered chain
+ * of providers, tried by `strategy`. `model[i]` pairs with `target[i]`; a single
+ * string applies to all targets; omitted falls back to the alias name as the
+ * upstream model id. Call the alias directly as the model name from a CLI tool.
  */
 const ModelRouteSchema = z.object({
   alias: z.string().min(1),
   target: z.array(z.string().min(1)).min(1),
   model: z.union([z.string().min(1), z.array(z.string().min(1)).min(1)]).optional(),
+  // fallback: try targets in order. round-robin: rotate the first target tried
+  // per request to spread load across the chain.
+  strategy: z.enum(["fallback", "round-robin"]).default("fallback"),
   price_in: z.number().nonnegative().optional(),
   price_out: z.number().nonnegative().optional(),
-});
-
-/** A named snapshot of the routing layer; `active` marks the live preset. */
-const ComboSchema = z.object({
-  name: z.string().min(1),
-  active: z.boolean().default(false),
-  models: z.array(ModelRouteSchema).default([]),
 });
 
 const EndpointSchema = z
@@ -100,15 +97,14 @@ const ConfigSchema = z.object({
   server: ServerSchema,
   endpoint: EndpointSchema,
   providers: z.array(ProviderSchema).default([]),
+  // the routing layer. Each entry is a "combo": an alias + a provider chain.
   models: z.array(ModelRouteSchema).default([]),
-  combos: z.array(ComboSchema).default([]),
 });
 
 export type Quota = z.infer<typeof QuotaSchema>;
 export type ProviderModel = z.infer<typeof ProviderModelSchema>;
 export type Provider = z.infer<typeof ProviderSchema>;
 export type ModelRoute = z.infer<typeof ModelRouteSchema>;
-export type Combo = z.infer<typeof ComboSchema>;
 export type EndpointSettings = z.infer<typeof EndpointSchema>;
 export type Config = z.infer<typeof ConfigSchema>;
 
@@ -128,6 +124,8 @@ export class GatewayConfig {
   readonly raw: Config;
   private readonly providers: Map<string, Provider>;
   private readonly routes: Map<string, ModelRoute>;
+  /** per-alias rotation cursor for the round-robin strategy */
+  private readonly rrCursor: Map<string, number> = new Map();
 
   constructor(raw: Config) {
     this.raw = raw;
@@ -156,14 +154,15 @@ export class GatewayConfig {
 
   /**
    * Resolve a client model string to a prioritized chain of routes.
-   *   - a routing alias => its target chain (fallback order).
+   *   - a combo alias => its target chain, ordered by the combo's strategy
+   *     (fallback = config order; round-robin = rotate the first tried per call).
    *   - "provider/model" => single direct route to that provider.
    * Returns [] when nothing matches (handler turns that into a 404).
    */
   resolve(name: string): ResolvedRoute[] {
     const route = this.routes.get(name);
     if (route) {
-      return route.target.flatMap((providerId, i) => {
+      const built = route.target.flatMap((providerId, i) => {
         const provider = this.providers.get(providerId);
         if (!provider) return [];
         return [
@@ -176,6 +175,12 @@ export class GatewayConfig {
           },
         ];
       });
+      if (route.strategy === "round-robin" && built.length > 1) {
+        const start = (this.rrCursor.get(name) ?? 0) % built.length;
+        this.rrCursor.set(name, start + 1);
+        return [...built.slice(start), ...built.slice(0, start)];
+      }
+      return built;
     }
 
     const slash = name.indexOf("/");
@@ -210,10 +215,6 @@ export class GatewayConfig {
 
   listRoutes(): ModelRoute[] {
     return [...this.routes.values()];
-  }
-
-  listCombos(): Combo[] {
-    return this.raw.combos;
   }
 }
 
@@ -479,21 +480,31 @@ export function clearProviderModels(config: Config, id: string): Config {
 
 // ---- routing layer: client alias -> prioritized provider chain -------------
 
-/** Create or replace a routing alias. target[] is the fallback order. */
+// ---- combos: a client alias -> ordered provider chain + strategy -----------
+
+/** Create or replace a combo (alias + target chain + strategy). */
 export function setRoute(
   config: Config,
-  route: { alias: string; target: string[]; model?: string | string[]; price_in?: number; price_out?: number },
+  route: {
+    alias: string;
+    target: string[];
+    model?: string | string[];
+    strategy?: ModelRoute["strategy"];
+    price_in?: number;
+    price_out?: number;
+  },
 ): Config {
   const alias = route.alias.trim();
   if (!alias) throw new Error("alias must not be empty");
-  if (!route.target.length) throw new Error("a route needs at least one target provider");
+  if (!route.target.length) throw new Error("a combo needs at least one target provider");
   const next = cloneConfig(config);
   for (const t of route.target) {
-    if (!next.providers.some((p) => p.id === t)) throw new Error(`unknown provider "${t}" in route`);
+    if (!next.providers.some((p) => p.id === t)) throw new Error(`unknown provider "${t}" in combo`);
   }
   const entry: ModelRoute = {
     alias,
     target: route.target,
+    strategy: route.strategy ?? "fallback",
     ...(route.model !== undefined ? { model: route.model } : {}),
     ...(route.price_in !== undefined ? { price_in: route.price_in } : {}),
     ...(route.price_out !== undefined ? { price_out: route.price_out } : {}),
@@ -507,66 +518,8 @@ export function setRoute(
 export function removeRoute(config: Config, alias: string): Config {
   const next = cloneConfig(config);
   const idx = next.models.findIndex((m) => m.alias === alias);
-  if (idx === -1) throw new Error(`route "${alias}" not found`);
+  if (idx === -1) throw new Error(`combo "${alias}" not found`);
   next.models.splice(idx, 1);
-  return next;
-}
-
-// ---- combos: named snapshots of the routing layer --------------------------
-//
-// A combo captures the current `models[]` under a name. Activating one swaps its
-// snapshot back into `models[]` (the live routing) and flags it active; only one
-// combo is active at a time.
-
-/** Save the current routing table as a named combo. */
-export function createCombo(config: Config, name: string): Config {
-  const trimmed = name.trim();
-  if (!trimmed) throw new Error("combo name must not be empty");
-  const next = cloneConfig(config);
-  if (next.combos.some((c) => c.name === trimmed)) throw new Error(`combo "${trimmed}" already exists`);
-  next.combos.push({ name: trimmed, active: false, models: JSON.parse(JSON.stringify(next.models)) });
-  return next;
-}
-
-/** Swap a combo's snapshot into the live routing table and mark it active. */
-export function activateCombo(config: Config, name: string): Config {
-  const next = cloneConfig(config);
-  const combo = next.combos.find((c) => c.name === name);
-  if (!combo) throw new Error(`combo "${name}" not found`);
-  next.models = JSON.parse(JSON.stringify(combo.models));
-  for (const c of next.combos) c.active = c.name === name;
-  return next;
-}
-
-export function deleteCombo(config: Config, name: string): Config {
-  const next = cloneConfig(config);
-  const idx = next.combos.findIndex((c) => c.name === name);
-  if (idx === -1) throw new Error(`combo "${name}" not found`);
-  next.combos.splice(idx, 1);
-  return next;
-}
-
-export function renameCombo(config: Config, name: string, newName: string): Config {
-  const trimmed = newName.trim();
-  if (!trimmed) throw new Error("new combo name must not be empty");
-  const next = cloneConfig(config);
-  const combo = next.combos.find((c) => c.name === name);
-  if (!combo) throw new Error(`combo "${name}" not found`);
-  if (trimmed !== name && next.combos.some((c) => c.name === trimmed)) {
-    throw new Error(`combo "${trimmed}" already exists`);
-  }
-  combo.name = trimmed;
-  return next;
-}
-
-export function copyCombo(config: Config, name: string, newName: string): Config {
-  const trimmed = newName.trim();
-  if (!trimmed) throw new Error("new combo name must not be empty");
-  const next = cloneConfig(config);
-  const src = next.combos.find((c) => c.name === name);
-  if (!src) throw new Error(`combo "${name}" not found`);
-  if (next.combos.some((c) => c.name === trimmed)) throw new Error(`combo "${trimmed}" already exists`);
-  next.combos.push({ name: trimmed, active: false, models: JSON.parse(JSON.stringify(src.models)) });
   return next;
 }
 
