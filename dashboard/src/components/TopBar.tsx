@@ -5,13 +5,12 @@ import { Icon } from "./Icon";
 
 const LABELS: Record<string, string> = {
   "": "Overview",
+  endpoint: "Endpoint & Key",
   providers: "Providers & Keys",
-  routing: "Routing",
-  combos: "Combos",
+  combos: "Combos & Routing",
   tools: "CLI Tools",
   usage: "Usage",
   logs: "Logs",
-  endpoint: "Endpoint",
   config: "Config",
 };
 

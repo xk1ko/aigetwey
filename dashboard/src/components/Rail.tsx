@@ -4,16 +4,16 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Icon } from "./Icon";
 
-// IA per PLAN §7. Order is the rail order top-to-bottom.
+// IA mirrors 9router: Endpoint (connection info) up top, routing folded into
+// Combos (no separate "Routing" item). Order is the rail order top-to-bottom.
 const CHANNELS = [
   { href: "/", label: "Overview", icon: "dashboard" },
+  { href: "/endpoint", label: "Endpoint & Key", icon: "api" },
   { href: "/providers", label: "Providers & Keys", icon: "vpn_key" },
-  { href: "/routing", label: "Routing", icon: "alt_route" },
-  { href: "/combos", label: "Combos", icon: "dashboard_customize" },
+  { href: "/combos", label: "Combos & Routing", icon: "dashboard_customize" },
   { href: "/tools", label: "CLI Tools", icon: "cable" },
   { href: "/usage", label: "Usage", icon: "bar_chart" },
   { href: "/logs", label: "Logs", icon: "receipt_long" },
-  { href: "/endpoint", label: "Endpoint", icon: "lan" },
   { href: "/config", label: "Config", icon: "tune" },
 ];
 

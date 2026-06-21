@@ -57,10 +57,10 @@ export function RoutingView() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between gap-3">
+      <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-[22px] font-semibold tracking-tight text-text">Routing</h1>
-          <p className="mt-1 text-[13px] text-text-muted">Client alias → prioritized provider chain. First healthy one serves.</p>
+          <h2 className="text-[16px] font-semibold tracking-tight text-text">Model Routing</h2>
+          <p className="mt-0.5 text-[13px] text-text-muted">Client alias → prioritized provider chain. First healthy one serves.</p>
         </div>
         <Button onClick={() => setAdding((v) => !v)}>
           <Icon name={adding ? "close" : "add"} size={17} />

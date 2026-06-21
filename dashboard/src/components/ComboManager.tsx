@@ -44,9 +44,9 @@ export function ComboManager() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-[22px] font-semibold tracking-tight text-text">Combos</h1>
-        <p className="mt-1 text-[13px] text-text-muted">
+      <div className="mb-4">
+        <h2 className="text-[16px] font-semibold tracking-tight text-text">Saved Presets</h2>
+        <p className="mt-0.5 text-[13px] text-text-muted">
           Save the current routing table as a named preset, then switch between them in one click.
         </p>
       </div>
