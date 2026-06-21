@@ -60,15 +60,130 @@ export async function checkGatewayAuth(): Promise<boolean> {
 export const gateway = {
   providers: () => call<{ providers: ProviderSnapshot[] }>("GET", "/admin/providers"),
   quota: () => call<{ quota: QuotaSnapshot[] }>("GET", "/admin/quota"),
+  models: () => call<ModelsPayload>("GET", "/admin/models"),
   logs: (limit = 100) => call<{ logs: UsageLog[] }>("GET", `/admin/logs?limit=${limit}`),
   usage: (since = 0) => call<UsageSummary>("GET", `/admin/usage?since=${since}`),
   usageSeries: (since: number, bucket: number) =>
     call<{ series: UsageSeriesPoint[] }>("GET", `/admin/usage/series?since=${since}&bucket=${bucket}`),
-  config: () => call<unknown>("GET", "/admin/config"),
-  putConfig: (text: string) => call<{ ok: boolean; config: unknown }>("PUT", "/admin/config", { text }),
+  config: () => call<MaskedConfig>("GET", "/admin/config"),
+  putConfig: (text: string) => call<{ ok: boolean; config: MaskedConfig }>("PUT", "/admin/config", { text }),
+
+  // ---- provider mutations (reply carries the fresh masked config) ----
+  addProvider: (p: {
+    id: string;
+    format: WireFormat;
+    base_url: string;
+    api_key?: string;
+    free?: boolean;
+    auto_models?: boolean;
+    service_account?: string;
+  }) => call<ConfigReply>("POST", "/admin/providers", p),
+  editProvider: (id: string, patch: { base_url?: string; format?: WireFormat }) =>
+    call<ConfigReply>("PUT", `/admin/providers/${encodeURIComponent(id)}`, patch),
+  removeProvider: (id: string) => call<ConfigReply>("DELETE", `/admin/providers/${encodeURIComponent(id)}`),
+  addKey: (id: string, key: string) =>
+    call<ConfigReply>("POST", `/admin/providers/${encodeURIComponent(id)}/keys`, { key }),
+  removeKey: (id: string, index: number) =>
+    call<ConfigReply>("DELETE", `/admin/providers/${encodeURIComponent(id)}/keys/${index}`),
+  addProviderModel: (id: string, model: string, price?: { price_in?: number; price_out?: number }) =>
+    call<ConfigReply>("POST", `/admin/providers/${encodeURIComponent(id)}/models`, { model, ...price }),
+  removeProviderModel: (id: string, model: string) =>
+    call<ConfigReply>("DELETE", `/admin/providers/${encodeURIComponent(id)}/models/${encodeURIComponent(model)}`),
+  testProvider: (id: string) => call<PingResult>("POST", `/admin/providers/${encodeURIComponent(id)}/test`),
+  connectProvider: (id: string) =>
+    call<{ ok: boolean; added: number; config: MaskedConfig }>("POST", `/admin/providers/${encodeURIComponent(id)}/connect`),
+
+  // ---- routing aliases ----
+  setRoute: (alias: string, body: { target: string[]; model?: string | string[]; price_in?: number; price_out?: number }) =>
+    call<ConfigReply>("PUT", `/admin/routes/${encodeURIComponent(alias)}`, body),
+  removeRoute: (alias: string) => call<ConfigReply>("DELETE", `/admin/routes/${encodeURIComponent(alias)}`),
+
+  // ---- combos ----
+  combos: () => call<{ combos: ComboSnapshot[] }>("GET", "/admin/combos"),
+  createCombo: (name: string) => call<ConfigReply>("POST", "/admin/combos", { name }),
+  activateCombo: (name: string) => call<ConfigReply>("POST", `/admin/combos/${encodeURIComponent(name)}/activate`),
+  deleteCombo: (name: string) => call<ConfigReply>("DELETE", `/admin/combos/${encodeURIComponent(name)}`),
+  renameCombo: (name: string, newName: string) =>
+    call<ConfigReply>("POST", `/admin/combos/${encodeURIComponent(name)}/rename`, { newName }),
+  copyCombo: (name: string, newName: string) =>
+    call<ConfigReply>("POST", `/admin/combos/${encodeURIComponent(name)}/copy`, { newName }),
+
+  // ---- endpoint: toggles + gateway keys ----
+  endpoint: () => call<EndpointPayload>("GET", "/admin/endpoint"),
+  setRtk: (enabled: boolean) => call<ConfigReply>("PUT", "/admin/endpoint/rtk", { enabled }),
+  setCaveman: (level: InjectLevel) => call<ConfigReply>("PUT", "/admin/endpoint/caveman", { level }),
+  setPonytail: (level: InjectLevel) => call<ConfigReply>("PUT", "/admin/endpoint/ponytail", { level }),
+  addServerKey: (key: string) => call<ConfigReply>("POST", "/admin/endpoint/keys", { key }),
+  removeServerKey: (index: number) => call<ConfigReply>("DELETE", `/admin/endpoint/keys/${index}`),
 };
 
 // ---- shapes mirrored from the gateway admin API ----
+
+export type WireFormat = "openai" | "anthropic" | "gemini";
+export type InjectLevel = "off" | "lite" | "full" | "ultra";
+
+export interface ConfigReply {
+  ok: boolean;
+  config: MaskedConfig;
+}
+
+export interface MaskedRoute {
+  alias: string;
+  target: string[];
+  model?: string | string[];
+  price_in?: number;
+  price_out?: number;
+}
+export interface MaskedProvider {
+  id: string;
+  format: WireFormat;
+  base_url: string;
+  api_key?: string;
+  api_keys?: string[];
+  free: boolean;
+  auto_models: boolean;
+  service_account?: string;
+  models: Array<{ id: string; price_in?: number; price_out?: number }>;
+  quota?: { window: "5h" | "daily" | "weekly" | "monthly"; reset_at?: string; timezone: string; limit_tokens?: number };
+  cooldown_base_ms: number;
+  max_retries: number;
+}
+export interface ComboSnapshot {
+  name: string;
+  active: boolean;
+  models: MaskedRoute[];
+}
+export interface MaskedConfig {
+  server: { host: string; port: number; api_keys: string[] };
+  endpoint: { rtk: boolean; caveman: InjectLevel; ponytail: InjectLevel };
+  providers: MaskedProvider[];
+  models: MaskedRoute[];
+  combos: ComboSnapshot[];
+}
+
+export interface EndpointPayload {
+  port: number;
+  rtk: boolean;
+  caveman: InjectLevel;
+  ponytail: InjectLevel;
+  keys: string[];
+}
+
+export interface PingResult {
+  reachable: boolean;
+  status?: number;
+  ok: boolean;
+  error?: string;
+}
+
+export interface ModelsPayload {
+  providers: Array<{
+    id: string;
+    format: WireFormat;
+    models: Array<{ id: string; ref: string; price_in?: number; price_out?: number }>;
+  }>;
+  routes: MaskedRoute[];
+}
 
 export interface KeySnapshot {
   key: string;
@@ -78,7 +193,7 @@ export interface KeySnapshot {
 }
 export interface ProviderSnapshot {
   id: string;
-  format: "openai" | "anthropic" | "gemini";
+  format: WireFormat;
   keys: KeySnapshot[];
 }
 export interface QuotaSnapshot {
