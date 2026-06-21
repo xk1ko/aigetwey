@@ -44,14 +44,13 @@ providers: []
 #    service_account: /path/to/sa.json
 #    quota: { window: monthly, limit_tokens: 300000000 }
 
-# Routing layer: client-facing alias -> prioritized provider chain (fallback).
+# Combos: client-facing alias -> ordered provider chain. Call the alias as the
+# model name from your CLI tool. strategy: fallback (try in order) | round-robin.
 models: []
 # Example:
 #  - alias: claude-sonnet-4-6
 #    target: [anthropic, opencode-free]
 #    model: [claude-sonnet-4-6, claude-sonnet-4-5]
+#    strategy: fallback
 #    price_in: 3
 #    price_out: 15
-
-# Named snapshots of the routing layer.
-combos: []

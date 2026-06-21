@@ -89,8 +89,10 @@ models:                     # routing: client alias -> prioritized provider chai
     price_out: 15
 ```
 
-A **combo** is a named snapshot of the `models` routing table; activating one
-swaps it into the live routing in one click.
+A **combo** is one of these `models` entries: an alias your CLI tool calls,
+routed to an ordered provider chain. `strategy: fallback` (default) tries the
+chain in order, falling through on 429/5xx/timeout; `strategy: round-robin`
+rotates the first provider tried per request to spread load.
 
 ## Connecting CLI tools
 
