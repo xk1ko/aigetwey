@@ -7,19 +7,24 @@
  *     -> upstream call          (canonical -> provider format, inside client)
  *     -> provider reply         -> canonical -> egress adapter -> client body
  *
- * Phase 2 is non-streaming and tries only the FIRST route with the FIRST key.
- * Fallback across the chain + key rotation land in Phase 4; RTK/inject in Phase
- * 6; usage logging in Phase 5. Each plugs into this same pipeline.
+ * Phase 2 ships non-streaming; Phase 3 adds the streaming path (provider SSE ->
+ * canonical chunks -> client SSE). Both try only the FIRST route with the FIRST
+ * key — fallback across the chain + key rotation land in Phase 4; RTK/inject in
+ * Phase 6; usage logging in Phase 5. Each plugs into this same pipeline.
  */
 import type { GatewayConfig } from "../config.js";
 import type { WireFormat } from "./canonical.js";
 import { adapterFor } from "../adapters/index.js";
 import { callUpstream, type UpstreamError } from "../upstream/client.js";
+import { parseSSE, encodeSSE } from "../stream/sse.js";
+import { streamAdapterFor } from "../stream/index.js";
 
 export interface HandleResult {
   status: number;
   /** non-streaming JSON reply */
   json?: unknown;
+  /** streaming reply: an async iterable of SSE bytes */
+  sse?: AsyncIterable<Uint8Array>;
 }
 
 export class GatewayError extends Error {
@@ -61,19 +66,14 @@ export async function handle(
     throw new GatewayError(404, { error: `unknown model "${canonical.model}"` });
   }
 
-  if (canonical.stream === true) {
-    // streaming pipeline lands in Phase 3; reject explicitly rather than
-    // silently returning a non-stream body a streaming client can't parse.
-    throw new GatewayError(501, { error: "streaming not implemented yet (Phase 3)" });
-  }
-
+  const wantStream = canonical.stream === true;
   const route = routes[0]!;
   const provider = route.provider;
 
   let result;
   try {
     result = await callUpstream(provider, canonical, route.model, {
-      stream: false,
+      stream: wantStream,
       key: firstKey(provider),
       signal,
     });
@@ -91,11 +91,24 @@ export async function handle(
     throw new GatewayError(status, payload);
   }
 
-  if (result.stream) {
-    // unreachable: we requested stream:false. Guard keeps the type narrow.
-    throw new GatewayError(500, { error: "unexpected stream from upstream" });
+  if (!result.stream) {
+    const clientBody = ingress.responseFromCanonical(result.response);
+    return { status: 200, json: clientBody };
   }
 
-  const clientBody = ingress.responseFromCanonical(result.response);
-  return { status: 200, json: clientBody };
+  // streaming: provider SSE -> canonical chunks -> client SSE bytes. The
+  // provider and client formats may differ (e.g. an Anthropic client talking to
+  // an OpenAI provider), so both ends translate through the canonical chunk.
+  const providerStream = streamAdapterFor(provider.format);
+  const clientStream = streamAdapterFor(clientFormat);
+  const canonicalChunks = providerStream.streamToCanonical(parseSSE(result.body));
+  const clientEvents = clientStream.streamFromCanonical(canonicalChunks);
+
+  async function* toBytes(): AsyncGenerator<Uint8Array> {
+    for await (const ev of clientEvents) {
+      yield encodeSSE(ev);
+    }
+  }
+
+  return { status: 200, sse: toBytes() };
 }

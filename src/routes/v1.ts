@@ -31,6 +31,12 @@ export function registerV1Routes(app: FastifyInstance, state: GatewayState): voi
   app.post("/v1/messages", requireAuth, (req, reply) => dispatch(depsNow(), "anthropic", req, reply));
 }
 
+const SSE_HEADERS = {
+  "content-type": "text/event-stream; charset=utf-8",
+  "cache-control": "no-cache, no-transform",
+  connection: "keep-alive",
+};
+
 async function dispatch(
   deps: HandleDeps,
   clientFormat: WireFormat,
@@ -53,6 +59,23 @@ async function dispatch(
     }
     req.log.error(e);
     reply.code(500).send({ error: "internal gateway error" });
+    return;
+  }
+
+  if (result.sse) {
+    reply.raw.writeHead(result.status, SSE_HEADERS);
+    try {
+      for await (const bytes of result.sse) {
+        // respect backpressure: wait for drain when the socket buffer is full.
+        if (!reply.raw.write(bytes)) {
+          await new Promise((r) => reply.raw.once("drain", r));
+        }
+      }
+    } catch (e) {
+      req.log.error(e, "stream error");
+    } finally {
+      reply.raw.end();
+    }
     return;
   }
 

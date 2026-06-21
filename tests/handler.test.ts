@@ -48,10 +48,25 @@ describe("handle — non-stream pipeline", () => {
     await expect(handle(depsWith(), "openai", { messages: [] })).rejects.toMatchObject({ status: 400 });
   });
 
-  it("501s a streaming request (Phase 3 not done)", async () => {
-    await expect(
-      handle(depsWith(), "openai", { model: "smart", messages: [], stream: true }),
-    ).rejects.toMatchObject({ status: 501 });
+  it("returns an SSE stream for a streaming request", async () => {
+    const frames = [
+      'data: {"id":"c","model":"gpt-4o","created":0,"choices":[{"index":0,"delta":{"content":"hi"},"finish_reason":null}]}\n\n',
+      "data: [DONE]\n\n",
+    ];
+    async function* body() {
+      const enc = new TextEncoder();
+      for (const f of frames) yield enc.encode(f);
+    }
+    requestMock.mockResolvedValue({ statusCode: 200, body: body() });
+
+    const res = await handle(depsWith(), "openai", { model: "smart", messages: [], stream: true });
+    expect(res.status).toBe(200);
+    expect(res.sse).toBeDefined();
+    let text = "";
+    const dec = new TextDecoder();
+    for await (const bytes of res.sse!) text += dec.decode(bytes);
+    expect(text).toContain('"content":"hi"');
+    expect(text).toContain("[DONE]");
   });
 
   it("routes an OpenAI client request to an OpenAI provider and returns the reply", async () => {
