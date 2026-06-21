@@ -313,3 +313,272 @@ export function writeConfigFile(path: string, config: Config): void {
   writeFileSync(tmp, yaml, "utf8");
   renameSync(tmp, path);
 }
+
+// ---- granular config mutations (admin write surface) -----------------------
+//
+// Each returns a NEW Config (clone + mutate); the caller serializes it and feeds
+// it through state.reload(), which re-validates (zod) and persists atomically.
+// So url/length checks and schema defaults are enforced there — these helpers
+// own only the structural change and the guards zod can't express.
+
+function cloneConfig(config: Config): Config {
+  return JSON.parse(JSON.stringify(config)) as Config;
+}
+
+/** Real keys a provider routes through, in the order the keypool sees them. */
+function realKeysOf(p: Provider): string[] {
+  if (p.api_keys && p.api_keys.length > 0) return p.api_keys;
+  if (p.api_key) return [p.api_key];
+  return [];
+}
+
+export function addProvider(
+  config: Config,
+  input: {
+    id: string;
+    format: Provider["format"];
+    base_url: string;
+    api_key?: string;
+    free?: boolean;
+    auto_models?: boolean;
+    service_account?: string;
+  },
+): Config {
+  const next = cloneConfig(config);
+  if (next.providers.some((p) => p.id === input.id)) {
+    throw new Error(`provider "${input.id}" already exists`);
+  }
+  next.providers.push({
+    id: input.id,
+    format: input.format,
+    base_url: input.base_url,
+    free: input.free ?? false,
+    auto_models: input.auto_models ?? false,
+    models: [],
+    cooldown_base_ms: 1000,
+    max_retries: 2,
+    ...(input.api_key ? { api_keys: [input.api_key] } : {}),
+    ...(input.service_account ? { service_account: input.service_account } : {}),
+  });
+  return next;
+}
+
+/** Edit a provider's base_url and/or format (id is immutable). */
+export function editProvider(
+  config: Config,
+  id: string,
+  patch: { base_url?: string; format?: Provider["format"] },
+): Config {
+  const next = cloneConfig(config);
+  const p = next.providers.find((x) => x.id === id);
+  if (!p) throw new Error(`provider "${id}" not found`);
+  if (patch.base_url !== undefined) {
+    if (!patch.base_url.trim()) throw new Error("base_url must not be empty");
+    p.base_url = patch.base_url.trim();
+  }
+  if (patch.format !== undefined) p.format = patch.format;
+  return next;
+}
+
+/** Remove a provider; refuses if any routing alias still targets it. */
+export function removeProvider(config: Config, id: string): Config {
+  const next = cloneConfig(config);
+  const idx = next.providers.findIndex((p) => p.id === id);
+  if (idx === -1) throw new Error(`provider "${id}" not found`);
+  const usedBy = next.models.filter((m) => m.target.includes(id)).map((m) => m.alias);
+  if (usedBy.length > 0) {
+    throw new Error(`provider "${id}" is targeted by model alias(es): ${usedBy.join(", ")} — edit those first`);
+  }
+  next.providers.splice(idx, 1);
+  return next;
+}
+
+export function addProviderKey(config: Config, id: string, key: string): Config {
+  const next = cloneConfig(config);
+  const p = next.providers.find((x) => x.id === id);
+  if (!p) throw new Error(`provider "${id}" not found`);
+  if (!key.trim()) throw new Error("key must not be empty");
+  p.api_keys = [...realKeysOf(p), key];
+  delete p.api_key;
+  return next;
+}
+
+export function removeProviderKey(config: Config, id: string, index: number): Config {
+  const next = cloneConfig(config);
+  const p = next.providers.find((x) => x.id === id);
+  if (!p) throw new Error(`provider "${id}" not found`);
+  const keys = realKeysOf(p);
+  if (index < 0 || index >= keys.length) throw new Error(`no key at index ${index} for provider "${id}"`);
+  // free/service-account providers may legitimately hold zero keys; a keyed
+  // provider keeps at least one (remove the provider instead to fully drop it).
+  if (keys.length <= 1 && !p.free && !p.service_account) {
+    throw new Error(`cannot remove the last key of "${id}" — delete the provider instead`);
+  }
+  keys.splice(index, 1);
+  p.api_keys = keys;
+  delete p.api_key;
+  return next;
+}
+
+export function addProviderModel(
+  config: Config,
+  id: string,
+  model: string,
+  price?: { price_in?: number; price_out?: number },
+): Config {
+  const trimmed = model.trim();
+  if (!trimmed) throw new Error("model id must not be empty");
+  const next = cloneConfig(config);
+  const p = next.providers.find((x) => x.id === id);
+  if (!p) throw new Error(`provider "${id}" not found`);
+  if (p.models.some((m) => m.id === trimmed)) {
+    throw new Error(`provider "${id}" already serves model "${trimmed}"`);
+  }
+  p.models.push({
+    id: trimmed,
+    ...(price?.price_in !== undefined ? { price_in: price.price_in } : {}),
+    ...(price?.price_out !== undefined ? { price_out: price.price_out } : {}),
+  });
+  return next;
+}
+
+export function removeProviderModel(config: Config, id: string, model: string): Config {
+  const next = cloneConfig(config);
+  const p = next.providers.find((x) => x.id === id);
+  if (!p) throw new Error(`provider "${id}" not found`);
+  const idx = p.models.findIndex((m) => m.id === model);
+  if (idx === -1) throw new Error(`provider "${id}" does not serve model "${model}"`);
+  p.models.splice(idx, 1);
+  return next;
+}
+
+// ---- routing layer: client alias -> prioritized provider chain -------------
+
+/** Create or replace a routing alias. target[] is the fallback order. */
+export function setRoute(
+  config: Config,
+  route: { alias: string; target: string[]; model?: string | string[]; price_in?: number; price_out?: number },
+): Config {
+  const alias = route.alias.trim();
+  if (!alias) throw new Error("alias must not be empty");
+  if (!route.target.length) throw new Error("a route needs at least one target provider");
+  const next = cloneConfig(config);
+  for (const t of route.target) {
+    if (!next.providers.some((p) => p.id === t)) throw new Error(`unknown provider "${t}" in route`);
+  }
+  const entry: ModelRoute = {
+    alias,
+    target: route.target,
+    ...(route.model !== undefined ? { model: route.model } : {}),
+    ...(route.price_in !== undefined ? { price_in: route.price_in } : {}),
+    ...(route.price_out !== undefined ? { price_out: route.price_out } : {}),
+  };
+  const idx = next.models.findIndex((m) => m.alias === alias);
+  if (idx === -1) next.models.push(entry);
+  else next.models[idx] = entry;
+  return next;
+}
+
+export function removeRoute(config: Config, alias: string): Config {
+  const next = cloneConfig(config);
+  const idx = next.models.findIndex((m) => m.alias === alias);
+  if (idx === -1) throw new Error(`route "${alias}" not found`);
+  next.models.splice(idx, 1);
+  return next;
+}
+
+// ---- combos: named snapshots of the routing layer --------------------------
+//
+// A combo captures the current `models[]` under a name. Activating one swaps its
+// snapshot back into `models[]` (the live routing) and flags it active; only one
+// combo is active at a time.
+
+/** Save the current routing table as a named combo. */
+export function createCombo(config: Config, name: string): Config {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("combo name must not be empty");
+  const next = cloneConfig(config);
+  if (next.combos.some((c) => c.name === trimmed)) throw new Error(`combo "${trimmed}" already exists`);
+  next.combos.push({ name: trimmed, active: false, models: JSON.parse(JSON.stringify(next.models)) });
+  return next;
+}
+
+/** Swap a combo's snapshot into the live routing table and mark it active. */
+export function activateCombo(config: Config, name: string): Config {
+  const next = cloneConfig(config);
+  const combo = next.combos.find((c) => c.name === name);
+  if (!combo) throw new Error(`combo "${name}" not found`);
+  next.models = JSON.parse(JSON.stringify(combo.models));
+  for (const c of next.combos) c.active = c.name === name;
+  return next;
+}
+
+export function deleteCombo(config: Config, name: string): Config {
+  const next = cloneConfig(config);
+  const idx = next.combos.findIndex((c) => c.name === name);
+  if (idx === -1) throw new Error(`combo "${name}" not found`);
+  next.combos.splice(idx, 1);
+  return next;
+}
+
+export function renameCombo(config: Config, name: string, newName: string): Config {
+  const trimmed = newName.trim();
+  if (!trimmed) throw new Error("new combo name must not be empty");
+  const next = cloneConfig(config);
+  const combo = next.combos.find((c) => c.name === name);
+  if (!combo) throw new Error(`combo "${name}" not found`);
+  if (trimmed !== name && next.combos.some((c) => c.name === trimmed)) {
+    throw new Error(`combo "${trimmed}" already exists`);
+  }
+  combo.name = trimmed;
+  return next;
+}
+
+export function copyCombo(config: Config, name: string, newName: string): Config {
+  const trimmed = newName.trim();
+  if (!trimmed) throw new Error("new combo name must not be empty");
+  const next = cloneConfig(config);
+  const src = next.combos.find((c) => c.name === name);
+  if (!src) throw new Error(`combo "${name}" not found`);
+  if (next.combos.some((c) => c.name === trimmed)) throw new Error(`combo "${trimmed}" already exists`);
+  next.combos.push({ name: trimmed, active: false, models: JSON.parse(JSON.stringify(src.models)) });
+  return next;
+}
+
+// ---- endpoint settings: token-saver toggles + gateway keys -----------------
+
+export function setRtk(config: Config, enabled: boolean): Config {
+  const next = cloneConfig(config);
+  next.endpoint.rtk = enabled;
+  return next;
+}
+
+export function setCaveman(config: Config, level: EndpointSettings["caveman"]): Config {
+  const next = cloneConfig(config);
+  next.endpoint.caveman = level;
+  return next;
+}
+
+export function setPonytail(config: Config, level: EndpointSettings["ponytail"]): Config {
+  const next = cloneConfig(config);
+  next.endpoint.ponytail = level;
+  return next;
+}
+
+/** Append a gateway-level api key clients must present on /v1/*. */
+export function addServerKey(config: Config, key: string): Config {
+  const trimmed = key.trim();
+  if (!trimmed) throw new Error("key must not be empty");
+  const next = cloneConfig(config);
+  if (next.server.api_keys.includes(trimmed)) throw new Error("key already present");
+  next.server.api_keys = [...next.server.api_keys, trimmed];
+  return next;
+}
+
+/** Remove a gateway key by index (keys are masked in the API, so by-index). */
+export function removeServerKey(config: Config, index: number): Config {
+  const next = cloneConfig(config);
+  if (index < 0 || index >= next.server.api_keys.length) throw new Error(`no gateway key at index ${index}`);
+  next.server.api_keys.splice(index, 1);
+  return next;
+}
