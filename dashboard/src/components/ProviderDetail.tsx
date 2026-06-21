@@ -91,15 +91,13 @@ export function ProviderDetail({ id }: { id: string }) {
             })}>
               <Icon name="wifi_tethering" size={16} /> {busy === "test" ? "Testing…" : "Test connection"}
             </Button>
-            {(provider.free || provider.auto_models) && (
-              <Button variant="ghost" disabled={busy === "discover"} onClick={() => run("discover", async () => {
-                const r = await adminApi.discoverModels(id);
-                if (r.ok) setDiscovered(r.data?.models ?? []);
-                return r;
-              })}>
-                <Icon name="sync" size={16} /> {busy === "discover" ? "Fetching…" : "Fetch models"}
-              </Button>
-            )}
+            <Button variant="ghost" disabled={busy === "discover"} onClick={() => run("discover", async () => {
+              const r = await adminApi.discoverModels(id);
+              if (r.ok) setDiscovered(r.data?.models ?? []);
+              return r;
+            })}>
+              <Icon name="sync" size={16} /> {busy === "discover" ? "Fetching…" : "Fetch models"}
+            </Button>
           </div>
           {ping && (
             <div className="mt-3 text-[12px]">

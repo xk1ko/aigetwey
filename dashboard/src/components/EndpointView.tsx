@@ -11,11 +11,20 @@ import type { EndpointPayload, InjectLevel } from "@/lib/gateway";
 
 const LEVELS: InjectLevel[] = ["off", "lite", "full", "ultra"];
 
+/** Generate a random gateway key client-side (like 9router's one-click create). */
+function generateKey(): string {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return `aig-${hex}`;
+}
+
 export function EndpointView() {
   const [ep, setEp] = useState<EndpointPayload | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
   const [newKey, setNewKey] = useState("");
+  const [manual, setManual] = useState(false);
 
   const reload = useCallback(async () => {
     const r = await adminApi.endpoint();
@@ -64,7 +73,7 @@ export function EndpointView() {
 
         <RichCard header={<CardTitle title="Gateway keys" sub={`${ep.keys.length} configured`} />}>
           {ep.keys.length === 0 ? (
-            <Empty>No keys — auth is DISABLED (localhost only).</Empty>
+            <Empty>No keys — auth is DISABLED (localhost only). Generate one below.</Empty>
           ) : (
             <div className="space-y-1.5">
               {ep.keys.map((k, i) => (
@@ -77,13 +86,28 @@ export function EndpointView() {
               ))}
             </div>
           )}
-          <div className="mt-3 flex gap-2">
-            <Input value={newKey} onChange={(e) => setNewKey(e.target.value)} placeholder="add a gateway key…" />
-            <Button disabled={!newKey || busy === "addkey"} onClick={() => run("addkey", async () => {
-              const r = await adminApi.addServerKey(newKey);
-              if (r.ok) setNewKey("");
-              return r;
-            })}>Add</Button>
+          <div className="mt-3 space-y-2">
+            {/* one-click generate is the primary path (like 9router) */}
+            <Button
+              disabled={busy === "genkey"}
+              className="w-full"
+              onClick={() => run("genkey", () => adminApi.addServerKey(generateKey()))}
+            >
+              <Icon name="add" size={16} /> {busy === "genkey" ? "Generating…" : "Generate key"}
+            </Button>
+            <button onClick={() => setManual((v) => !v)} className="text-[12px] text-text-subtle hover:text-text">
+              {manual ? "Hide manual entry" : "Or enter a key manually"}
+            </button>
+            {manual && (
+              <div className="flex gap-2">
+                <Input value={newKey} onChange={(e) => setNewKey(e.target.value)} placeholder="paste a key…" />
+                <Button variant="ghost" disabled={!newKey || busy === "addkey"} onClick={() => run("addkey", async () => {
+                  const r = await adminApi.addServerKey(newKey);
+                  if (r.ok) setNewKey("");
+                  return r;
+                })}>Add</Button>
+              </div>
+            )}
           </div>
         </RichCard>
 
