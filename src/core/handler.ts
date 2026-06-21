@@ -8,8 +8,9 @@
  *     -> provider reply         -> canonical -> egress adapter -> client body
  *
  * Streaming (Phase 3): provider SSE -> canonical chunks -> client SSE. Fallback
- * + key rotation (Phase 4) run here. RTK/inject (Phase 6) and usage logging
- * (Phase 5) plug into this same pipeline.
+ * + key rotation (Phase 4) run here. RTK compression + caveman/ponytail
+ * injection (Phase 6) transform the request before routing; usage logging
+ * (Phase 5) records each served request.
  */
 import type { GatewayConfig, ResolvedRoute } from "../config.js";
 import type { WireFormat, CanonicalUsage } from "./canonical.js";
@@ -21,6 +22,8 @@ import type { CanonicalChunk } from "../stream/chunk.js";
 import type { KeyPool } from "./keypool.js";
 import { executeWithFallback } from "./fallback.js";
 import { type UsageDB, computeCost } from "../db.js";
+import { compressMessages } from "../rtk/index.js";
+import { injectInto } from "../inject/index.js";
 
 export interface HandleResult {
   status: number;
@@ -91,6 +94,31 @@ export async function handle(
   const routes = config.resolve(canonical.model);
   if (routes.length === 0) {
     throw new GatewayError(404, { error: `unknown model "${canonical.model}"` });
+  }
+
+  // Pipeline order matters: RTK compresses tool_result in the INPUT first, then
+  // inject prepends the output-style system prompt. They touch different parts
+  // of the request and stack cleanly. Both run before routing so every fallback
+  // attempt sends the same transformed request.
+  if (config.endpoint.rtk) {
+    const stats = compressMessages(canonical.messages);
+    if (stats.hits > 0) {
+      const pct = Math.round((1 - stats.bytesOut / stats.bytesIn) * 100);
+      deps.log?.(
+        `[rtk] compressed ${stats.hits} tool output(s): ${stats.bytesIn}B -> ${stats.bytesOut}B (${pct}%) via [${stats.shapes.join(",")}]`,
+      );
+    }
+  }
+
+  // fail-open: an injection error must never break the request.
+  try {
+    const injected = injectInto(canonical, {
+      caveman: config.endpoint.caveman,
+      ponytail: config.endpoint.ponytail,
+    });
+    if (injected) deps.log?.(`[inject] caveman=${config.endpoint.caveman} ponytail=${config.endpoint.ponytail}`);
+  } catch (e) {
+    deps.log?.(`[inject] skipped (error): ${(e as Error).message}`);
   }
 
   const wantStream = canonical.stream === true;
