@@ -87,11 +87,18 @@ export const gateway = {
     call<ConfigReply>("DELETE", `/admin/providers/${encodeURIComponent(id)}/keys/${index}`),
   addProviderModel: (id: string, model: string, price?: { price_in?: number; price_out?: number }) =>
     call<ConfigReply>("POST", `/admin/providers/${encodeURIComponent(id)}/models`, { model, ...price }),
+  addProviderModels: (id: string, models: string[]) =>
+    call<ConfigReply>("POST", `/admin/providers/${encodeURIComponent(id)}/models`, { models }),
   removeProviderModel: (id: string, model: string) =>
     call<ConfigReply>("DELETE", `/admin/providers/${encodeURIComponent(id)}/models/${encodeURIComponent(model)}`),
+  clearProviderModels: (id: string) =>
+    call<ConfigReply>("DELETE", `/admin/providers/${encodeURIComponent(id)}/models`),
   testProvider: (id: string) => call<PingResult>("POST", `/admin/providers/${encodeURIComponent(id)}/test`),
-  connectProvider: (id: string) =>
-    call<{ ok: boolean; added: number; config: MaskedConfig }>("POST", `/admin/providers/${encodeURIComponent(id)}/connect`),
+  discoverModels: (id: string) =>
+    call<{ ok: boolean; models: Array<{ id: string; added: boolean }> }>(
+      "POST",
+      `/admin/providers/${encodeURIComponent(id)}/connect`,
+    ),
 
   // ---- routing aliases ----
   setRoute: (alias: string, body: { target: string[]; model?: string | string[]; price_in?: number; price_out?: number }) =>

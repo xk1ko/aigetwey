@@ -71,11 +71,18 @@ export const adminApi = {
     api<ConfigReply>("DELETE", `/admin/providers/${encodeURIComponent(id)}/keys/${index}`),
   addModel: (id: string, model: string, price?: { price_in?: number; price_out?: number }) =>
     api<ConfigReply>("POST", `/admin/providers/${encodeURIComponent(id)}/models`, { model, ...price }),
+  addModels: (id: string, models: string[]) =>
+    api<ConfigReply>("POST", `/admin/providers/${encodeURIComponent(id)}/models`, { models }),
   removeModel: (id: string, model: string) =>
     api<ConfigReply>("DELETE", `/admin/providers/${encodeURIComponent(id)}/models/${encodeURIComponent(model)}`),
+  clearModels: (id: string) => api<ConfigReply>("DELETE", `/admin/providers/${encodeURIComponent(id)}/models`),
   testProvider: (id: string) => api<PingResult>("POST", `/admin/providers/${encodeURIComponent(id)}/test`),
-  connectProvider: (id: string) =>
-    api<{ ok: boolean; added: number }>("POST", `/admin/providers/${encodeURIComponent(id)}/connect`),
+  // discover: returns the upstream catalog flagged with which ids are in config.
+  discoverModels: (id: string) =>
+    api<{ ok: boolean; models: Array<{ id: string; added: boolean }> }>(
+      "POST",
+      `/admin/providers/${encodeURIComponent(id)}/connect`,
+    ),
 
   setRoute: (alias: string, body: { target: string[]; model?: string | string[]; price_in?: number; price_out?: number }) =>
     api<ConfigReply>("PUT", `/admin/routes/${encodeURIComponent(alias)}`, body),

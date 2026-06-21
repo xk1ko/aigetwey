@@ -10,6 +10,7 @@ import { RichCard, CardTitle } from "@/components/RichCard";
 import { Button, Input } from "@/components/Button";
 import { Icon } from "@/components/Icon";
 import { fmt, Empty } from "@/components/ui";
+import { ModelSelectModal, type DiscoveredModel } from "@/components/ModelSelectModal";
 import type { MaskedConfig, MaskedProvider, ProviderSnapshot, PingResult } from "@/lib/gateway";
 
 export function ProviderDetail({ id }: { id: string }) {
@@ -21,6 +22,7 @@ export function ProviderDetail({ id }: { id: string }) {
   const [busy, setBusy] = useState("");
   const [newKey, setNewKey] = useState("");
   const [newModel, setNewModel] = useState("");
+  const [discovered, setDiscovered] = useState<DiscoveredModel[] | null>(null);
 
   const reload = useCallback(async () => {
     const [cfgRes, provRes] = await Promise.all([fetch("/api/gw/admin/config"), adminApi.providers()]);
@@ -90,8 +92,12 @@ export function ProviderDetail({ id }: { id: string }) {
               <Icon name="wifi_tethering" size={16} /> {busy === "test" ? "Testing…" : "Test connection"}
             </Button>
             {(provider.free || provider.auto_models) && (
-              <Button variant="ghost" disabled={busy === "connect"} onClick={() => run("connect", () => adminApi.connectProvider(id))}>
-                <Icon name="sync" size={16} /> Fetch models
+              <Button variant="ghost" disabled={busy === "discover"} onClick={() => run("discover", async () => {
+                const r = await adminApi.discoverModels(id);
+                if (r.ok) setDiscovered(r.data?.models ?? []);
+                return r;
+              })}>
+                <Icon name="sync" size={16} /> {busy === "discover" ? "Fetching…" : "Fetch models"}
               </Button>
             )}
           </div>
@@ -141,9 +147,25 @@ export function ProviderDetail({ id }: { id: string }) {
           </div>
         </RichCard>
 
-        <RichCard className="lg:col-span-2" header={<CardTitle title="Models served" sub={`${provider.models.length} in catalog`} />}>
+        <RichCard
+          className="lg:col-span-2"
+          header={
+            <>
+              <CardTitle title="Models served" sub={`${provider.models.length} in catalog`} />
+              {provider.models.length > 0 && (
+                <button
+                  onClick={() => run("clear", () => adminApi.clearModels(id))}
+                  disabled={busy === "clear"}
+                  className="text-[12px] text-text-subtle hover:text-danger"
+                >
+                  Clear all
+                </button>
+              )}
+            </>
+          }
+        >
           {provider.models.length === 0 ? (
-            <Empty>No models. Add one, or fetch them for a free/auto provider.</Empty>
+            <Empty>No models. Add one below, or fetch them for a free/auto provider.</Empty>
           ) : (
             <div className="flex flex-wrap gap-2">
               {provider.models.map((m) => (
@@ -171,6 +193,19 @@ export function ProviderDetail({ id }: { id: string }) {
           </div>
         </RichCard>
       </div>
+
+      {discovered && (
+        <ModelSelectModal
+          models={discovered}
+          busy={busy === "addmodels"}
+          onClose={() => setDiscovered(null)}
+          onAdd={(ids) => run("addmodels", async () => {
+            const r = await adminApi.addModels(id, ids);
+            if (r.ok) setDiscovered(null);
+            return r;
+          })}
+        />
+      )}
 
       <div className="mt-6">
         <Button variant="danger" disabled={busy === "rmprov"} onClick={() => run("rmprov", async () => {

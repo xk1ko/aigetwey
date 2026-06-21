@@ -22,6 +22,8 @@ import {
   removeProviderKey,
   addProviderModel,
   removeProviderModel,
+  addProviderModels,
+  clearProviderModels,
   setRoute,
   removeRoute,
   createCombo,
@@ -203,9 +205,19 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
 
   app.post("/admin/providers/:id/models", requireAdmin, (req, reply) => {
     const { id } = req.params as { id: string };
-    const b = req.body as { model?: string; price_in?: number; price_out?: number };
-    if (!b?.model) return reply.code(400).send({ error: "model required" });
+    const b = req.body as { model?: string; models?: string[]; price_in?: number; price_out?: number };
+    // bulk add (from the discover modal) or single add (manual entry).
+    if (Array.isArray(b?.models)) {
+      if (b.models.length === 0) return reply.code(400).send({ error: "models[] empty" });
+      return applyMutation(reply, (c) => addProviderModels(c, id, b.models!));
+    }
+    if (!b?.model) return reply.code(400).send({ error: "model or models[] required" });
     applyMutation(reply, (c) => addProviderModel(c, id, b.model!, { price_in: b.price_in, price_out: b.price_out }));
+  });
+
+  app.delete("/admin/providers/:id/models", requireAdmin, (req, reply) => {
+    const { id } = req.params as { id: string };
+    applyMutation(reply, (c) => clearProviderModels(c, id));
   });
 
   app.delete("/admin/providers/:id/models/:model", requireAdmin, (req, reply) => {
@@ -223,27 +235,18 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     reply.send(await pingProvider(provider, key));
   });
 
-  // fetch a provider's catalog (free passthrough / auto_models) and add any
-  // newly discovered model ids to its config catalog.
+  // DISCOVER a provider's catalog without adding anything — returns the full
+  // upstream list flagged with which ids are already in config, so the UI can
+  // show a checklist instead of dumping every model into the catalog.
   app.post("/admin/providers/:id/connect", requireAdmin, async (req, reply) => {
     const { id } = req.params as { id: string };
     const provider = deps.state.config.getProvider(id);
     if (!provider) return reply.code(404).send({ error: `provider "${id}" not found` });
     const result = await fetchModels(provider);
     if (!result.ok) return reply.code(502).send({ error: result.error ?? "model fetch failed" });
-    const existing = new Set(provider.models.map((m) => m.id));
-    const fresh = result.models.map((m) => m.id).filter((mid) => !existing.has(mid));
-    if (fresh.length === 0) {
-      return reply.send({ ok: true, added: 0, config: maskedConfig(deps.state.config.raw) });
-    }
-    let next = deps.state.config.raw;
-    for (const mid of fresh) next = addProviderModel(next, id, mid);
-    try {
-      deps.state.reload(serializeConfig(next));
-    } catch (e) {
-      return reply.code(400).send({ error: (e as Error).message });
-    }
-    reply.send({ ok: true, added: fresh.length, config: maskedConfig(deps.state.config.raw) });
+    const have = new Set(provider.models.map((m) => m.id));
+    const models = result.models.map((m) => ({ id: m.id, added: have.has(m.id) }));
+    reply.send({ ok: true, models });
   });
 
   // every callable model: provider/model catalog entries + routing aliases.

@@ -452,6 +452,31 @@ export function removeProviderModel(config: Config, id: string, model: string): 
   return next;
 }
 
+/** Add several model ids at once, skipping any the provider already serves. */
+export function addProviderModels(config: Config, id: string, ids: string[]): Config {
+  const next = cloneConfig(config);
+  const p = next.providers.find((x) => x.id === id);
+  if (!p) throw new Error(`provider "${id}" not found`);
+  const have = new Set(p.models.map((m) => m.id));
+  for (const raw of ids) {
+    const mid = raw.trim();
+    if (mid && !have.has(mid)) {
+      p.models.push({ id: mid });
+      have.add(mid);
+    }
+  }
+  return next;
+}
+
+/** Drop every model from a provider's catalog. */
+export function clearProviderModels(config: Config, id: string): Config {
+  const next = cloneConfig(config);
+  const p = next.providers.find((x) => x.id === id);
+  if (!p) throw new Error(`provider "${id}" not found`);
+  p.models = [];
+  return next;
+}
+
 // ---- routing layer: client alias -> prioritized provider chain -------------
 
 /** Create or replace a routing alias. target[] is the fallback order. */

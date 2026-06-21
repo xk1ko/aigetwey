@@ -8,6 +8,8 @@ import {
   removeProviderKey,
   addProviderModel,
   removeProviderModel,
+  addProviderModels,
+  clearProviderModels,
   setRoute,
   removeRoute,
   createCombo,
@@ -100,6 +102,18 @@ describe("provider model catalog", () => {
     const back = removeProviderModel(c, "oa", "gpt-4o-mini");
     expect(reval(back).getProvider("oa")!.models.some((m) => m.id === "gpt-4o-mini")).toBe(false);
     expect(() => removeProviderModel(base(), "oa", "ghost")).toThrow(/does not serve/);
+  });
+
+  it("addProviderModels adds many at once, skipping ones already present", () => {
+    let c = addProviderModel(base(), "oa", "keep");
+    c = addProviderModels(c, "oa", ["a", "b", "keep", "c", " "]);
+    const ids = reval(c).getProvider("oa")!.models.map((m) => m.id);
+    expect(ids).toEqual(["keep", "a", "b", "c"]); // "keep" not duplicated, blank skipped
+  });
+
+  it("clearProviderModels empties the catalog", () => {
+    const c = clearProviderModels(addProviderModels(base(), "oa", ["x", "y", "z"]), "oa");
+    expect(reval(c).getProvider("oa")!.models).toEqual([]);
   });
 });
 
