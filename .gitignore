@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.next/
+data/
+*.sqlite
+*.sqlite-journal
+.env
+.env.local
+dashboard/.next/
+dashboard/node_modules/
+dashboard/.env.local
