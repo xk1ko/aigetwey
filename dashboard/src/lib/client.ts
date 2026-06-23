@@ -97,7 +97,7 @@ export const adminApi = {
   setRtk: (enabled: boolean) => api<ConfigReply>("PUT", "/admin/endpoint/rtk", { enabled }),
   setCaveman: (level: InjectLevel) => api<ConfigReply>("PUT", "/admin/endpoint/caveman", { level }),
   setPonytail: (level: InjectLevel) => api<ConfigReply>("PUT", "/admin/endpoint/ponytail", { level }),
-  addServerKey: (key: string) => api<ConfigReply>("POST", "/admin/endpoint/keys", { key }),
+  addServerKey: (key: string, name?: string) => api<ConfigReply>("POST", "/admin/endpoint/keys", { key, name }),
   removeServerKey: (index: number) => api<ConfigReply>("DELETE", `/admin/endpoint/keys/${index}`),
   revealServerKey: (index: number) => api<{ key: string }>("GET", `/admin/endpoint/keys/${index}/reveal`),
 

@@ -54,6 +54,13 @@ function maskedConfig(config: Config): Config {
     if (p.api_keys) p.api_keys = p.api_keys.map(maskKey);
   }
   clone.server.api_keys = clone.server.api_keys.map(maskKey);
+  // key_names is keyed by the RAW key — re-key it to the masked form so real
+  // keys never leak through /admin/config.
+  if (clone.server.key_names) {
+    clone.server.key_names = Object.fromEntries(
+      Object.entries(clone.server.key_names).map(([k, name]) => [maskKey(k), name]),
+    );
+  }
   return clone;
 }
 
@@ -348,9 +355,9 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
   });
 
   app.post("/admin/endpoint/keys", requireAdmin, (req, reply) => {
-    const b = req.body as { key?: string };
+    const b = req.body as { key?: string; name?: string };
     if (!b?.key) return reply.code(400).send({ error: "key required" });
-    applyMutation(reply, (c) => addServerKey(c, b.key!));
+    applyMutation(reply, (c) => addServerKey(c, b.key!, b.name));
   });
 
   app.delete("/admin/endpoint/keys/:index", requireAdmin, (req, reply) => {
@@ -383,6 +390,6 @@ function endpointPayload(config: Config) {
     rtk: config.endpoint.rtk,
     caveman: config.endpoint.caveman,
     ponytail: config.endpoint.ponytail,
-    keys: config.server.api_keys.map(maskKey),
+    keys: config.server.api_keys.map((k) => ({ key: maskKey(k), name: config.server.key_names?.[k] })),
   };
 }

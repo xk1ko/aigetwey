@@ -90,6 +90,9 @@ const ServerSchema = z
     port: z.number().int().positive().default(18080),
     // gateway-level keys clients must present. Empty => auth disabled (localhost).
     api_keys: z.array(z.string().min(1)).default([]),
+    // optional friendly label per key, keyed by the key itself. Kept separate so
+    // api_keys stays a plain string[] (auth/masking paths untouched).
+    key_names: z.record(z.string()).optional(),
   })
   .default({ host: "127.0.0.1", port: 18080, api_keys: [] });
 
@@ -556,13 +559,15 @@ export function setPonytail(config: Config, level: EndpointSettings["ponytail"])
   return next;
 }
 
-/** Append a gateway-level api key clients must present on /v1/*. */
-export function addServerKey(config: Config, key: string): Config {
+/** Append a gateway-level api key clients must present on /v1/*, with a label. */
+export function addServerKey(config: Config, key: string, name?: string): Config {
   const trimmed = key.trim();
   if (!trimmed) throw new Error("key must not be empty");
   const next = cloneConfig(config);
   if (next.server.api_keys.includes(trimmed)) throw new Error("key already present");
   next.server.api_keys = [...next.server.api_keys, trimmed];
+  const label = name?.trim();
+  if (label) next.server.key_names = { ...(next.server.key_names ?? {}), [trimmed]: label };
   return next;
 }
 
@@ -570,6 +575,9 @@ export function addServerKey(config: Config, key: string): Config {
 export function removeServerKey(config: Config, index: number): Config {
   const next = cloneConfig(config);
   if (index < 0 || index >= next.server.api_keys.length) throw new Error(`no gateway key at index ${index}`);
-  next.server.api_keys.splice(index, 1);
+  const [removed] = next.server.api_keys.splice(index, 1);
+  if (removed && next.server.key_names && removed in next.server.key_names) {
+    delete next.server.key_names[removed];
+  }
   return next;
 }

@@ -183,6 +183,13 @@ describe("endpoint toggles + gateway keys", () => {
     expect(reval(c).server.api_keys).toEqual(["gw-2"]);
     expect(() => removeServerKey(c, 9)).toThrow(/no gateway key/);
   });
+
+  it("addServerKey stores an optional name; removeServerKey clears it", () => {
+    let c = addServerKey(base(), "gw-2", "Claude Code");
+    expect(reval(c).server.key_names).toEqual({ "gw-2": "Claude Code" });
+    c = removeServerKey(c, 1); // drops gw-2, and its label with it
+    expect(reval(c).server.key_names ?? {}).toEqual({});
+  });
 });
 
 describe("mutations preserve maskability (secrets still real after mutate)", () => {

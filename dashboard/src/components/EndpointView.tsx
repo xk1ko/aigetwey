@@ -25,7 +25,9 @@ export function EndpointView() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
   const [newKey, setNewKey] = useState("");
+  const [keyName, setKeyName] = useState("");
   const [manual, setManual] = useState(false);
+  const [created, setCreated] = useState<{ key: string; name: string } | null>(null);
 
   const reload = useCallback(async () => {
     const r = await adminApi.endpoint();
@@ -57,6 +59,25 @@ export function EndpointView() {
     }
   }
 
+  // Create a key (generated or pasted) with its label, then surface it once in a
+  // modal — like 9router, where the full key is shown at creation time.
+  async function addKey(label: string, rawKey: string) {
+    const name = (label || "Gateway key").trim();
+    setBusy("genkey");
+    const r = await adminApi.addServerKey(rawKey, name);
+    setBusy("");
+    if (!r.ok) {
+      setError(r.error ?? "could not add key");
+      return;
+    }
+    setError("");
+    setKeyName("");
+    setNewKey("");
+    setManual(false);
+    setCreated({ key: rawKey, name });
+    await reload();
+  }
+
   return (
     <div>
       <div className="mb-6">
@@ -83,13 +104,16 @@ export function EndpointView() {
             <div className="space-y-1.5">
               {ep.keys.map((k, i) => (
                 <div key={i} className="flex items-center justify-between gap-2 rounded-brand border border-border-subtle px-3 py-2">
-                  <KeyReveal
-                    masked={k}
-                    reveal={async () => {
-                      const r = await adminApi.revealServerKey(i);
-                      return r.ok ? r.data?.key ?? null : null;
-                    }}
-                  />
+                  <div className="flex min-w-0 flex-col gap-0.5">
+                    {k.name && <span className="text-[12px] font-medium text-text">{k.name}</span>}
+                    <KeyReveal
+                      masked={k.key}
+                      reveal={async () => {
+                        const r = await adminApi.revealServerKey(i);
+                        return r.ok ? r.data?.key ?? null : null;
+                      }}
+                    />
+                  </div>
                   <button onClick={() => run(`rmkey${i}`, () => adminApi.removeServerKey(i))} className="flex-none text-text-subtle hover:text-danger" aria-label="Remove key">
                     <Icon name="delete" size={16} />
                   </button>
@@ -98,11 +122,12 @@ export function EndpointView() {
             </div>
           )}
           <div className="mt-3 space-y-2">
+            <Input value={keyName} onChange={(e) => setKeyName(e.target.value)} placeholder="key name (e.g. Claude Code)" />
             {/* one-click generate is the primary path (like 9router) */}
             <Button
               disabled={busy === "genkey"}
               className="w-full"
-              onClick={() => run("genkey", () => adminApi.addServerKey(generateKey()))}
+              onClick={() => addKey(keyName, generateKey())}
             >
               <Icon name="add" size={16} /> {busy === "genkey" ? "Generating…" : "Generate key"}
             </Button>
@@ -112,11 +137,9 @@ export function EndpointView() {
             {manual && (
               <div className="flex gap-2">
                 <Input value={newKey} onChange={(e) => setNewKey(e.target.value)} placeholder="paste a key…" />
-                <Button variant="ghost" disabled={!newKey || busy === "addkey"} onClick={() => run("addkey", async () => {
-                  const r = await adminApi.addServerKey(newKey);
-                  if (r.ok) setNewKey("");
-                  return r;
-                })}>Add</Button>
+                <Button variant="ghost" disabled={!newKey || busy === "genkey"} onClick={() => addKey(keyName, newKey)}>
+                  Add
+                </Button>
               </div>
             )}
           </div>
@@ -147,6 +170,45 @@ export function EndpointView() {
             />
           </div>
         </RichCard>
+      </div>
+
+      {created && <KeyCreatedModal name={created.name} value={created.key} onClose={() => setCreated(null)} />}
+    </div>
+  );
+}
+
+/** Shows a freshly created key once (it's masked everywhere after), with copy. */
+function KeyCreatedModal({ name, value, onClose }: { name: string; value: string; onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6" onClick={onClose}>
+      <div
+        className="w-full max-w-md rounded-brand-lg border border-border bg-surface p-5 shadow-elevated"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-1 flex items-center gap-2">
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent-soft text-accent">
+            <Icon name="key" size={16} />
+          </span>
+          <h2 className="text-[15px] font-semibold text-text">Key created</h2>
+        </div>
+        <p className="mb-3 text-[12px] text-text-muted">
+          Copy <span className="text-text">{name}</span> now. You can reveal it again later from this page.
+        </p>
+        <button
+          onClick={() => {
+            void navigator.clipboard.writeText(value);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+          }}
+          className="flex w-full items-center justify-between gap-2 rounded-brand border border-border-subtle bg-bg px-3 py-2.5 text-left hover:border-text-subtle"
+        >
+          <span className="tnum truncate text-[12.5px] text-text">{value}</span>
+          <Icon name={copied ? "check" : "content_copy"} size={15} />
+        </button>
+        <div className="mt-4 flex justify-end">
+          <Button onClick={onClose}>Done</Button>
+        </div>
       </div>
     </div>
   );

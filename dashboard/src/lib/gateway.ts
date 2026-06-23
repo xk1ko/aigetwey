@@ -160,7 +160,7 @@ export interface EndpointPayload {
   rtk: boolean;
   caveman: InjectLevel;
   ponytail: InjectLevel;
-  keys: string[];
+  keys: Array<{ key: string; name?: string }>;
 }
 
 export interface PingResult {
