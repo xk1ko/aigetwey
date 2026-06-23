@@ -43,7 +43,12 @@ export function CliToolConfig() {
             className="group rounded-brand-lg border border-border bg-surface p-4 shadow-soft transition-colors hover:border-text-subtle"
           >
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[14px] font-semibold text-text">{t.name}</span>
+              <span className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-brand bg-surface-2 text-text-muted group-hover:text-text">
+                  <Icon name={t.icon} size={18} />
+                </span>
+                <span className="text-[14px] font-semibold text-text">{t.name}</span>
+              </span>
               <Badge tone="info">{t.format}</Badge>
             </div>
             <p className="mt-2 text-[12.5px] text-text-muted">{t.blurb}</p>

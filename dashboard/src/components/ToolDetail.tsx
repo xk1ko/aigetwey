@@ -44,6 +44,9 @@ export function ToolDetail({ id }: { id: string }) {
       </button>
 
       <div className="mb-6 flex items-center gap-3">
+        <span className="flex h-9 w-9 items-center justify-center rounded-brand bg-surface-2 text-text-muted">
+          <Icon name={tool.icon} size={20} />
+        </span>
         <h1 className="text-[22px] font-semibold tracking-tight text-text">{tool.name}</h1>
         <Badge tone="info">{tool.format}</Badge>
       </div>
