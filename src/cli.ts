@@ -12,7 +12,7 @@
  * Prefers a production build when present (dist/server.js, dashboard/.next),
  * otherwise falls back to the tsx / Next dev flow for live reload.
  */
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, execSync, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
@@ -52,9 +52,87 @@ async function waitForGateway(url: string, timeoutMs = 20000): Promise<boolean> 
 
 const children: ChildProcess[] = [];
 
+/**
+ * Kill a child AND its descendants. npm/npx spawn grandchildren (next-server,
+ * tsx→node); signalling only the direct child leaves those orphaned, holding
+ * their ports and breaking the next run. Children are spawned detached (own
+ * process group), so a negative-pid signal reaches the whole group.
+ */
+function killTree(c: ChildProcess, sig: NodeJS.Signals = "SIGTERM"): void {
+  if (!c.pid || c.killed) return;
+  try {
+    process.kill(-c.pid, sig);
+  } catch {
+    try {
+      c.kill(sig);
+    } catch {
+      // already gone
+    }
+  }
+}
+
 function shutdown(): void {
-  for (const c of children) {
-    if (!c.killed) c.kill("SIGTERM");
+  for (const c of children) killTree(c);
+}
+
+/** The pid listening on a TCP port, or null. Best-effort, POSIX-only. */
+function pidOnPort(port: number): number | null {
+  for (const probe of [
+    `ss -ltnHp 'sport = :${port}' 2>/dev/null`,
+    `lsof -ti tcp:${port} -sTCP:LISTEN 2>/dev/null`,
+  ]) {
+    try {
+      const out = execSync(probe, { encoding: "utf8" });
+      const m = out.match(/pid=(\d+)/) ?? out.match(/^\s*(\d+)\s*$/m);
+      if (m) return Number(m[1]);
+    } catch {
+      // tool absent or nothing listening — try the next probe
+    }
+  }
+  return null;
+}
+
+/**
+ * Make sure `port` is free before we bind it. A leftover dev server (next/node/
+ * tsx) from a previous run that died ungracefully is reaped automatically — the
+ * zero-config promise is "just run", not "go hunt a stray pid". A port held by
+ * something unrelated is left alone and surfaced as a clear error.
+ */
+async function ensurePortFree(port: number, envVar: string): Promise<void> {
+  if (process.platform === "win32") return;
+  const pid = pidOnPort(port);
+  if (!pid) return;
+
+  let cmd = "";
+  try {
+    cmd = execSync(`ps -p ${pid} -o command= 2>/dev/null`, { encoding: "utf8" });
+  } catch {
+    // ps failed — fall through to the unknown-owner branch
+  }
+
+  if (!/next|node|tsx|aigetwey/.test(cmd)) {
+    console.error(
+      `  port ${port} is in use by another process (pid ${pid}). free it or set ${envVar}.`,
+    );
+    process.exit(1);
+  }
+
+  console.log(`  port ${port} held by a stale dev server (pid ${pid}) — reaping it.`);
+  try {
+    process.kill(pid, "SIGTERM");
+  } catch {
+    // already exiting
+  }
+  const deadline = Date.now() + 3000;
+  while (Date.now() < deadline && pidOnPort(port)) {
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  if (pidOnPort(port)) {
+    try {
+      process.kill(pid, "SIGKILL");
+    } catch {
+      // gone between checks
+    }
   }
 }
 process.on("SIGINT", () => {
@@ -72,6 +150,7 @@ function spawnGateway(): ChildProcess {
   return spawn(cmd, args, {
     cwd: root,
     stdio: "inherit",
+    detached: true, // own process group → killTree reaps tsx→node grandchildren
     env: { ...process.env, AIGETWEY_ADMIN_PASSWORD: adminPassword, AIGETWEY_PORT: String(GATEWAY_PORT) },
   });
 }
@@ -83,6 +162,7 @@ function spawnDashboard(): ChildProcess {
   return spawn("npm", args, {
     cwd: dashboardDir,
     stdio: "inherit",
+    detached: true, // own process group → killTree reaps the next-server grandchild
     env: {
       ...process.env,
       PORT: String(DASHBOARD_PORT),
@@ -95,6 +175,8 @@ function spawnDashboard(): ChildProcess {
 
 async function main(): Promise<void> {
   console.log("\n  aigetwey — starting gateway + dashboard\n");
+
+  await ensurePortFree(GATEWAY_PORT, "AIGETWEY_PORT");
 
   const gw = spawnGateway();
   children.push(gw);
@@ -118,6 +200,8 @@ async function main(): Promise<void> {
     if (generatedPw) console.log(`  admin password (generated): ${adminPassword}\n`);
     return;
   }
+
+  await ensurePortFree(DASHBOARD_PORT, "DASHBOARD_PORT");
 
   const dash = spawnDashboard();
   children.push(dash);
