@@ -65,15 +65,14 @@ export function EndpointView() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <RichCard header={<CardTitle title="Gateway URL" sub="one gateway — the base_url suffix just differs by client SDK" />}>
-          <div className="space-y-2 text-[13px]">
-            <CopyRow label="OpenAI clients — base_url" value={`${baseUrl}/v1`} />
-            <CopyRow label="Anthropic clients — base_url" value={baseUrl} />
+        <RichCard header={<CardTitle title="Gateway URL" sub="one endpoint for every client" />}>
+          <div className="text-[13px]">
+            <CopyRow label="Gateway URL" value={baseUrl} />
           </div>
           <p className="mt-3 text-[12px] text-text-subtle">
-            Both hit the same port {ep.port}. OpenAI SDKs append <span className="tnum">/chat/completions</span> to
-            the base, Anthropic SDKs add <span className="tnum">/v1/messages</span> — so OpenAI needs the{" "}
-            <span className="tnum">/v1</span> suffix and Anthropic doesn&apos;t.
+            One gateway, both formats. Anthropic clients (Claude Code) use it as-is; OpenAI clients (opencode,
+            Cursor, Codex) append <span className="tnum">/v1</span>. The <span className="text-text-muted">CLI Tools</span>{" "}
+            page has copy-ready env per tool.
           </p>
         </RichCard>
 
