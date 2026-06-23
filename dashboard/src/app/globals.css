@@ -125,33 +125,51 @@ select:focus-visible {
   }
 }
 
-/* console shell — floating icon-island rail + main column with sticky top bar */
+/* console shell — labeled sidebar (9router IA) + main column with sticky top bar */
 .console-grid {
   display: grid;
-  grid-template-columns: 108px 1fr;
+  grid-template-columns: 248px 1fr;
   min-height: 100vh;
 }
-.console-rail {
-  margin: 20px 0 20px 32px;
+.console-sidebar {
   position: sticky;
-  top: 20px;
-  align-self: center;
+  top: 0;
+  align-self: start;
+  height: 100vh;
   background: var(--color-sidebar);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: 24px;
-  box-shadow: var(--shadow-soft);
-  padding: 1.25rem 0;
+  border-right: 1px solid var(--color-border-subtle);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 1rem;
+  overflow-y: auto;
 }
-.rail-divider {
-  width: 26px;
-  height: 1px;
-  background: var(--color-border);
-  margin: 0.2rem 0 0.4rem;
-  flex: none;
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 10px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.sidebar-link:hover {
+  color: var(--color-text);
+  background: var(--color-surface-2);
+}
+.sidebar-link-active,
+.sidebar-link-active:hover {
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+.sidebar-section {
+  padding: 0 0.7rem;
+  margin: 0.9rem 0 0.35rem;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-subtle);
 }
 .console-col {
   display: flex;
@@ -177,66 +195,18 @@ select:focus-visible {
   margin: 0 auto;
 }
 
-/* circular icon buttons in the rail */
-.rail-icon {
-  position: relative;
+/* sidebar logo mark */
+.sidebar-logo {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  background: var(--color-surface);
-  color: var(--color-text-subtle);
-  transition: color 0.15s ease, background 0.15s ease;
-}
-.rail-icon:hover {
-  color: var(--color-text);
-  background: var(--color-surface-3);
-}
-.rail-icon-active {
-  color: var(--color-bg);
-  background: var(--color-text);
-}
-.rail-icon-active:hover {
-  color: var(--color-bg);
-  background: #ffffff;
-}
-.rail-brand {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 13px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   background: var(--color-accent);
   color: var(--color-accent-ink);
-  font-weight: 700;
-  font-size: 17px;
   box-shadow: var(--shadow-warm);
   flex: none;
-}
-/* tooltip on hover */
-.rail-icon[data-label]::after {
-  content: attr(data-label);
-  position: absolute;
-  left: calc(100% + 12px);
-  top: 50%;
-  transform: translateY(-50%);
-  white-space: nowrap;
-  background: var(--color-surface-3);
-  color: var(--color-text);
-  font-size: 12px;
-  padding: 4px 9px;
-  border-radius: 7px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.12s ease;
-  z-index: 40;
-  box-shadow: var(--shadow-soft);
-}
-.rail-icon:hover[data-label]::after {
-  opacity: 1;
 }
 
 /* KPI chip in the top bar */
@@ -262,7 +232,7 @@ select:focus-visible {
 
 @media (max-width: 760px) {
   .console-grid {
-    grid-template-columns: 72px 1fr;
+    grid-template-columns: 200px 1fr;
   }
   .console-main {
     padding: 1.25rem 1.1rem 3rem;

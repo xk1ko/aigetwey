@@ -4,14 +4,15 @@ import { usePathname } from "next/navigation";
 import { Icon } from "./Icon";
 
 const LABELS: Record<string, string> = {
-  "": "Overview",
+  "": "Endpoint & Key",
   endpoint: "Endpoint & Key",
-  providers: "Providers & Keys",
-  combos: "Combos & Routing",
-  tools: "CLI Tools",
+  providers: "Providers",
+  combos: "Combos",
   usage: "Usage",
-  logs: "Logs",
-  config: "Config",
+  quota: "Quota Tracker",
+  tools: "CLI Tools",
+  logs: "Console Log",
+  config: "Settings",
 };
 
 export function TopBar() {

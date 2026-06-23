@@ -4,7 +4,7 @@ import { TopBar } from "@/components/TopBar";
 export default function ConsoleLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="console-grid">
-      <aside className="console-rail">
+      <aside className="console-sidebar">
         <Rail />
       </aside>
 
