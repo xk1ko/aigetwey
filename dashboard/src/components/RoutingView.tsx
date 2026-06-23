@@ -127,7 +127,8 @@ type ProviderOption = { id: string; models: { id: string }[] };
 function RouteForm({ providers, onDone }: { providers: ProviderOption[]; onDone: () => void }) {
   const [alias, setAlias] = useState("");
   const [entries, setEntries] = useState<string[]>([]); // "provider/model"
-  const [pick, setPick] = useState("");
+  const [provPick, setProvPick] = useState("");
+  const [modelPick, setModelPick] = useState("");
   const [strategy, setStrategy] = useState<"fallback" | "round-robin">("fallback");
   const [priceIn, setPriceIn] = useState("");
   const [priceOut, setPriceOut] = useState("");
@@ -135,19 +136,18 @@ function RouteForm({ providers, onDone }: { providers: ProviderOption[]; onDone:
   const [err, setErr] = useState("");
   const [dragIdx, setDragIdx] = useState<number | null>(null);
 
-  const options = providers
-    .flatMap((p) => p.models.map((m) => `${p.id}/${m.id}`))
-    .filter((o) => !entries.includes(o));
+  // two cascading dropdowns: provider first, then its catalog models (minus the
+  // ones already in the chain). No free typing → no typos, no native datalist.
+  const selectedProvider = providers.find((p) => p.id === provPick);
+  const modelOptions = selectedProvider
+    ? selectedProvider.models.filter((m) => !entries.includes(`${provPick}/${m.id}`))
+    : [];
 
   function add() {
-    const v = pick.trim();
-    if (!v) return;
-    if (v.indexOf("/") <= 0) {
-      setErr("entry must be provider/model");
-      return;
-    }
+    if (!provPick || !modelPick) return;
+    const v = `${provPick}/${modelPick}`;
     if (!entries.includes(v)) setEntries((e) => [...e, v]);
-    setPick("");
+    setModelPick("");
     setErr("");
   }
 
@@ -204,25 +204,36 @@ function RouteForm({ providers, onDone }: { providers: ProviderOption[]; onDone:
           Models — add provider/model in fallback order
         </span>
         <div className="mt-1.5 flex gap-2">
-          <Input
-            list="combo-model-options"
-            value={pick}
-            onChange={(e) => setPick(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
-            placeholder="provider/model — e.g. Huki/claude-sonnet-4-6"
+          <Select
+            value={provPick}
+            onChange={(e) => { setProvPick(e.target.value); setModelPick(""); }}
             className="flex-1"
-          />
-          <datalist id="combo-model-options">
-            {options.map((o) => <option key={o} value={o} />)}
-          </datalist>
-          <Button type="button" variant="ghost" disabled={!pick.trim()} onClick={add}>
+          >
+            <option value="">Provider…</option>
+            {providers.map((p) => <option key={p.id} value={p.id}>{p.id}</option>)}
+          </Select>
+          <Select
+            value={modelPick}
+            onChange={(e) => setModelPick(e.target.value)}
+            disabled={!provPick}
+            className="flex-1"
+          >
+            <option value="">{provPick ? "Model…" : "pick provider first"}</option>
+            {modelOptions.map((m) => <option key={m.id} value={m.id}>{m.id}</option>)}
+          </Select>
+          <Button type="button" variant="ghost" disabled={!provPick || !modelPick} onClick={add}>
             <Icon name="add" size={16} /> Add
           </Button>
         </div>
+        {provPick && selectedProvider && selectedProvider.models.length === 0 && (
+          <div className="mt-1.5 text-[11px] text-warning">
+            “{provPick}” has no models cached — open it under Providers and Fetch models first.
+          </div>
+        )}
 
         {entries.length === 0 ? (
           <div className="mt-2 rounded-brand border border-dashed border-border-subtle px-3 py-4 text-center text-[12px] text-text-subtle">
-            No models yet. Add <span className="tnum">provider/model</span> entries — fetch a provider's models first to autocomplete.
+            No models yet. Pick a <span className="tnum">provider</span> then a <span className="tnum">model</span> above and hit Add.
           </div>
         ) : (
           <ul className="mt-2 space-y-1.5">

@@ -127,10 +127,22 @@ export function ProviderManager() {
   );
 }
 
-// Field set mirrors 9router's "OpenAI Compatible" provider form (Name, API Type,
-// Base URL, API Key + Check, Model ID), minus the separate Prefix — our Name is
-// the id and doubles as the model prefix (id/model), as discussed.
+// Provider presets — pick a type first, which prefills Base URL + API Type, then
+// you only fill Name + Key. Mirrors 9router's per-type forms but friendlier; the
+// fields below are still 9router's (Name, API Type, Base URL, Key + Check, Model
+// ID), minus the separate Prefix — our Name is the id and the model prefix.
+type Preset = { id: string; label: string; sub: string; icon: string; format: WireFormat; base_url: string };
+const PRESETS: Preset[] = [
+  { id: "openai", label: "OpenAI", sub: "compatible /v1", icon: "bolt", format: "openai", base_url: "https://api.openai.com/v1" },
+  { id: "anthropic", label: "Anthropic", sub: "Claude messages", icon: "smart_toy", format: "anthropic", base_url: "https://api.anthropic.com" },
+  { id: "gemini", label: "Gemini", sub: "Google AI", icon: "auto_awesome", format: "gemini", base_url: "https://generativelanguage.googleapis.com" },
+  { id: "openrouter", label: "OpenRouter", sub: "many models", icon: "hub", format: "openai", base_url: "https://openrouter.ai/api/v1" },
+  { id: "groq", label: "Groq", sub: "fast inference", icon: "speed", format: "openai", base_url: "https://api.groq.com/openai/v1" },
+  { id: "custom", label: "Custom", sub: "blank form", icon: "tune", format: "openai", base_url: "" },
+];
+
 function AddProviderForm({ onDone }: { onDone: () => void }) {
+  const [preset, setPreset] = useState<Preset | null>(null);
   const [id, setId] = useState("");
   const [format, setFormat] = useState<WireFormat>("openai");
   const [baseUrl, setBaseUrl] = useState("");
@@ -141,6 +153,40 @@ function AddProviderForm({ onDone }: { onDone: () => void }) {
   const [checking, setChecking] = useState(false);
   const [checkResult, setCheckResult] = useState<null | "ok" | "fail">(null);
   const [err, setErr] = useState("");
+
+  function choosePreset(p: Preset) {
+    setPreset(p);
+    setFormat(p.format);
+    setBaseUrl(p.base_url);
+    setCheckResult(null);
+    setErr("");
+    if (!id && p.id !== "custom") setId(p.id);
+  }
+
+  // step 1: pick a type. base_url + format come from the preset.
+  if (!preset) {
+    return (
+      <div className="mb-5 rounded-brand-lg border border-border bg-surface p-4 shadow-soft">
+        <span className="text-[11px] font-medium uppercase tracking-wider text-text-subtle">New provider — pick a type</span>
+        <div className="mt-3 grid gap-2.5 sm:grid-cols-3">
+          {PRESETS.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => choosePreset(p)}
+              className="flex flex-col items-start gap-1.5 rounded-brand border border-border bg-bg p-3 text-left transition-colors hover:border-accent hover:bg-accent-soft"
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-brand bg-surface-2 text-text-muted">
+                <Icon name={p.icon} size={17} />
+              </span>
+              <span className="text-[13px] font-semibold text-text">{p.label}</span>
+              <span className="text-[11px] text-text-subtle">{p.sub}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   async function check() {
     if (!baseUrl) {
@@ -176,6 +222,19 @@ function AddProviderForm({ onDone }: { onDone: () => void }) {
 
   return (
     <form onSubmit={submit} className="mb-5 rounded-brand-lg border border-border bg-surface p-4 shadow-soft">
+      <div className="mb-3 flex items-center gap-2">
+        <span className="flex h-7 w-7 items-center justify-center rounded-brand bg-surface-2 text-text-muted">
+          <Icon name={preset.icon} size={15} />
+        </span>
+        <span className="text-[13px] font-semibold text-text">{preset.label}</span>
+        <button
+          type="button"
+          onClick={() => { setPreset(null); setCheckResult(null); }}
+          className="ml-auto inline-flex items-center gap-1 text-[12px] text-text-subtle hover:text-text"
+        >
+          <Icon name="arrow_back" size={14} /> change type
+        </button>
+      </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Name" hint="the id — also the model prefix (id/model)">
           <Input value={id} onChange={(e) => setId(e.target.value)} placeholder="e.g. openai, Huki" />

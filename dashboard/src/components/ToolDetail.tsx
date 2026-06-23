@@ -66,7 +66,14 @@ export function ToolDetail({ id }: { id: string }) {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
+        {tool.install && (
+          <RichCard header={<CardTitle title="Install" />}>
+            <CopyBlock text={tool.install} />
+          </RichCard>
+        )}
+
         <RichCard
+          className={tool.install ? "" : "lg:col-span-2"}
           header={
             <>
               <CardTitle title="Environment" sub="copy into your shell" />
@@ -92,7 +99,46 @@ export function ToolDetail({ id }: { id: string }) {
           )}
         </RichCard>
 
-        <RichCard header={<CardTitle title="Steps" />}>
+        <RichCard
+          className="lg:col-span-2"
+          header={<CardTitle title="Models to call" sub="name a combo exactly this — the tool will hit it" />}
+        >
+          <div className="space-y-1.5">
+            {tool.slots.map((s) => {
+              const exists = combos.includes(s.alias);
+              return (
+                <div key={s.alias} className="flex items-center gap-3 rounded-brand border border-border-subtle px-3 py-2">
+                  <span className="w-32 flex-none text-[12px] text-text-subtle">{s.label}</span>
+                  <Icon name="arrow_forward" size={14} className="flex-none text-text-subtle" />
+                  <span className="tnum truncate text-[13px] text-text">{s.alias}</span>
+                  <span className="ml-auto flex flex-none items-center gap-2">
+                    {exists ? (
+                      <Badge tone="live">ready</Badge>
+                    ) : (
+                      <>
+                        <Badge tone="warn">missing</Badge>
+                        <button
+                          type="button"
+                          onClick={() => router.push("/combos")}
+                          className="inline-flex items-center gap-1 text-[12px] text-accent hover:underline"
+                        >
+                          <Icon name="add" size={13} /> create
+                        </button>
+                      </>
+                    )}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          {combos.length > 0 && (
+            <p className="mt-2.5 text-[11px] text-text-subtle">
+              Your combos: <span className="tnum text-text-muted">{combos.join(", ")}</span>
+            </p>
+          )}
+        </RichCard>
+
+        <RichCard className="lg:col-span-2" header={<CardTitle title="Steps" />}>
           <ol className="space-y-2.5">
             {tool.steps.map((s, i) => (
               <li key={i} className="flex gap-2.5 text-[13px] text-text-muted">
@@ -103,20 +149,6 @@ export function ToolDetail({ id }: { id: string }) {
               </li>
             ))}
           </ol>
-        </RichCard>
-
-        <RichCard className="lg:col-span-2" header={<CardTitle title="Models to call" sub="use one of these as the model name" />}>
-          {combos.length === 0 ? (
-            <Empty>No combos yet. Create one under Combos, or call a provider model directly as provider/model.</Empty>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {combos.map((c) => (
-                <span key={c} className="tnum rounded-brand border border-border-subtle bg-bg px-2.5 py-1.5 text-[12.5px] text-text">
-                  {c}
-                </span>
-              ))}
-            </div>
-          )}
         </RichCard>
       </div>
     </div>

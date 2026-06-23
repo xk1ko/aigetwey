@@ -3,6 +3,10 @@
  * Anthropic wire format; the gateway exposes both on the same port, so setup is
  * just pointing the tool's base_url + key at us. `env` builders take the live
  * gateway base URL + a gateway key and return ready-to-copy environment lines.
+ *
+ * `slots` are the model names this tool calls. Because our gateway routes by the
+ * combo alias (the alias IS the model name), the detail page checks whether a
+ * combo with each slot's alias exists, and prompts to create the missing ones.
  */
 export type ToolFormat = "openai" | "anthropic";
 
@@ -13,6 +17,10 @@ export interface CliTool {
   icon: string;
   format: ToolFormat;
   blurb: string;
+  /** one-line install command, when the tool ships via a package manager. */
+  install?: string;
+  /** model names the tool sends — pair each with a combo of the same name. */
+  slots: { label: string; alias: string }[];
   /** environment variables to set, given the gateway base + a key. */
   env: (base: string, key: string) => Array<{ name: string; value: string }>;
   /** extra free-form steps shown on the detail page. */
@@ -28,13 +36,19 @@ export const CLI_TOOLS: CliTool[] = [
     icon: "smart_toy",
     format: "anthropic",
     blurb: "Anthropic CLI. Point its base URL + key at the gateway.",
+    install: "npm i -g @anthropic-ai/claude-code",
+    slots: [
+      { label: "Opus · heavy", alias: "claude-opus-4-1" },
+      { label: "Sonnet · default", alias: "claude-sonnet-4-6" },
+      { label: "Haiku · fast", alias: "claude-haiku-4-5" },
+    ],
     env: (base, key) => [
       { name: "ANTHROPIC_BASE_URL", value: base },
       { name: "ANTHROPIC_API_KEY", value: KEY(key) },
     ],
     steps: [
       "Export the two variables in the shell you run `claude` from.",
-      "Call a model by a combo alias you defined under Combos (e.g. claude-sonnet-4-6).",
+      "Create a combo named like each slot above so Claude Code's model ids resolve.",
       "The gateway translates Anthropic ↔ provider format, so any provider works behind it.",
     ],
   },
@@ -44,11 +58,13 @@ export const CLI_TOOLS: CliTool[] = [
     icon: "code",
     format: "openai",
     blurb: "OpenAI-compatible. Use the /v1 base URL.",
+    install: "npm i -g @openai/codex",
+    slots: [{ label: "Model", alias: "gpt-5" }],
     env: (base, key) => [
       { name: "OPENAI_BASE_URL", value: `${base}/v1` },
       { name: "OPENAI_API_KEY", value: KEY(key) },
     ],
-    steps: ["Set the base URL to the gateway's /v1 path.", "Use a combo alias as the model name."],
+    steps: ["Set the base URL to the gateway's /v1 path.", "Create a combo named like the slot above, then use it as the model."],
   },
   {
     id: "opencode",
@@ -56,6 +72,8 @@ export const CLI_TOOLS: CliTool[] = [
     icon: "code_blocks",
     format: "openai",
     blurb: "OpenAI-compatible provider. Set base_url to /v1.",
+    install: "curl -fsSL https://opencode.ai/install | bash",
+    slots: [{ label: "Model", alias: "gpt-5" }],
     env: (base, key) => [
       { name: "OPENAI_BASE_URL", value: `${base}/v1` },
       { name: "OPENAI_API_KEY", value: KEY(key) },
@@ -68,6 +86,7 @@ export const CLI_TOOLS: CliTool[] = [
     icon: "edit_square",
     format: "openai",
     blurb: "OpenAI-compatible. Override the base URL in settings.",
+    slots: [{ label: "Model", alias: "gpt-5" }],
     env: (base, key) => [
       { name: "Base URL", value: `${base}/v1` },
       { name: "API Key", value: KEY(key) },
@@ -83,6 +102,7 @@ export const CLI_TOOLS: CliTool[] = [
     icon: "extension",
     format: "openai",
     blurb: "OpenAI-compatible VS Code agent.",
+    slots: [{ label: "Model", alias: "gpt-5" }],
     env: (base, key) => [
       { name: "Base URL", value: `${base}/v1` },
       { name: "API Key", value: KEY(key) },
