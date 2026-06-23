@@ -61,11 +61,13 @@ export const adminApi = {
     auto_models?: boolean;
     service_account?: string;
   }) => api<ConfigReply>("POST", "/admin/providers", p),
-  editProvider: (id: string, patch: { base_url?: string; format?: WireFormat }) =>
+  editProvider: (id: string, patch: { base_url?: string; format?: WireFormat; name?: string }) =>
     api<ConfigReply>("PUT", `/admin/providers/${encodeURIComponent(id)}`, patch),
   removeProvider: (id: string) => api<ConfigReply>("DELETE", `/admin/providers/${encodeURIComponent(id)}`),
-  addKey: (id: string, key: string) =>
-    api<ConfigReply>("POST", `/admin/providers/${encodeURIComponent(id)}/keys`, { key }),
+  addKey: (id: string, key: string, name?: string) =>
+    api<ConfigReply>("POST", `/admin/providers/${encodeURIComponent(id)}/keys`, { key, name }),
+  editKey: (id: string, index: number, patch: { key?: string; name?: string }) =>
+    api<ConfigReply>("PUT", `/admin/providers/${encodeURIComponent(id)}/keys/${index}`, patch),
   removeKey: (id: string, index: number) =>
     api<ConfigReply>("DELETE", `/admin/providers/${encodeURIComponent(id)}/keys/${index}`),
   revealKey: (id: string, index: number) =>
@@ -95,6 +97,13 @@ export const adminApi = {
       "POST",
       `/admin/providers/${encodeURIComponent(id)}/connect`,
     ),
+
+  reorderKey: (id: string, from: number, to: number) =>
+    api<ConfigReply>("PUT", `/admin/providers/${encodeURIComponent(id)}/keys/reorder`, { from, to }),
+  toggleKey: (id: string, index: number, enabled: boolean) =>
+    api<ConfigReply>("PUT", `/admin/providers/${encodeURIComponent(id)}/keys/${index}/toggle`, { enabled }),
+  setProviderStrategy: (id: string, strategy: "fallback" | "round-robin" | null, sticky?: number) =>
+    api<ConfigReply>("PUT", `/admin/providers/${encodeURIComponent(id)}/strategy`, { strategy, sticky }),
 
   setRoute: (
     alias: string,

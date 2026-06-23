@@ -11,10 +11,17 @@ import { maskKey } from "../config.js";
 
 const COOLDOWN_CAP_MS = 5 * 60_000; // 5 minutes
 
+export interface KeyError {
+  message: string;
+  status?: number;
+  at: number;
+}
+
 interface KeyState {
   key: string;
   cooldownUntil: number;
   failCount: number;
+  lastError?: KeyError;
 }
 
 interface ProviderPool {
@@ -63,8 +70,10 @@ export class KeyPool {
     const pool = this.poolFor(provider);
     const n = pool.states.length;
     const t = this.now();
+    const disabled = new Set(provider.disabled_keys ?? []);
     for (let i = 0; i < n; i++) {
       const idx = (pool.cursor + i) % n;
+      if (disabled.has(idx)) continue;
       const state = pool.states[idx]!;
       if (state.cooldownUntil <= t) {
         pool.cursor = (idx + 1) % n;
@@ -74,14 +83,17 @@ export class KeyPool {
     return null;
   }
 
-  /** Mark a retryable failure: bump failCount and apply backoff cooldown. */
-  penalize(provider: Provider, key: string): void {
+  /** Mark a retryable failure: bump failCount, apply backoff cooldown, and persist the error. */
+  penalize(provider: Provider, key: string, error?: { message: string; status?: number }): void {
     const pool = this.poolFor(provider);
     const state = pool.states.find((s) => s.key === key);
     if (!state) return;
     state.failCount += 1;
     const backoff = pool.baseMs * 2 ** (state.failCount - 1);
     state.cooldownUntil = this.now() + Math.min(backoff, COOLDOWN_CAP_MS);
+    if (error) {
+      state.lastError = { message: error.message, status: error.status, at: this.now() };
+    }
   }
 
   /** Mark success: clear failure state so the key is healthy again. */
@@ -96,7 +108,8 @@ export class KeyPool {
   hasAvailable(provider: Provider): boolean {
     const pool = this.poolFor(provider);
     const t = this.now();
-    return pool.states.some((s) => s.cooldownUntil <= t);
+    const disabled = new Set(provider.disabled_keys ?? []);
+    return pool.states.some((s, i) => !disabled.has(i) && s.cooldownUntil <= t);
   }
 
   /**
@@ -116,6 +129,7 @@ export class KeyPool {
           healthy: s.cooldownUntil <= t,
           cooldown_ms: Math.max(0, s.cooldownUntil - t),
           fail_count: s.failCount,
+          last_error: s.lastError ?? null,
         })),
       };
     });
@@ -128,6 +142,7 @@ export interface KeySnapshot {
   healthy: boolean;
   cooldown_ms: number;
   fail_count: number;
+  last_error: KeyError | null;
 }
 
 export interface ProviderSnapshot {

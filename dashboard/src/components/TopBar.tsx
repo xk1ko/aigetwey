@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { Icon } from "./Icon";
+import { useTheme } from "./ThemeProvider";
 
 const LABELS: Record<string, string> = {
   "": "Endpoint & Key",
@@ -11,12 +12,14 @@ const LABELS: Record<string, string> = {
   usage: "Usage",
   quota: "Quota Tracker",
   tools: "CLI Tools",
-  logs: "Console Log",
+  logs: "Request Logs",
+  console: "Server Console",
   config: "Settings",
 };
 
 export function TopBar() {
   const path = usePathname();
+  const { theme, toggle } = useTheme();
   const seg = path === "/" ? "" : (path.split("/")[1] ?? "");
   const current = LABELS[seg] ?? seg;
 
@@ -29,6 +32,15 @@ export function TopBar() {
       </div>
 
       <div className="ml-auto flex items-center gap-2.5">
+        <button
+          onClick={toggle}
+          className="flex h-8 w-8 items-center justify-center rounded-full text-text-subtle transition-colors hover:text-text"
+          aria-label="Toggle theme"
+          title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+        >
+          <Icon name={theme === "dark" ? "light_mode" : "dark_mode"} size={18} />
+        </button>
+
         <button className="flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-[12px] text-text-subtle transition-colors hover:text-text-muted">
           <Icon name="search" size={15} />
           <span>Search</span>

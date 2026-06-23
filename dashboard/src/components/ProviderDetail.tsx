@@ -1,17 +1,17 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { adminApi } from "@/lib/client";
 import { Lamp } from "@/components/Lamp";
 import { Badge, FormatBadge } from "@/components/Badge";
 import { CooldownTimer } from "@/components/CooldownTimer";
 import { RichCard, CardTitle } from "@/components/RichCard";
-import { Button, Input } from "@/components/Button";
+import { Button, Input, Field } from "@/components/Button";
 import { Icon } from "@/components/Icon";
 import { fmt, Empty } from "@/components/ui";
 import { ModelSelectModal, type DiscoveredModel } from "@/components/ModelSelectModal";
-import { KeyReveal } from "@/components/KeyReveal";
+import { ConfirmModal } from "@/components/ConfirmModal";
 import type { MaskedConfig, MaskedProvider, ProviderSnapshot, PingResult } from "@/lib/gateway";
 
 export function ProviderDetail({ id }: { id: string }) {
@@ -22,11 +22,23 @@ export function ProviderDetail({ id }: { id: string }) {
   const [ping, setPing] = useState<PingResult | null>(null);
   const [busy, setBusy] = useState("");
   const [newKey, setNewKey] = useState("");
+  const [newKeyName, setNewKeyName] = useState("");
+  const [editIdx, setEditIdx] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editVal, setEditVal] = useState("");
   const [newModel, setNewModel] = useState("");
   const [modelFilter, setModelFilter] = useState("");
   const [discovered, setDiscovered] = useState<DiscoveredModel[] | null>(null);
   const [modelTest, setModelTest] = useState<Record<string, "testing" | "ok" | "fail">>({});
   const [keyTest, setKeyTest] = useState<Record<number, "testing" | PingResult>>({});
+  const [testingAll, setTestingAll] = useState(false);
+  const [testAllSummary, setTestAllSummary] = useState<{ total: number; passed: number; failed: number } | null>(null);
+  const stopTestAll = useRef(false);
+  const [editingConn, setEditingConn] = useState(false);
+  const [connUrl, setConnUrl] = useState("");
+  const [connName, setConnName] = useState("");
+  const [revealedKeys, setRevealedKeys] = useState<Record<number, string>>({});
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   async function testModel(mid: string) {
     setModelTest((t) => ({ ...t, [mid]: "testing" }));
@@ -38,6 +50,27 @@ export function ProviderDetail({ id }: { id: string }) {
     setKeyTest((t) => ({ ...t, [i]: "testing" }));
     const r = await adminApi.testKey(id, i);
     setKeyTest((t) => ({ ...t, [i]: r.data ?? { ok: false, reachable: false, status: 0, error: r.error } }));
+  }
+
+  async function testAllKeys(count: number) {
+    stopTestAll.current = false;
+    setTestingAll(true);
+    setTestAllSummary(null);
+    setKeyTest({});
+    let passed = 0;
+    let failed = 0;
+    for (let i = 0; i < count; i++) {
+      if (stopTestAll.current) break;
+      setKeyTest((t) => ({ ...t, [i]: "testing" }));
+      const r = await adminApi.testKey(id, i);
+      const result = r.data ?? { ok: false, reachable: false, status: 0, error: r.error };
+      setKeyTest((t) => ({ ...t, [i]: result }));
+      if (result.ok) passed++;
+      else failed++;
+      if (i < count - 1 && !stopTestAll.current) await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    setTestingAll(false);
+    setTestAllSummary({ total: count, passed, failed });
   }
 
   const reload = useCallback(async () => {
@@ -87,7 +120,10 @@ export function ProviderDetail({ id }: { id: string }) {
 
       <div className="mb-6 flex items-center gap-3">
         <Lamp state={health?.keys.some((k) => k.healthy) ?? true ? "live" : "down"} />
-        <h1 className="text-[22px] font-semibold tracking-tight text-text">{provider.id}</h1>
+        <div>
+          <h1 className="text-[22px] font-semibold tracking-tight text-text">{provider.name || provider.id}</h1>
+          {provider.name && <span className="text-[12px] text-text-subtle">{provider.id}/</span>}
+        </div>
         <FormatBadge format={provider.format} />
         {provider.free && <Badge tone="info">free</Badge>}
         {provider.service_account && <Badge tone="info">service-account</Badge>}
@@ -95,39 +131,115 @@ export function ProviderDetail({ id }: { id: string }) {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <RichCard header={<CardTitle title="Connection" />}>
-          <div className="space-y-2 text-[13px]">
-            <Row k="Base URL" v={provider.base_url} />
-            <Row k="Format" v={provider.format} />
-            <Row k="Cooldown base" v={`${provider.cooldown_base_ms}ms`} />
-            <Row k="Max retries" v={String(provider.max_retries)} />
-          </div>
-          <div className="mt-4 flex items-center gap-2">
-            <Button variant="ghost" disabled={busy === "test"} onClick={() => run("test", async () => {
-              const r = await adminApi.testProvider(id);
-              if (r.ok) setPing(r.data);
-              return r;
-            })}>
-              <Icon name="wifi_tethering" size={16} /> {busy === "test" ? "Testing…" : "Test connection"}
-            </Button>
-            <Button variant="ghost" disabled={busy === "discover"} onClick={() => run("discover", async () => {
-              const r = await adminApi.discoverModels(id);
-              if (r.ok) setDiscovered(r.data?.models ?? []);
-              return r;
-            })}>
-              <Icon name="sync" size={16} /> {busy === "discover" ? "Fetching…" : "Fetch models"}
-            </Button>
-          </div>
-          {ping && (
-            <div className="mt-3 text-[12px]">
-              <Badge tone={ping.ok ? "live" : ping.reachable ? "warn" : "down"}>
-                {ping.ok ? `ok (${ping.status})` : ping.reachable ? `reachable (${ping.status})` : "unreachable"}
-              </Badge>
-              {ping.error && <span className="ml-2 text-text-subtle">{ping.error}</span>}
+          {editingConn ? (
+            <div className="space-y-3">
+              <Field label="Name">
+                <Input value={connName} onChange={(e) => setConnName(e.target.value)} placeholder="Friendly display name" />
+              </Field>
+              <Field label="Base URL">
+                <Input value={connUrl} onChange={(e) => setConnUrl(e.target.value)} placeholder="https://..." className="font-mono text-[12.5px]" />
+              </Field>
+              <div className="flex justify-end gap-2">
+                <Button variant="ghost" onClick={() => setEditingConn(false)}>Cancel</Button>
+                <Button disabled={busy === "editconn"} onClick={() => run("editconn", async () => {
+                  const r = await adminApi.editProvider(id, { base_url: connUrl.trim() || undefined, name: connName });
+                  if (r.ok) setEditingConn(false);
+                  return r;
+                })}>Save</Button>
+              </div>
             </div>
+          ) : (
+            <>
+              <div className="space-y-2 text-[13px]">
+                <Row k="Base URL" v={provider.base_url} />
+                <Row k="Format" v={provider.format} />
+                <Row k="Cooldown base" v={`${provider.cooldown_base_ms}ms`} />
+                <Row k="Max retries" v={String(provider.max_retries)} />
+              </div>
+              <div className="mt-4 flex items-center gap-2">
+                <Button variant="ghost" onClick={() => { setEditingConn(true); setConnUrl(provider.base_url); setConnName(provider.name ?? ""); }}>
+                  <Icon name="edit" size={15} /> Edit
+                </Button>
+                <Button variant="ghost" disabled={busy === "test"} onClick={() => run("test", async () => {
+                  const r = await adminApi.testProvider(id);
+                  if (r.ok) setPing(r.data);
+                  return r;
+                })}>
+                  <Icon name="wifi_tethering" size={16} /> {busy === "test" ? "Testing…" : "Test connection"}
+                </Button>
+                <Button variant="ghost" disabled={busy === "discover"} onClick={() => run("discover", async () => {
+                  const r = await adminApi.discoverModels(id);
+                  if (r.ok) setDiscovered(r.data?.models ?? []);
+                  return r;
+                })}>
+                  <Icon name="sync" size={16} /> {busy === "discover" ? "Fetching…" : "Fetch models"}
+                </Button>
+              </div>
+              {ping && (
+                <div className="mt-3 text-[12px]">
+                  <Badge tone={ping.ok ? "live" : ping.reachable ? "warn" : "down"}>
+                    {ping.ok ? `ok (${ping.status})` : ping.reachable ? `reachable (${ping.status})` : "unreachable"}
+                  </Badge>
+                  {ping.error && <span className="ml-2 text-text-subtle">{ping.error}</span>}
+                </div>
+              )}
+            </>
           )}
         </RichCard>
 
-        <RichCard header={<CardTitle title="Keys" sub={`${keys.length} configured`} />}>
+        <RichCard
+          header={
+            <>
+              <CardTitle title="Keys" sub={`${keys.length} configured`} />
+              <div className="flex flex-wrap items-center gap-3">
+                {keys.length > 1 && (
+                  <Button variant="ghost" disabled={testingAll} onClick={() => testAllKeys(keys.length)}>
+                    <Icon name={testingAll ? "progress_activity" : "sync"} size={15} />
+                    {testingAll ? "Testing…" : "Test All"}
+                  </Button>
+                )}
+                {testingAll && (
+                  <Button variant="ghost" onClick={() => { stopTestAll.current = true; }}>
+                    <Icon name="stop" size={15} /> Stop
+                  </Button>
+                )}
+                <span className="text-[11px] text-text-subtle">Round Robin</span>
+                <button
+                  onClick={() => {
+                    const next = provider.strategy === "round-robin" ? null : "round-robin";
+                    void adminApi.setProviderStrategy(id, next as "round-robin" | null, provider.sticky ?? 1).then(() => reload());
+                  }}
+                  className={`relative h-5 w-9 rounded-full transition-colors ${provider.strategy === "round-robin" ? "bg-accent" : "bg-border-subtle"}`}
+                  aria-label="Toggle round-robin"
+                >
+                  <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${provider.strategy === "round-robin" ? "left-[18px]" : "left-0.5"}`} />
+                </button>
+                {provider.strategy === "round-robin" && (
+                  <div className="flex items-center gap-1">
+                    <span className="text-[11px] text-text-subtle">Sticky:</span>
+                    <input
+                      type="number"
+                      min={1}
+                      value={provider.sticky ?? 1}
+                      onChange={(e) => {
+                        const v = Number(e.target.value) || 1;
+                        void adminApi.setProviderStrategy(id, "round-robin", v).then(() => reload());
+                      }}
+                      className="w-12 rounded border border-border-subtle bg-transparent px-1.5 py-0.5 text-[11px] text-text focus:border-accent focus:outline-none"
+                    />
+                  </div>
+                )}
+              </div>
+            </>
+          }
+        >
+          {testAllSummary && (
+            <div className="mb-3 flex items-center gap-2 text-[11.5px]">
+              <Badge tone={testAllSummary.failed === 0 ? "live" : "warn"}>
+                {testAllSummary.total} tested: {testAllSummary.passed} valid, {testAllSummary.failed} failed
+              </Badge>
+            </div>
+          )}
           {keys.length === 0 ? (
             <Empty>No keys (free / service-account provider).</Empty>
           ) : (
@@ -136,45 +248,121 @@ export function ProviderDetail({ id }: { id: string }) {
                 const ks = health?.keys[i];
                 const test = keyTest[i];
                 const tested = test && test !== "testing" ? test : null;
-                // local test result (if any) wins over the rolling health lamp.
                 const lamp = tested ? (tested.ok ? "live" : tested.reachable ? "idle" : "down") : ks ? (ks.healthy ? "live" : "down") : "idle";
+                const name = provider.key_names?.[k];
+                const disabled = provider.disabled_keys?.includes(i) ?? false;
+                if (editIdx === i) {
+                  return (
+                    <div key={i} className="space-y-2 rounded-brand border border-accent bg-accent-soft/40 px-3 py-2.5">
+                      <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="key name (optional)" />
+                      <Input value={editVal} onChange={(e) => setEditVal(e.target.value)} placeholder="new key value (leave blank to keep)" className="font-mono text-[12.5px]" />
+                      <div className="flex justify-end gap-2">
+                        <Button variant="ghost" onClick={() => setEditIdx(null)}>Cancel</Button>
+                        <Button disabled={busy === `editkey${i}`} onClick={() => run(`editkey${i}`, async () => {
+                          const r = await adminApi.editKey(id, i, { name: editName, key: editVal.trim() || undefined });
+                          if (r.ok) setEditIdx(null);
+                          return r;
+                        })}>Save</Button>
+                      </div>
+                    </div>
+                  );
+                }
                 return (
-                  <div key={i} className="rounded-brand border border-border-subtle px-3 py-2">
+                  <div key={i} className={`rounded-brand border border-border-subtle px-3 py-2${disabled ? " opacity-60" : ""}`}>
                     <div className="flex items-center gap-2">
+                      {/* reorder */}
+                      <div className="flex flex-col">
+                        <button
+                          onClick={() => run(`reorder${i}up`, () => adminApi.reorderKey(id, i, i - 1))}
+                          disabled={i === 0}
+                          className="p-0.5 text-text-subtle hover:text-text disabled:opacity-30"
+                          aria-label="Move up"
+                        >
+                          <Icon name="keyboard_arrow_up" size={14} />
+                        </button>
+                        <button
+                          onClick={() => run(`reorder${i}dn`, () => adminApi.reorderKey(id, i, i + 1))}
+                          disabled={i === keys.length - 1}
+                          className="p-0.5 text-text-subtle hover:text-text disabled:opacity-30"
+                          aria-label="Move down"
+                        >
+                          <Icon name="keyboard_arrow_down" size={14} />
+                        </button>
+                      </div>
                       <Lamp state={lamp} />
-                      <KeyReveal
-                        className="flex-1"
-                        align="right"
-                        masked={k}
-                        reveal={async () => {
-                          const r = await adminApi.revealKey(id, i);
-                          return r.ok ? r.data?.key ?? null : null;
-                        }}
-                      />
+                      <div className="min-w-0 flex-1">
+                        {name && <div className="text-[12px] font-semibold text-text-muted">{name}</div>}
+                        <span className="block truncate font-mono text-[12.5px] text-text">{revealedKeys[i] ?? k}</span>
+                      </div>
+                      {revealedKeys[i] && (
+                        <button
+                          onClick={() => { void navigator.clipboard.writeText(revealedKeys[i]!); }}
+                          className="flex-none rounded p-1 text-text-subtle transition-colors hover:text-text"
+                          aria-label="Copy key"
+                          title="Copy to clipboard"
+                        >
+                          <Icon name="content_copy" size={14} />
+                        </button>
+                      )}
                       {ks && ks.cooldown_ms > 0 && <CooldownTimer ms={ks.cooldown_ms} />}
+                      {/* actions: reveal > toggle > test > edit > delete */}
+                      <button
+                        onClick={async () => {
+                          if (revealedKeys[i]) { setRevealedKeys((r) => { const n = { ...r }; delete n[i]; return n; }); return; }
+                          const r = await adminApi.revealKey(id, i);
+                          if (r.ok && r.data?.key) setRevealedKeys((prev) => ({ ...prev, [i]: r.data!.key }));
+                        }}
+                        className="flex-none rounded p-1 text-text-subtle transition-colors hover:text-text"
+                        aria-label={revealedKeys[i] ? "Hide key" : "Show key"}
+                        title={revealedKeys[i] ? "Hide key" : "Show key"}
+                      >
+                        <Icon name={revealedKeys[i] ? "visibility_off" : "visibility"} size={15} />
+                      </button>
+                      <button
+                        onClick={() => run(`toggle${i}`, () => adminApi.toggleKey(id, i, disabled))}
+                        className="flex-none rounded p-1 text-text-subtle transition-colors hover:text-text"
+                        aria-label={disabled ? "Enable key" : "Disable key"}
+                        title={disabled ? "Enable this key" : "Disable this key"}
+                      >
+                        <Icon name={disabled ? "toggle_off" : "toggle_on"} size={20} className={disabled ? "text-text-subtle" : "text-success"} />
+                      </button>
                       <button
                         onClick={() => testKey(i)}
                         disabled={test === "testing"}
-                        className="flex-none rounded p-1 text-text-subtle transition-colors hover:bg-bg hover:text-accent disabled:opacity-60"
+                        className="flex-none rounded p-1 text-text-subtle transition-colors hover:text-text disabled:opacity-60"
                         aria-label={`Check key ${i + 1}`}
                         title="Check this key against the base URL"
                       >
                         <Icon name={test === "testing" ? "progress_activity" : "wifi_tethering"} size={15} />
                       </button>
                       <button
+                        onClick={() => { setEditIdx(i); setEditName(name ?? ""); setEditVal(""); }}
+                        className="flex-none rounded p-1 text-text-subtle transition-colors hover:text-text"
+                        aria-label={`Edit key ${i + 1}`}
+                        title="Rename or replace this key"
+                      >
+                        <Icon name="edit" size={15} />
+                      </button>
+                      <button
                         onClick={() => run(`rmkey${i}`, () => adminApi.removeKey(id, i))}
-                        className="flex-none rounded p-1 text-text-subtle transition-colors hover:bg-bg hover:text-danger"
+                        className="flex-none rounded p-1 text-text-subtle transition-colors hover:text-danger"
                         aria-label="Remove key"
                       >
-                        <Icon name="delete" size={16} />
+                        <Icon name="delete" size={15} />
                       </button>
                     </div>
                     {tested && (
-                      <div className="mt-1.5 flex items-center gap-2 pl-4 text-[11.5px]">
+                      <div className="mt-1.5 flex items-center gap-2 pl-8 text-[11.5px]">
                         <Badge tone={tested.ok ? "live" : tested.reachable ? "warn" : "down"}>
                           {tested.ok ? "valid" : tested.reachable ? `reachable (${tested.status})` : "invalid"}
                         </Badge>
-                        {tested.error && <span className="truncate text-text-subtle">{tested.error}</span>}
+                        {tested.error && <span className="truncate text-danger">{tested.error}</span>}
+                      </div>
+                    )}
+                    {!tested && ks?.last_error && (
+                      <div className="mt-1.5 flex items-center gap-2 pl-8 text-[11.5px]">
+                        <span className="text-danger">{ks.last_error.status ? `${ks.last_error.status}: ` : ""}{ks.last_error.message}</span>
+                        <span className="text-text-subtle">{new Date(ks.last_error.at).toLocaleTimeString()}</span>
                       </div>
                     )}
                   </div>
@@ -182,13 +370,16 @@ export function ProviderDetail({ id }: { id: string }) {
               })}
             </div>
           )}
-          <div className="mt-3 flex gap-2">
-            <Input value={newKey} onChange={(e) => setNewKey(e.target.value)} placeholder="add a key…" />
-            <Button disabled={!newKey || busy === "addkey"} onClick={() => run("addkey", async () => {
-              const r = await adminApi.addKey(id, newKey);
-              if (r.ok) setNewKey("");
-              return r;
-            })}>Add</Button>
+          <div className="mt-3 space-y-2">
+            <Input value={newKeyName} onChange={(e) => setNewKeyName(e.target.value)} placeholder="key name (optional, e.g. primary)" />
+            <div className="flex gap-2">
+              <Input value={newKey} onChange={(e) => setNewKey(e.target.value)} placeholder="add a key…" className="font-mono text-[12.5px]" />
+              <Button disabled={!newKey || busy === "addkey"} onClick={() => run("addkey", async () => {
+                const r = await adminApi.addKey(id, newKey, newKeyName.trim() || undefined);
+                if (r.ok) { setNewKey(""); setNewKeyName(""); }
+                return r;
+              })}>Add</Button>
+            </div>
           </div>
         </RichCard>
 
@@ -302,14 +493,26 @@ export function ProviderDetail({ id }: { id: string }) {
       )}
 
       <div className="mt-6">
-        <Button variant="danger" disabled={busy === "rmprov"} onClick={() => run("rmprov", async () => {
-          const r = await adminApi.removeProvider(id);
-          if (r.ok) router.push("/providers");
-          return r;
-        })}>
+        <Button variant="danger" onClick={() => setConfirmDelete(true)}>
           <Icon name="delete" size={16} /> Remove provider
         </Button>
       </div>
+
+      {confirmDelete && (
+        <ConfirmModal
+          title="Remove provider"
+          message={`Delete "${provider.name ?? id}"? All keys and model associations will be lost.`}
+          confirmLabel="Remove"
+          busy={busy === "rmprov"}
+          onCancel={() => setConfirmDelete(false)}
+          onConfirm={() => run("rmprov", async () => {
+            const r = await adminApi.removeProvider(id);
+            if (r.ok) router.push("/providers");
+            else setConfirmDelete(false);
+            return r;
+          })}
+        />
+      )}
     </div>
   );
 }

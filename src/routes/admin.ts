@@ -22,6 +22,10 @@ import {
   removeProvider,
   addProviderKey,
   removeProviderKey,
+  editProviderKey,
+  reorderProviderKey,
+  toggleProviderKey,
+  setProviderStrategy,
   addProviderModel,
   removeProviderModel,
   addProviderModels,
@@ -40,6 +44,7 @@ import {
 import { pingProvider } from "../upstream/client.js";
 import { handle, GatewayError } from "../core/handler.js";
 import { fetchModels } from "../providers/free.js";
+import { consoleBuffer } from "../core/console-buffer.js";
 
 export interface AdminDeps {
   state: GatewayState;
@@ -53,6 +58,13 @@ function maskedConfig(config: Config): Config {
   for (const p of clone.providers) {
     if (p.api_key) p.api_key = maskKey(p.api_key);
     if (p.api_keys) p.api_keys = p.api_keys.map(maskKey);
+    // key_names is keyed by the RAW key — re-key to the masked form so real keys
+    // never leak through /admin/config.
+    if (p.key_names) {
+      p.key_names = Object.fromEntries(
+        Object.entries(p.key_names).map(([k, name]) => [maskKey(k), name]),
+      );
+    }
   }
   clone.server.api_keys = clone.server.api_keys.map(maskKey);
   // key_names is keyed by the RAW key — re-key it to the masked form so real
@@ -185,8 +197,8 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
 
   app.put("/admin/providers/:id", requireAdmin, (req, reply) => {
     const { id } = req.params as { id: string };
-    const b = req.body as { base_url?: string; format?: Provider["format"] };
-    applyMutation(reply, (c) => editProvider(c, id, { base_url: b?.base_url, format: b?.format }));
+    const b = req.body as { base_url?: string; format?: Provider["format"]; name?: string };
+    applyMutation(reply, (c) => editProvider(c, id, { base_url: b?.base_url, format: b?.format, name: b?.name }));
   });
 
   app.delete("/admin/providers/:id", requireAdmin, (req, reply) => {
@@ -196,9 +208,18 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
 
   app.post("/admin/providers/:id/keys", requireAdmin, (req, reply) => {
     const { id } = req.params as { id: string };
-    const b = req.body as { key?: string };
+    const b = req.body as { key?: string; name?: string };
     if (!b?.key) return reply.code(400).send({ error: "key required" });
-    applyMutation(reply, (c) => addProviderKey(c, id, b.key!));
+    applyMutation(reply, (c) => addProviderKey(c, id, b.key!, b.name));
+  });
+
+  // edit ONE provider key: rename and/or swap its value (9router-style).
+  app.put("/admin/providers/:id/keys/:index", requireAdmin, (req, reply) => {
+    const { id, index } = req.params as { id: string; index: string };
+    const i = Number(index);
+    if (!Number.isInteger(i)) return reply.code(400).send({ error: "index must be an integer" });
+    const b = req.body as { key?: string; name?: string };
+    applyMutation(reply, (c) => editProviderKey(c, id, i, { key: b?.key, name: b?.name }));
   });
 
   app.delete("/admin/providers/:id/keys/:index", requireAdmin, (req, reply) => {
@@ -206,6 +227,30 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     const i = Number(index);
     if (!Number.isInteger(i)) return reply.code(400).send({ error: "index must be an integer" });
     applyMutation(reply, (c) => removeProviderKey(c, id, i));
+  });
+
+  app.put("/admin/providers/:id/keys/reorder", requireAdmin, (req, reply) => {
+    const { id } = req.params as { id: string };
+    const b = req.body as { from?: number; to?: number };
+    if (!Number.isInteger(b?.from) || !Number.isInteger(b?.to)) {
+      return reply.code(400).send({ error: "from and to must be integers" });
+    }
+    applyMutation(reply, (c) => reorderProviderKey(c, id, b.from!, b.to!));
+  });
+
+  app.put("/admin/providers/:id/keys/:index/toggle", requireAdmin, (req, reply) => {
+    const { id, index } = req.params as { id: string; index: string };
+    const i = Number(index);
+    if (!Number.isInteger(i)) return reply.code(400).send({ error: "index must be an integer" });
+    const b = req.body as { enabled?: boolean };
+    if (typeof b?.enabled !== "boolean") return reply.code(400).send({ error: "enabled (boolean) required" });
+    applyMutation(reply, (c) => toggleProviderKey(c, id, i, b.enabled!));
+  });
+
+  app.put("/admin/providers/:id/strategy", requireAdmin, (req, reply) => {
+    const { id } = req.params as { id: string };
+    const b = req.body as { strategy?: "fallback" | "round-robin" | null; sticky?: number };
+    applyMutation(reply, (c) => setProviderStrategy(c, id, b?.strategy ?? null, b?.sticky));
   });
 
   // reveal ONE raw provider key (the "show key" button). Index mirrors how the
@@ -419,6 +464,30 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
       return reply.code(404).send({ error: "key index out of range" });
     }
     reply.send({ key: keys[i] });
+  });
+
+  // ---- console log SSE stream ----
+
+  app.get("/admin/console/stream", requireAdmin, (req, reply) => {
+    reply.raw.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    });
+
+    const recent = consoleBuffer.recent();
+    reply.raw.write(`data: ${JSON.stringify({ type: "init", logs: recent })}\n\n`);
+
+    const unsub = consoleBuffer.subscribe((entry) => {
+      reply.raw.write(`data: ${JSON.stringify({ type: "line", ...entry })}\n\n`);
+    });
+
+    req.raw.on("close", unsub);
+  });
+
+  app.delete("/admin/console", requireAdmin, (_req, reply) => {
+    consoleBuffer.clear();
+    reply.send({ ok: true });
   });
 }
 

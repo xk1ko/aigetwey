@@ -5,6 +5,7 @@ import { registerRoutes } from "./routes/index.js";
 import { GatewayState } from "./core/state.js";
 import { UsageDB } from "./db.js";
 import { QuotaTracker } from "./core/quota.js";
+import { consoleBuffer } from "./core/console-buffer.js";
 
 async function main(): Promise<void> {
   const configPath = resolve(process.env.AIGETWEY_CONFIG ?? "config.yaml");
@@ -38,6 +39,21 @@ async function main(): Promise<void> {
   const adminPassword = process.env.AIGETWEY_ADMIN_PASSWORD;
 
   registerRoutes(app, state, db, adminPassword);
+
+  // Pipe Fastify pino logs into the console buffer for the dashboard SSE viewer.
+  const origWrite = process.stdout.write.bind(process.stdout);
+  process.stdout.write = (chunk: string | Uint8Array, ...args: unknown[]): boolean => {
+    const str = typeof chunk === "string" ? chunk : Buffer.from(chunk).toString();
+    for (const line of str.split("\n").filter(Boolean)) {
+      let level: "LOG" | "INFO" | "WARN" | "ERROR" | "DEBUG" = "LOG";
+      if (line.includes('"level":30') || line.includes('"INFO"')) level = "INFO";
+      else if (line.includes('"level":40') || line.includes('"WARN"')) level = "WARN";
+      else if (line.includes('"level":50') || line.includes('"ERROR"')) level = "ERROR";
+      else if (line.includes('"level":20') || line.includes('"DEBUG"')) level = "DEBUG";
+      consoleBuffer.push(level, line);
+    }
+    return origWrite(chunk, ...(args as [BufferEncoding, (err?: Error | null) => void]));
+  };
 
   const close = () => {
     db.close();

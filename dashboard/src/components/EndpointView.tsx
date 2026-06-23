@@ -26,7 +26,6 @@ export function EndpointView() {
   const [busy, setBusy] = useState("");
   const [newKey, setNewKey] = useState("");
   const [keyName, setKeyName] = useState("");
-  const [manual, setManual] = useState(false);
   const [created, setCreated] = useState<{ key: string; name: string } | null>(null);
 
   const reload = useCallback(async () => {
@@ -73,7 +72,6 @@ export function EndpointView() {
     setError("");
     setKeyName("");
     setNewKey("");
-    setManual(false);
     setCreated({ key: rawKey, name });
     await reload();
   }
@@ -105,7 +103,7 @@ export function EndpointView() {
               {ep.keys.map((k, i) => (
                 <div key={i} className="flex items-center justify-between gap-2 rounded-brand border border-border-subtle px-3 py-2">
                   <div className="flex min-w-0 flex-col gap-0.5">
-                    {k.name && <span className="text-[12px] font-medium text-text">{k.name}</span>}
+                    {k.name && <span className="text-[12px] font-semibold text-text-muted">{k.name}</span>}
                     <KeyReveal
                       masked={k.key}
                       reveal={async () => {
@@ -123,25 +121,29 @@ export function EndpointView() {
           )}
           <div className="mt-3 space-y-2">
             <Input value={keyName} onChange={(e) => setKeyName(e.target.value)} placeholder="key name (e.g. Claude Code)" />
-            {/* one-click generate is the primary path (like 9router) */}
-            <Button
-              disabled={busy === "genkey"}
-              className="w-full"
-              onClick={() => addKey(keyName, generateKey())}
-            >
-              <Icon name="add" size={16} /> {busy === "genkey" ? "Generating…" : "Generate key"}
-            </Button>
-            <button onClick={() => setManual((v) => !v)} className="text-[12px] text-text-subtle hover:text-text">
-              {manual ? "Hide manual entry" : "Or enter a key manually"}
-            </button>
-            {manual && (
-              <div className="flex gap-2">
-                <Input value={newKey} onChange={(e) => setNewKey(e.target.value)} placeholder="paste a key…" />
-                <Button variant="ghost" disabled={!newKey || busy === "genkey"} onClick={() => addKey(keyName, newKey)}>
-                  Add
-                </Button>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Input
+                  value={newKey}
+                  onChange={(e) => setNewKey(e.target.value)}
+                  placeholder="type a custom key, or roll the dice →"
+                  className="pr-9 font-mono text-[12.5px]"
+                />
+                <button
+                  type="button"
+                  onClick={() => setNewKey(generateKey())}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-text-subtle hover:text-accent"
+                  aria-label="Generate a random key"
+                  title="Generate a random key"
+                >
+                  <Icon name="casino" size={16} />
+                </button>
               </div>
-            )}
+              <Button disabled={!newKey.trim() || busy === "genkey"} onClick={() => addKey(keyName, newKey.trim())}>
+                <Icon name="add" size={16} /> {busy === "genkey" ? "Adding…" : "Add key"}
+              </Button>
+            </div>
+            <p className="text-[11px] text-text-subtle">Name it, then type your own key or click the dice for a random one.</p>
           </div>
         </RichCard>
 

@@ -6,8 +6,7 @@ import { adminApi } from "@/lib/client";
 import { Lamp } from "@/components/Lamp";
 import { Badge, FormatBadge } from "@/components/Badge";
 import { CooldownTimer } from "@/components/CooldownTimer";
-import { Button, Input, Select, Field } from "@/components/Button";
-import { Checkbox } from "@/components/Checkbox";
+import { Button, Input, Field } from "@/components/Button";
 import { Icon } from "@/components/Icon";
 import { fmt, Empty } from "@/components/ui";
 import type { MaskedConfig, PingResult, ProviderSnapshot, QuotaSnapshot, WireFormat } from "@/lib/gateway";
@@ -89,7 +88,10 @@ export function ProviderManager() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
                     <Lamp state={healthy ? "live" : "down"} />
-                    <span className="truncate text-[14px] font-semibold text-text">{p.id}</span>
+                    <div className="min-w-0">
+                      <span className="block truncate text-[14px] font-semibold text-text">{p.name || p.id}</span>
+                      {p.name && <span className="block truncate text-[11px] text-text-subtle">{p.id}/</span>}
+                    </div>
                   </div>
                   <FormatBadge format={p.format} />
                 </div>
@@ -150,35 +152,13 @@ const PRESETS: Preset[] = [
   },
 ];
 
-/** Centered modal shell (overlay + click-outside), matching 9router's add flow. */
-function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-6 sm:p-10" onClick={onClose}>
-      <div
-        className="w-full max-w-xl rounded-brand-lg border border-border bg-surface shadow-elevated"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between border-b border-border-subtle px-5 py-3.5">
-          <h2 className="text-[14px] font-semibold text-text">{title}</h2>
-          <button onClick={onClose} className="text-text-subtle hover:text-text" aria-label="Close">
-            <Icon name="close" size={18} />
-          </button>
-        </div>
-        <div className="p-5">{children}</div>
-      </div>
-    </div>
-  );
-}
-
 function AddProviderForm({ onDone, onClose }: { onDone: () => void; onClose: () => void }) {
   const [preset, setPreset] = useState<Preset | null>(null);
   const [id, setId] = useState("");
-  const [format, setFormat] = useState<WireFormat>("openai");
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [modelId, setModelId] = useState("");
-  const [free, setFree] = useState(false);
   const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(false);
   const [checkRes, setCheckRes] = useState<PingResult | null>(null);
@@ -186,19 +166,25 @@ function AddProviderForm({ onDone, onClose }: { onDone: () => void; onClose: () 
 
   function choosePreset(p: Preset) {
     setPreset(p);
-    setFormat(p.format);
     setBaseUrl(p.base_url);
     setCheckRes(null);
     setErr("");
-    if (!id) setId(p.id);
   }
 
-  // step 1: pick a type (OpenAI- or Anthropic-compatible). It prefills Base URL
-  // + API Type; only Name + Key remain.
+  // step 1: pick a type (OpenAI- or Anthropic-compatible) — this sets the wire
+  // format + base URL, exactly like 9router's "Add OpenAI/Anthropic Compatible".
   if (!preset) {
     return (
-      <Modal title="Add a provider" onClose={onClose}>
-        <p className="text-[12.5px] text-text-muted">Pick the API your endpoint speaks — the rest is prefilled.</p>
+      <div className="mb-5 rounded-brand-lg border border-border bg-surface p-5 shadow-soft">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-[14px] font-semibold text-text">Add a provider</h2>
+            <p className="mt-0.5 text-[12.5px] text-text-muted">Pick the API your endpoint speaks — the rest is prefilled.</p>
+          </div>
+          <button type="button" onClick={onClose} className="flex-none text-text-subtle hover:text-text" aria-label="Cancel">
+            <Icon name="close" size={18} />
+          </button>
+        </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {PRESETS.map((p) => (
             <button
@@ -218,128 +204,107 @@ function AddProviderForm({ onDone, onClose }: { onDone: () => void; onClose: () 
             </button>
           ))}
         </div>
-      </Modal>
+      </div>
     );
   }
 
   async function check() {
-    if (!baseUrl) {
-      setErr("base URL required to check");
-      return;
-    }
+    if (!baseUrl || !preset) return;
     setChecking(true);
     setCheckRes(null);
-    const r = await adminApi.validateProvider({ format, base_url: baseUrl, api_key: apiKey || undefined });
+    const r = await adminApi.validateProvider({ format: preset.format, base_url: baseUrl, api_key: apiKey || undefined });
     setChecking(false);
     setCheckRes(r.data ?? { ok: false, reachable: false, status: 0, error: r.error });
   }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!id || !baseUrl) {
+    if (!preset || !id || !baseUrl) {
       setErr("name and base URL are required");
       return;
     }
     setBusy(true);
     setErr("");
-    const res = await adminApi.addProvider({ id, format, base_url: baseUrl, api_key: apiKey || undefined, free });
+    const res = await adminApi.addProvider({ id, format: preset.format, base_url: baseUrl, api_key: apiKey || undefined, free: !apiKey.trim() });
     if (!res.ok) {
       setBusy(false);
       setErr(res.error ?? "failed");
       return;
     }
-    // optional seed model, like 9router's "Model ID (optional)" field
     if (modelId.trim()) await adminApi.addModel(id, modelId.trim());
     setBusy(false);
     onDone();
   }
 
+  // step 2: the 9router field set — Name, Base URL, API Key (for Check), Model ID.
   return (
-    <Modal title={`Add ${preset.label}`} onClose={onClose}>
-    <form onSubmit={submit}>
-      <button
-        type="button"
-        onClick={() => { setPreset(null); setCheckRes(null); }}
-        className="mb-3 inline-flex items-center gap-1 text-[12px] text-text-subtle hover:text-text"
-      >
-        <Icon name="arrow_back" size={14} /> change type
-      </button>
+    <div className="mb-5 rounded-brand-lg border border-border bg-surface p-5 shadow-soft">
+      <form onSubmit={submit}>
+        <div className="mb-4 flex items-center gap-2.5 border-b border-border-subtle pb-4">
+          <span className="flex h-8 w-8 items-center justify-center rounded-brand bg-surface-2 text-text-muted">
+            <Icon name={preset.icon} size={17} />
+          </span>
+          <div>
+            <div className="text-[13.5px] font-semibold text-text">{preset.label}</div>
+            <div className="tnum text-[11px] text-text-subtle">{preset.sub}</div>
+          </div>
+          <button
+            type="button"
+            onClick={() => { setPreset(null); setCheckRes(null); }}
+            className="ml-auto inline-flex items-center gap-1 text-[12px] text-text-subtle hover:text-text"
+          >
+            <Icon name="arrow_back" size={14} /> change type
+          </button>
+        </div>
 
-      {/* identity */}
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Name" hint="the id — also the model prefix (name/model)">
-          <Input value={id} onChange={(e) => setId(e.target.value)} placeholder="e.g. openai, Huki" />
-        </Field>
-        <Field label="API Type" hint="wire format this endpoint speaks">
-          <Select value={format} onChange={(e) => setFormat(e.target.value as WireFormat)}>
-            <option value="openai">OpenAI — /v1/chat/completions</option>
-            <option value="anthropic">Anthropic — /v1/messages</option>
-          </Select>
-        </Field>
-        <div className="sm:col-span-2">
+        <div className="space-y-3">
+          <Field label="Name" hint="a friendly id — also the model prefix (name/model)">
+            <Input value={id} onChange={(e) => setId(e.target.value)} placeholder="e.g. openai, huki" />
+          </Field>
           <Field label="Base URL" hint={preset.hint}>
             <Input value={baseUrl} onChange={(e) => { setBaseUrl(e.target.value); setCheckRes(null); }} placeholder={preset.base_url} className="font-mono text-[12.5px]" />
           </Field>
-        </div>
-      </div>
-
-      {/* credentials + check */}
-      <div className="mt-4 border-t border-border-subtle pt-4">
-        <Field label="API Key" hint={free ? "not needed — free / no-auth" : "used for Check and for live requests"}>
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Input
-                type={showKey ? "text" : "password"}
-                value={apiKey}
-                onChange={(e) => { setApiKey(e.target.value); setCheckRes(null); }}
-                placeholder="sk-…"
-                disabled={free}
-                className="font-mono text-[12.5px] pr-9"
-              />
-              {apiKey && (
-                <button type="button" onClick={() => setShowKey((v) => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-text-subtle hover:text-text" aria-label={showKey ? "Hide key" : "Show key"}>
-                  <Icon name={showKey ? "visibility_off" : "visibility"} size={15} />
-                </button>
-              )}
+          <Field label="API Key" hint="used for Check and live requests — leave blank for a free / no-auth endpoint">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Input
+                  type={showKey ? "text" : "password"}
+                  value={apiKey}
+                  onChange={(e) => { setApiKey(e.target.value); setCheckRes(null); }}
+                  placeholder="sk-…"
+                  className="pr-9 font-mono text-[12.5px]"
+                />
+                {apiKey && (
+                  <button type="button" onClick={() => setShowKey((v) => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-text-subtle hover:text-text" aria-label={showKey ? "Hide key" : "Show key"}>
+                    <Icon name={showKey ? "visibility_off" : "visibility"} size={15} />
+                  </button>
+                )}
+              </div>
+              <Button type="button" variant="ghost" disabled={checking || !baseUrl} onClick={check}>
+                <Icon name={checking ? "progress_activity" : "wifi_tethering"} size={15} />
+                {checking ? "Checking…" : "Check"}
+              </Button>
             </div>
-            <Button type="button" variant="ghost" disabled={checking || !baseUrl} onClick={check}>
-              <Icon name={checking ? "progress_activity" : "wifi_tethering"} size={15} />
-              {checking ? "Checking…" : "Check"}
-            </Button>
-          </div>
-        </Field>
-        {checkRes && (
-          <div className="mt-2 flex items-center gap-2 text-[12px]">
-            <Badge tone={checkRes.ok ? "live" : checkRes.reachable ? "warn" : "down"}>
-              {checkRes.ok ? "valid" : checkRes.reachable ? `reachable (${checkRes.status})` : "invalid"}
-            </Badge>
-            {checkRes.error && <span className="text-text-subtle">{checkRes.error}</span>}
-          </div>
-        )}
-      </div>
+          </Field>
+          {checkRes && (
+            <div className="flex items-center gap-2 text-[12px]">
+              <Badge tone={checkRes.ok ? "live" : checkRes.reachable ? "warn" : "down"}>
+                {checkRes.ok ? "valid" : checkRes.reachable ? `reachable (${checkRes.status})` : "invalid"}
+              </Badge>
+              {checkRes.error && <span className="text-text-subtle">{checkRes.error}</span>}
+            </div>
+          )}
+          <Field label="Model ID" hint="optional — seed one if the provider has no /models endpoint">
+            <Input value={modelId} onChange={(e) => setModelId(e.target.value)} placeholder={preset.modelHint} className="font-mono text-[12.5px]" />
+          </Field>
+        </div>
 
-      {/* optional seed model + free toggle */}
-      <div className="mt-4 grid items-end gap-3 border-t border-border-subtle pt-4 sm:grid-cols-2">
-        <Field label="Model ID" hint="optional — seed one if the provider has no /models">
-          <Input value={modelId} onChange={(e) => setModelId(e.target.value)} placeholder={preset.modelHint} className="font-mono text-[12.5px]" />
-        </Field>
-        <label className="flex cursor-pointer items-center gap-2 pb-2 text-[12.5px] text-text-muted">
-          <Checkbox checked={free} onChange={() => setFree((v) => !v)} ariaLabel="Free passthrough" />
-          Free passthrough (no upstream auth)
-        </label>
-      </div>
-
-      {id && (
-        <p className="mt-3 text-[12px] text-text-subtle">
-          Models will be callable as <span className="tnum text-text-muted">{id}/&lt;model&gt;</span>.
-        </p>
-      )}
-      {err && <div className="mt-2 text-[12px] text-danger">{err}</div>}
-      <div className="mt-4 flex justify-end gap-2">
-        <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-        <Button type="submit" disabled={busy}>{busy ? "Adding…" : "Add provider"}</Button>
-      </div>
-    </form>
-    </Modal>
+        {err && <div className="mt-2 text-[12px] text-danger">{err}</div>}
+        <div className="mt-4 flex justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button type="submit" disabled={busy}>{busy ? "Adding…" : "Add provider"}</Button>
+        </div>
+      </form>
+    </div>
   );
 }

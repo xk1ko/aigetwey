@@ -37,10 +37,15 @@ const ProviderModelSchema = z.object({
 const ProviderSchema = z
   .object({
     id: z.string().min(1),
+    name: z.string().optional(),
     format: z.enum(["openai", "anthropic", "gemini"]),
     base_url: z.string().url(),
     api_key: z.string().min(1).optional(),
     api_keys: z.array(z.string().min(1)).optional(),
+    // optional friendly label per key, keyed by the raw key string (like the
+    // server's key_names). api_keys stays a plain string[] so auth/masking paths
+    // are untouched.
+    key_names: z.record(z.string()).optional(),
     // free passthrough (OpenCode Free): no upstream auth required.
     free: z.boolean().default(false),
     // fetch the provider's model catalog at runtime instead of from config.
@@ -50,6 +55,9 @@ const ProviderSchema = z
     models: z.array(ProviderModelSchema).default([]),
     headers: z.record(z.string()).optional(),
     quota: QuotaSchema.optional(),
+    disabled_keys: z.array(z.number().int().nonnegative()).optional(),
+    strategy: z.enum(["fallback", "round-robin"]).optional(),
+    sticky: z.number().int().positive().optional(),
     // base cooldown after a retryable key failure, doubled per consecutive fail.
     cooldown_base_ms: z.number().int().positive().default(1000),
     // keys to try within this provider before falling through to the next.
@@ -384,7 +392,7 @@ export function addProvider(
 export function editProvider(
   config: Config,
   id: string,
-  patch: { base_url?: string; format?: Provider["format"] },
+  patch: { base_url?: string; format?: Provider["format"]; name?: string },
 ): Config {
   const next = cloneConfig(config);
   const p = next.providers.find((x) => x.id === id);
@@ -394,6 +402,7 @@ export function editProvider(
     p.base_url = patch.base_url.trim();
   }
   if (patch.format !== undefined) p.format = patch.format;
+  if (patch.name !== undefined) p.name = patch.name.trim() || undefined;
   return next;
 }
 
@@ -410,13 +419,15 @@ export function removeProvider(config: Config, id: string): Config {
   return next;
 }
 
-export function addProviderKey(config: Config, id: string, key: string): Config {
+export function addProviderKey(config: Config, id: string, key: string, name?: string): Config {
   const next = cloneConfig(config);
   const p = next.providers.find((x) => x.id === id);
   if (!p) throw new Error(`provider "${id}" not found`);
   if (!key.trim()) throw new Error("key must not be empty");
   p.api_keys = [...realKeysOf(p), key];
   delete p.api_key;
+  const label = name?.trim();
+  if (label) p.key_names = { ...(p.key_names ?? {}), [key]: label };
   return next;
 }
 
@@ -431,9 +442,90 @@ export function removeProviderKey(config: Config, id: string, index: number): Co
   if (keys.length <= 1 && !p.free && !p.service_account) {
     throw new Error(`cannot remove the last key of "${id}" — delete the provider instead`);
   }
-  keys.splice(index, 1);
+  const [removed] = keys.splice(index, 1);
   p.api_keys = keys;
   delete p.api_key;
+  if (removed && p.key_names && removed in p.key_names) delete p.key_names[removed];
+  return next;
+}
+
+// Edit one provider key in place: swap its value and/or rename it. Keeps the
+// key's position in the list (so cooldown/health ordering stays meaningful).
+export function editProviderKey(
+  config: Config,
+  id: string,
+  index: number,
+  patch: { key?: string; name?: string },
+): Config {
+  const next = cloneConfig(config);
+  const p = next.providers.find((x) => x.id === id);
+  if (!p) throw new Error(`provider "${id}" not found`);
+  const keys = realKeysOf(p);
+  if (index < 0 || index >= keys.length) throw new Error(`no key at index ${index} for provider "${id}"`);
+  const old = keys[index];
+  if (old === undefined) throw new Error(`no key at index ${index} for provider "${id}"`);
+  const newKey = patch.key?.trim() ? patch.key.trim() : old;
+  keys[index] = newKey;
+  p.api_keys = keys;
+  delete p.api_key;
+  const names = { ...(p.key_names ?? {}) };
+  const oldName = names[old];
+  if (old !== newKey && old in names) delete names[old];
+  // explicit name wins; otherwise carry the old label onto the new key value.
+  const label = patch.name !== undefined ? patch.name.trim() : oldName;
+  if (label) names[newKey] = label;
+  else delete names[newKey];
+  p.key_names = Object.keys(names).length > 0 ? names : undefined;
+  return next;
+}
+
+/** Swap a provider key from one index to another, preserving names. */
+export function reorderProviderKey(config: Config, id: string, from: number, to: number): Config {
+  const next = cloneConfig(config);
+  const p = next.providers.find((x) => x.id === id);
+  if (!p) throw new Error(`provider "${id}" not found`);
+  const keys = realKeysOf(p);
+  if (from < 0 || from >= keys.length) throw new Error(`from index ${from} out of range`);
+  if (to < 0 || to >= keys.length) throw new Error(`to index ${to} out of range`);
+  if (from === to) return next;
+  const [moved] = keys.splice(from, 1);
+  keys.splice(to, 0, moved!);
+  p.api_keys = keys;
+  delete p.api_key;
+  return next;
+}
+
+/** Toggle a key's disabled state. disabled_keys stores indexes of disabled keys. */
+export function toggleProviderKey(config: Config, id: string, index: number, enabled: boolean): Config {
+  const next = cloneConfig(config);
+  const p = next.providers.find((x) => x.id === id);
+  if (!p) throw new Error(`provider "${id}" not found`);
+  const keys = realKeysOf(p);
+  if (index < 0 || index >= keys.length) throw new Error(`key index ${index} out of range`);
+  const disabled = new Set(p.disabled_keys ?? []);
+  if (enabled) disabled.delete(index);
+  else disabled.add(index);
+  p.disabled_keys = disabled.size > 0 ? [...disabled].sort((a, b) => a - b) : undefined;
+  return next;
+}
+
+/** Set per-provider strategy override (round-robin + sticky). */
+export function setProviderStrategy(
+  config: Config,
+  id: string,
+  strategy: "fallback" | "round-robin" | null,
+  sticky?: number,
+): Config {
+  const next = cloneConfig(config);
+  const p = next.providers.find((x) => x.id === id);
+  if (!p) throw new Error(`provider "${id}" not found`);
+  if (strategy === null || strategy === "fallback") {
+    delete p.strategy;
+    delete p.sticky;
+  } else {
+    p.strategy = strategy;
+    p.sticky = sticky && sticky > 0 ? sticky : 1;
+  }
   return next;
 }
 

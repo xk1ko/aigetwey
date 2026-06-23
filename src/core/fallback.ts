@@ -89,7 +89,7 @@ export async function executeWithFallback(
           throw err;
         }
 
-        pool.penalize(provider, key);
+        pool.penalize(provider, key, { message: err.message ?? `HTTP ${err.status}`, status: err.status });
         const moreKeysHere = i < attempts - 1 && pool.hasAvailable(provider);
         log({
           provider: provider.id,

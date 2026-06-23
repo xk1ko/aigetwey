@@ -136,10 +136,13 @@ export interface MaskedRoute {
 }
 export interface MaskedProvider {
   id: string;
+  name?: string;
   format: WireFormat;
   base_url: string;
   api_key?: string;
   api_keys?: string[];
+  /** optional friendly label per key, keyed by the MASKED key string. */
+  key_names?: Record<string, string>;
   free: boolean;
   auto_models: boolean;
   service_account?: string;
@@ -147,6 +150,9 @@ export interface MaskedProvider {
   quota?: { window: "5h" | "daily" | "weekly" | "monthly"; reset_at?: string; timezone: string; limit_tokens?: number };
   cooldown_base_ms: number;
   max_retries: number;
+  disabled_keys?: number[];
+  strategy?: "fallback" | "round-robin";
+  sticky?: number;
 }
 export interface MaskedConfig {
   server: { host: string; port: number; api_keys: string[] };
@@ -184,6 +190,7 @@ export interface KeySnapshot {
   healthy: boolean;
   cooldown_ms: number;
   fail_count: number;
+  last_error: { message: string; status?: number; at: number } | null;
 }
 export interface ProviderSnapshot {
   id: string;

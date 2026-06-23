@@ -19,7 +19,8 @@ const MAIN: NavItem[] = [
 ];
 
 const SYSTEM: NavItem[] = [
-  { href: "/logs", label: "Console Log", icon: "wysiwyg" },
+  { href: "/logs", label: "Request Logs", icon: "wysiwyg" },
+  { href: "/console", label: "Server Console", icon: "terminal" },
   { href: "/config", label: "Settings", icon: "settings" },
 ];
 

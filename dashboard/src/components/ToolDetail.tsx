@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { RichCard, CardTitle } from "@/components/RichCard";
 import { Badge } from "@/components/Badge";
 import { Button, Select } from "@/components/Button";
+import { ModelPicker, type ModelGroup } from "@/components/ModelPicker";
 import { Icon } from "@/components/Icon";
 import { Empty } from "@/components/ui";
 import { adminApi, cliConfig, type CliStatus } from "@/lib/client";
@@ -24,10 +25,22 @@ export function ToolDetail({ id }: { id: string }) {
   const [cliBusy, setCliBusy] = useState<"" | "apply" | "reset">("");
   const [cliMsg, setCliMsg] = useState("");
   const [allModels, setAllModels] = useState<string[]>([]);
+  const [groups, setGroups] = useState<ModelGroup[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [picked, setPicked] = useState<string[]>([]); // openai tools: chosen models
   const [active, setActive] = useState(""); // openai tools: default/active model
   const [slots, setSlots] = useState({ opus: "", sonnet: "", haiku: "" }); // claude
   const isAnthropic = tool?.format === "anthropic";
+
+  function togglePicked(v: string) {
+    if (picked.includes(v)) {
+      setPicked((p) => p.filter((x) => x !== v));
+      if (active === v) setActive("");
+    } else {
+      setPicked((p) => [...p, v]);
+      if (!active) setActive(v);
+    }
+  }
 
   const loadCli = useCallback(async () => {
     if (!tool?.autoConfig) return;
@@ -100,6 +113,13 @@ export function ToolDetail({ id }: { id: string }) {
         // everything callable: combo aliases + every provider/model ref.
         const refs = cfg.providers.flatMap((p) => p.models.map((m) => `${p.id}/${m.id}`));
         setAllModels([...aliases, ...refs]);
+        // grouped for the picker: Combos first, then one group per provider.
+        const grps: ModelGroup[] = [];
+        if (aliases.length) grps.push({ label: "Combos", items: aliases.map((a) => ({ value: a, label: a })) });
+        for (const p of cfg.providers) {
+          if (p.models.length) grps.push({ label: p.id, items: p.models.map((m) => ({ value: `${p.id}/${m.id}`, label: `${p.id}/${m.id}` })) });
+        }
+        setGroups(grps);
       }
     })();
   }, []);
@@ -214,17 +234,9 @@ export function ToolDetail({ id }: { id: string }) {
                         )}
                       </div>
                       <div className="mt-1.5 flex items-center gap-2">
-                        <Select
-                          value=""
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            if (v && !picked.includes(v)) { setPicked((p) => [...p, v]); setActive((a) => a || v); }
-                          }}
-                          className="max-w-[260px]"
-                        >
-                          <option value="">Add a model…</option>
-                          {allModels.filter((m) => !picked.includes(m)).map((m) => <option key={m} value={m}>{m}</option>)}
-                        </Select>
+                        <Button type="button" variant="ghost" onClick={() => setPickerOpen(true)}>
+                          <Icon name="add" size={15} /> Add models
+                        </Button>
                         <span className="text-[11.5px] text-text-subtle">
                           {active ? <>active: <span className="tnum text-accent">{active}</span></> : picked.length ? "click a chip to set active" : ""}
                         </span>
@@ -344,6 +356,17 @@ export function ToolDetail({ id }: { id: string }) {
           </ol>
         </RichCard>
       </div>
+
+      {pickerOpen && (
+        <ModelPicker
+          title="Add models"
+          note="Click a model to add it, click again to remove. Then hit Apply."
+          groups={groups}
+          selected={picked}
+          onToggle={togglePicked}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
     </div>
   );
 }

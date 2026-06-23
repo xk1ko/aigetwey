@@ -15,14 +15,33 @@ function gatewayUrl(): string {
   return (process.env.GATEWAY_URL ?? "http://127.0.0.1:18080").replace(/\/$/, "");
 }
 
-async function proxy(req: NextRequest, path: string[]): Promise<NextResponse> {
-  // only the admin surface is proxiable — never /v1/* or arbitrary paths.
+async function proxy(req: NextRequest, path: string[]): Promise<NextResponse | Response> {
   const sub = path.join("/");
   if (!sub.startsWith("admin/")) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
   const search = req.nextUrl.search;
   const target = `${gatewayUrl()}/${sub}${search}`;
+
+  // SSE passthrough for console stream
+  if (sub === "admin/console/stream") {
+    try {
+      const res = await fetch(target, {
+        headers: { authorization: `Bearer ${adminPassword()}` },
+        cache: "no-store",
+      });
+      if (!res.body) return NextResponse.json({ error: "no stream" }, { status: 502 });
+      return new Response(res.body, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      });
+    } catch (e) {
+      return NextResponse.json({ error: `gateway unreachable: ${(e as Error).message}` }, { status: 502 });
+    }
+  }
 
   const hasBody = req.method !== "GET" && req.method !== "DELETE";
   let body: string | undefined;
@@ -46,7 +65,6 @@ async function proxy(req: NextRequest, path: string[]): Promise<NextResponse> {
   }
 
   const text = await res.text();
-  // pass the gateway's status + JSON straight through.
   return new NextResponse(text || "{}", {
     status: res.status,
     headers: { "content-type": "application/json" },
@@ -55,15 +73,15 @@ async function proxy(req: NextRequest, path: string[]): Promise<NextResponse> {
 
 type Ctx = { params: Promise<{ path: string[] }> };
 
-export async function GET(req: NextRequest, ctx: Ctx): Promise<NextResponse> {
+export async function GET(req: NextRequest, ctx: Ctx) {
   return proxy(req, (await ctx.params).path);
 }
-export async function POST(req: NextRequest, ctx: Ctx): Promise<NextResponse> {
+export async function POST(req: NextRequest, ctx: Ctx) {
   return proxy(req, (await ctx.params).path);
 }
-export async function PUT(req: NextRequest, ctx: Ctx): Promise<NextResponse> {
+export async function PUT(req: NextRequest, ctx: Ctx) {
   return proxy(req, (await ctx.params).path);
 }
-export async function DELETE(req: NextRequest, ctx: Ctx): Promise<NextResponse> {
+export async function DELETE(req: NextRequest, ctx: Ctx) {
   return proxy(req, (await ctx.params).path);
 }
