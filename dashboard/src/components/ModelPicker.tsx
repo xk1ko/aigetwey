@@ -100,6 +100,13 @@ export function ModelPicker({
           )}
         </div>
 
+        <div className="border-t border-border-subtle px-4 py-2 text-[11px] text-text-subtle">
+          <Icon name="neurology" size={12} className="mr-1 inline align-text-bottom text-warning" />
+          Reasoning models accept a thinking suffix — call{" "}
+          <code className="rounded bg-surface-2 px-1 text-text-muted">model(high)</code> or{" "}
+          <code className="rounded bg-surface-2 px-1 text-text-muted">model(none)</code> (high·low·medium·minimal·auto·none·or a token budget).
+        </div>
+
         <div className="flex items-center justify-between border-t border-border-subtle px-4 py-3">
           <span className="tnum text-[12px] text-text-subtle">{selected.length} selected</span>
           <button onClick={onClose} className="rounded-brand bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-accent-ink hover:bg-accent-hover">
