@@ -9,7 +9,7 @@ import { Icon } from "./Icon";
  * string the dashboard renders everywhere; `reveal` lazily fetches the real key
  * (admin-gated) the first time it's shown, then we cache it for copy/hide.
  */
-export function KeyReveal({ masked, reveal }: { masked: string; reveal: () => Promise<string | null> }) {
+export function KeyReveal({ masked, reveal, className }: { masked: string; reveal: () => Promise<string | null>; className?: string }) {
   const [real, setReal] = useState<string | null>(null);
   const [shown, setShown] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -33,8 +33,8 @@ export function KeyReveal({ masked, reveal }: { masked: string; reveal: () => Pr
   const display = shown && real !== null ? real : masked;
 
   return (
-    <span className="flex min-w-0 items-center gap-1.5">
-      <span className="tnum truncate text-[12.5px] text-text">{display}</span>
+    <span className={`flex min-w-0 items-center gap-1.5${className ? ` ${className}` : ""}`}>
+      <span className="tnum flex-1 truncate text-[12.5px] text-text">{display}</span>
       <button
         type="button"
         onClick={toggle}

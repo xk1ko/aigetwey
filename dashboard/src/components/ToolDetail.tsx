@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RichCard, CardTitle } from "@/components/RichCard";
 import { Badge } from "@/components/Badge";
-import { Select } from "@/components/Button";
+import { Button, Select } from "@/components/Button";
 import { Icon } from "@/components/Icon";
 import { Empty } from "@/components/ui";
-import { adminApi } from "@/lib/client";
+import { adminApi, cliConfig, type CliStatus } from "@/lib/client";
 import { toolById } from "@/lib/cliTools";
 import type { EndpointPayload, MaskedConfig } from "@/lib/gateway";
 
@@ -20,6 +20,48 @@ export function ToolDetail({ id }: { id: string }) {
   const [keyIdx, setKeyIdx] = useState(0);
   const [realKey, setRealKey] = useState("");
   const [error, setError] = useState("");
+  const [cli, setCli] = useState<CliStatus | null>(null);
+  const [cliBusy, setCliBusy] = useState<"" | "apply" | "reset">("");
+  const [cliMsg, setCliMsg] = useState("");
+
+  const loadCli = useCallback(async () => {
+    if (!tool?.autoConfig) return;
+    const r = await cliConfig.status(tool.id);
+    setCli(r.data);
+  }, [tool]);
+  useEffect(() => { void loadCli(); }, [loadCli]);
+
+  async function applyCli() {
+    if (!tool || !ep) return;
+    setCliBusy("apply");
+    setCliMsg("");
+    const baseUrl = `http://127.0.0.1:${ep.port}`;
+    // claude maps slots to opus/sonnet/haiku defaults (only those whose combo
+    // exists); opencode takes a flat list of model names (your combos).
+    let models: string[] | Record<string, string>;
+    if (tool.id === "claude-code") {
+      const slotKeys = ["opus", "sonnet", "haiku"];
+      const m: Record<string, string> = {};
+      tool.slots.forEach((s, i) => { if (combos.includes(s.alias)) m[slotKeys[i]] = s.alias; });
+      models = m;
+    } else {
+      models = combos.length ? combos : tool.slots.map((s) => s.alias);
+    }
+    const r = await cliConfig.apply(tool.id, { base: baseUrl, key: realKey || undefined, models });
+    setCliBusy("");
+    if (r.ok) { setCliMsg("Wrote config ✓"); void loadCli(); }
+    else setCliMsg(r.error ?? "failed");
+  }
+
+  async function resetCli() {
+    if (!tool) return;
+    setCliBusy("reset");
+    setCliMsg("");
+    const r = await cliConfig.reset(tool.id);
+    setCliBusy("");
+    if (r.ok) { setCliMsg("Removed gateway config ✓"); void loadCli(); }
+    else setCliMsg(r.error ?? "failed");
+  }
 
   useEffect(() => {
     void (async () => {
@@ -66,6 +108,56 @@ export function ToolDetail({ id }: { id: string }) {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
+        {tool.autoConfig && (
+          <RichCard
+            className="lg:col-span-2"
+            header={
+              <>
+                <CardTitle title="Local setup" sub="detect this tool on your machine and write its config for you" />
+                {cli && (
+                  <Badge tone={!cli.installed ? "neutral" : cli.configured ? "live" : "warn"}>
+                    {!cli.installed ? "not detected" : cli.configured ? "configured" : "detected"}
+                  </Badge>
+                )}
+              </>
+            }
+          >
+            {!cli ? (
+              <p className="text-[12.5px] text-text-subtle">Checking your machine…</p>
+            ) : !cli.installed ? (
+              <p className="text-[12.5px] text-text-muted">
+                Not found on this machine. Install it (above) or paste the manual env below — then re-open this page.
+              </p>
+            ) : (
+              <>
+                <p className="text-[12.5px] text-text-muted">
+                  {cli.configured ? (
+                    <>Already pointed at <span className="tnum text-text">{cli.baseUrl}</span>.</>
+                  ) : (
+                    <>Detected — click Apply to point it at this gateway automatically.</>
+                  )}
+                </p>
+                {cli.path && <p className="mt-1 tnum text-[11px] text-text-subtle">{cli.path}</p>}
+                {cli.models && cli.models.length > 0 && (
+                  <p className="mt-1 text-[11.5px] text-text-subtle">models: <span className="tnum text-text-muted">{cli.models.join(", ")}</span></p>
+                )}
+                <div className="mt-3 flex items-center gap-2">
+                  <Button onClick={applyCli} disabled={cliBusy === "apply"}>
+                    <Icon name={cliBusy === "apply" ? "progress_activity" : "bolt"} size={15} />
+                    {cliBusy === "apply" ? "Applying…" : cli.configured ? "Re-apply" : "Apply config"}
+                  </Button>
+                  {cli.configured && (
+                    <Button variant="ghost" onClick={resetCli} disabled={cliBusy === "reset"}>
+                      {cliBusy === "reset" ? "Removing…" : "Reset"}
+                    </Button>
+                  )}
+                  {cliMsg && <span className="text-[12px] text-text-subtle">{cliMsg}</span>}
+                </div>
+              </>
+            )}
+          </RichCard>
+        )}
+
         {tool.install && (
           <RichCard header={<CardTitle title="Install" />}>
             <CopyBlock text={tool.install} />

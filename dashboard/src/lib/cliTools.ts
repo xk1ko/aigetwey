@@ -17,6 +17,8 @@ export interface CliTool {
   icon: string;
   format: ToolFormat;
   blurb: string;
+  /** true when the dashboard can detect + write this tool's local config file. */
+  autoConfig?: boolean;
   /** one-line install command, when the tool ships via a package manager. */
   install?: string;
   /** model names the tool sends — pair each with a combo of the same name. */
@@ -36,6 +38,7 @@ export const CLI_TOOLS: CliTool[] = [
     icon: "smart_toy",
     format: "anthropic",
     blurb: "Anthropic CLI. Point its base URL + key at the gateway.",
+    autoConfig: true,
     install: "npm i -g @anthropic-ai/claude-code",
     slots: [
       { label: "Opus · heavy", alias: "claude-opus-4-1" },
@@ -72,6 +75,7 @@ export const CLI_TOOLS: CliTool[] = [
     icon: "code_blocks",
     format: "openai",
     blurb: "OpenAI-compatible provider. Set base_url to /v1.",
+    autoConfig: true,
     install: "curl -fsSL https://opencode.ai/install | bash",
     slots: [{ label: "Model", alias: "gpt-5" }],
     env: (base, key) => [

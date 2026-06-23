@@ -26,11 +26,18 @@ export function ProviderDetail({ id }: { id: string }) {
   const [modelFilter, setModelFilter] = useState("");
   const [discovered, setDiscovered] = useState<DiscoveredModel[] | null>(null);
   const [modelTest, setModelTest] = useState<Record<string, "testing" | "ok" | "fail">>({});
+  const [keyTest, setKeyTest] = useState<Record<number, "testing" | PingResult>>({});
 
   async function testModel(mid: string) {
     setModelTest((t) => ({ ...t, [mid]: "testing" }));
     const r = await adminApi.testModel(id, mid);
     setModelTest((t) => ({ ...t, [mid]: r.ok && r.data?.ok ? "ok" : "fail" }));
+  }
+
+  async function testKey(i: number) {
+    setKeyTest((t) => ({ ...t, [i]: "testing" }));
+    const r = await adminApi.testKey(id, i);
+    setKeyTest((t) => ({ ...t, [i]: r.data ?? { ok: false, reachable: false, status: 0, error: r.error } }));
   }
 
   const reload = useCallback(async () => {
@@ -127,11 +134,16 @@ export function ProviderDetail({ id }: { id: string }) {
             <div className="space-y-1.5">
               {keys.map((k, i) => {
                 const ks = health?.keys[i];
+                const test = keyTest[i];
+                const tested = test && test !== "testing" ? test : null;
+                // local test result (if any) wins over the rolling health lamp.
+                const lamp = tested ? (tested.ok ? "live" : tested.reachable ? "idle" : "down") : ks ? (ks.healthy ? "live" : "down") : "idle";
                 return (
-                  <div key={i} className="flex items-center justify-between rounded-brand border border-border-subtle px-3 py-2">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <Lamp state={ks ? (ks.healthy ? "live" : "down") : "idle"} />
+                  <div key={i} className="rounded-brand border border-border-subtle px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <Lamp state={lamp} />
                       <KeyReveal
+                        className="flex-1"
                         masked={k}
                         reveal={async () => {
                           const r = await adminApi.revealKey(id, i);
@@ -139,14 +151,31 @@ export function ProviderDetail({ id }: { id: string }) {
                         }}
                       />
                       {ks && ks.cooldown_ms > 0 && <CooldownTimer ms={ks.cooldown_ms} />}
+                      <button
+                        onClick={() => testKey(i)}
+                        disabled={test === "testing"}
+                        className="flex-none rounded p-1 text-text-subtle transition-colors hover:bg-bg hover:text-accent disabled:opacity-60"
+                        aria-label={`Check key ${i + 1}`}
+                        title="Check this key against the base URL"
+                      >
+                        <Icon name={test === "testing" ? "progress_activity" : "wifi_tethering"} size={15} />
+                      </button>
+                      <button
+                        onClick={() => run(`rmkey${i}`, () => adminApi.removeKey(id, i))}
+                        className="flex-none rounded p-1 text-text-subtle transition-colors hover:bg-bg hover:text-danger"
+                        aria-label="Remove key"
+                      >
+                        <Icon name="delete" size={16} />
+                      </button>
                     </div>
-                    <button
-                      onClick={() => run(`rmkey${i}`, () => adminApi.removeKey(id, i))}
-                      className="text-text-subtle hover:text-danger"
-                      aria-label="Remove key"
-                    >
-                      <Icon name="delete" size={16} />
-                    </button>
+                    {tested && (
+                      <div className="mt-1.5 flex items-center gap-2 pl-4 text-[11.5px]">
+                        <Badge tone={tested.ok ? "live" : tested.reachable ? "warn" : "down"}>
+                          {tested.ok ? "valid" : tested.reachable ? `reachable (${tested.status})` : "invalid"}
+                        </Badge>
+                        {tested.error && <span className="truncate text-text-subtle">{tested.error}</span>}
+                      </div>
+                    )}
                   </div>
                 );
               })}

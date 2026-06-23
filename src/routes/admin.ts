@@ -37,7 +37,8 @@ import {
   type Provider,
   type EndpointSettings,
 } from "../config.js";
-import { pingProvider, callUpstream, type UpstreamError } from "../upstream/client.js";
+import { pingProvider } from "../upstream/client.js";
+import { handle, GatewayError } from "../core/handler.js";
 import { fetchModels } from "../providers/free.js";
 
 export interface AdminDeps {
@@ -233,14 +234,14 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     applyMutation(reply, (c) => addProviderModel(c, id, b.model!, { price_in: b.price_in, price_out: b.price_out }));
   });
 
+  // remove one model (?model=<id>) or clear all (no query). Model ids can hold
+  // slashes (e.g. "anthropic/claude-opus-4-6"); a %2F path segment gets re-split
+  // by the dashboard proxy, so the id travels as a query param instead.
   app.delete("/admin/providers/:id/models", requireAdmin, (req, reply) => {
     const { id } = req.params as { id: string };
+    const model = (req.query as { model?: string }).model;
+    if (model) return applyMutation(reply, (c) => removeProviderModel(c, id, model));
     applyMutation(reply, (c) => clearProviderModels(c, id));
-  });
-
-  app.delete("/admin/providers/:id/models/:model", requireAdmin, (req, reply) => {
-    const { id, model } = req.params as { id: string; model: string };
-    applyMutation(reply, (c) => removeProviderModel(c, id, decodeURIComponent(model)));
   });
 
   // Pre-save connectivity check for the add-provider form's "Check" button:
@@ -275,27 +276,45 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     reply.send(await pingProvider(provider, key));
   });
 
-  // Test ONE model end-to-end (9router's per-model science button): send a tiny
-  // non-stream completion to the provider for that model id and report ok/error.
-  // Real upstream call, so it catches "model not found / not entitled" that a
-  // /models ping can't.
-  app.post("/admin/providers/:id/models/:model/test", requireAdmin, async (req, reply) => {
-    const { id, model } = req.params as { id: string; model: string };
+  // Test ONE key: ping the provider's /models with that specific key, so the
+  // operator can tell which of several keys is live. Index is numeric (no slash
+  // hazard), so it stays a path param.
+  app.post("/admin/providers/:id/keys/:index/test", requireAdmin, async (req, reply) => {
+    const { id, index } = req.params as { id: string; index: string };
     const provider = deps.state.config.raw.providers.find((p) => p.id === id);
     if (!provider) return reply.code(404).send({ error: `provider "${id}" not found` });
-    const modelId = decodeURIComponent(model);
-    const key = provider.api_keys?.[0] ?? provider.api_key;
+    const keys = provider.api_keys ?? (provider.api_key ? [provider.api_key] : []);
+    const i = Number(index);
+    if (!Number.isInteger(i) || i < 0 || i >= keys.length) {
+      return reply.code(404).send({ error: "key index out of range" });
+    }
+    reply.send(await pingProvider(provider, keys[i]));
+  });
+
+  // Test ONE model end-to-end (9router's per-model science button). Routes through
+  // the real pipeline via handle(), so the ping lands in usage/quota exactly like
+  // a normal call — and it catches "model not found / not entitled" a /models
+  // ping can't. Model id travels as ?model= to survive slashes through the proxy.
+  app.post("/admin/providers/:id/models/test", requireAdmin, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const modelId = (req.query as { model?: string }).model;
+    if (!modelId) return reply.code(400).send({ error: "model query param required" });
+    const provider = deps.state.config.raw.providers.find((p) => p.id === id);
+    if (!provider) return reply.code(404).send({ error: `provider "${id}" not found` });
     try {
-      await callUpstream(
-        provider,
-        { model: modelId, messages: [{ role: "user", content: "ping" }], max_tokens: 1, stream: false },
-        modelId,
-        { stream: false, key },
+      await handle(
+        { config: deps.state.config, pool: deps.state.pool, db: deps.db, quota: deps.state.quota },
+        "openai",
+        { model: `${id}/${modelId}`, messages: [{ role: "user", content: "ping" }], max_tokens: 1, stream: false },
       );
       reply.send({ ok: true });
     } catch (e) {
-      const err = e as UpstreamError;
-      reply.send({ ok: false, status: err.status, error: err.message });
+      if (e instanceof GatewayError) {
+        const msg = typeof e.payload === "string" ? e.payload
+          : (e.payload as { error?: string })?.error ?? JSON.stringify(e.payload);
+        return reply.send({ ok: false, status: e.status, error: msg });
+      }
+      reply.send({ ok: false, error: (e as Error).message });
     }
   });
 

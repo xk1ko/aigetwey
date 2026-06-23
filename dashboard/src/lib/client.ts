@@ -74,14 +74,18 @@ export const adminApi = {
     api<ConfigReply>("POST", `/admin/providers/${encodeURIComponent(id)}/models`, { model, ...price }),
   addModels: (id: string, models: string[]) =>
     api<ConfigReply>("POST", `/admin/providers/${encodeURIComponent(id)}/models`, { models }),
+  // model id can hold a slash (provider/model); send it as a query param so the
+  // proxy's path split doesn't mangle it.
   removeModel: (id: string, model: string) =>
-    api<ConfigReply>("DELETE", `/admin/providers/${encodeURIComponent(id)}/models/${encodeURIComponent(model)}`),
+    api<ConfigReply>("DELETE", `/admin/providers/${encodeURIComponent(id)}/models?model=${encodeURIComponent(model)}`),
   clearModels: (id: string) => api<ConfigReply>("DELETE", `/admin/providers/${encodeURIComponent(id)}/models`),
   testProvider: (id: string) => api<PingResult>("POST", `/admin/providers/${encodeURIComponent(id)}/test`),
+  testKey: (id: string, index: number) =>
+    api<PingResult>("POST", `/admin/providers/${encodeURIComponent(id)}/keys/${index}/test`),
   testModel: (id: string, model: string) =>
     api<{ ok: boolean; status?: number; error?: string }>(
       "POST",
-      `/admin/providers/${encodeURIComponent(id)}/models/${encodeURIComponent(model)}/test`,
+      `/admin/providers/${encodeURIComponent(id)}/models/test?model=${encodeURIComponent(model)}`,
     ),
   validateProvider: (b: { format: WireFormat; base_url: string; api_key?: string }) =>
     api<PingResult>("POST", "/admin/providers/validate", b),
@@ -107,4 +111,43 @@ export const adminApi = {
   revealServerKey: (index: number) => api<{ key: string }>("GET", `/admin/endpoint/keys/${index}/reveal`),
 
   putConfig: (text: string) => api<{ ok: boolean }>("PUT", "/admin/config", { text }),
+};
+
+// Local CLI-tool detection/auto-config. These hit the dashboard's OWN server
+// routes (/api/cli-detect/*), not the gateway proxy — they read/write the tool's
+// config file on this machine. Session-gated by middleware like everything else.
+export interface CliStatus {
+  auto: boolean;
+  installed: boolean;
+  configured?: boolean;
+  path?: string;
+  baseUrl?: string | null;
+  models?: string[];
+}
+
+async function appApi<T>(method: string, url: string, body?: unknown): Promise<ApiResult<T>> {
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method,
+      headers: body !== undefined ? { "content-type": "application/json" } : {},
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch (e) {
+    return { ok: false, status: 0, data: null, error: (e as Error).message };
+  }
+  const text = await res.text();
+  const data = text ? (JSON.parse(text) as T) : null;
+  if (!res.ok) {
+    const err = (data as { error?: string } | null)?.error ?? `request failed (${res.status})`;
+    return { ok: false, status: res.status, data, error: err };
+  }
+  return { ok: true, status: res.status, data };
+}
+
+export const cliConfig = {
+  status: (tool: string) => appApi<CliStatus>("GET", `/api/cli-detect/${encodeURIComponent(tool)}`),
+  apply: (tool: string, body: { base: string; key?: string; models?: string[] | Record<string, string> }) =>
+    appApi<{ success?: boolean; path?: string }>("POST", `/api/cli-detect/${encodeURIComponent(tool)}`, body),
+  reset: (tool: string) => appApi<{ success?: boolean }>("DELETE", `/api/cli-detect/${encodeURIComponent(tool)}`),
 };

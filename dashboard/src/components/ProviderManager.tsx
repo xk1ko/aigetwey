@@ -10,7 +10,7 @@ import { Button, Input, Select, Field } from "@/components/Button";
 import { Checkbox } from "@/components/Checkbox";
 import { Icon } from "@/components/Icon";
 import { fmt, Empty } from "@/components/ui";
-import type { MaskedConfig, ProviderSnapshot, QuotaSnapshot, WireFormat } from "@/lib/gateway";
+import type { MaskedConfig, PingResult, ProviderSnapshot, QuotaSnapshot, WireFormat } from "@/lib/gateway";
 
 interface Loaded {
   config: MaskedConfig;
@@ -131,14 +131,18 @@ export function ProviderManager() {
 // you only fill Name + Key. Mirrors 9router's per-type forms but friendlier; the
 // fields below are still 9router's (Name, API Type, Base URL, Key + Check, Model
 // ID), minus the separate Prefix — our Name is the id and the model prefix.
-type Preset = { id: string; label: string; sub: string; icon: string; format: WireFormat; base_url: string };
+type Preset = { id: string; label: string; sub: string; icon: string; format: WireFormat; base_url: string; hint: string; modelHint: string };
 const PRESETS: Preset[] = [
-  { id: "openai", label: "OpenAI", sub: "compatible /v1", icon: "bolt", format: "openai", base_url: "https://api.openai.com/v1" },
-  { id: "anthropic", label: "Anthropic", sub: "Claude messages", icon: "smart_toy", format: "anthropic", base_url: "https://api.anthropic.com" },
-  { id: "gemini", label: "Gemini", sub: "Google AI", icon: "auto_awesome", format: "gemini", base_url: "https://generativelanguage.googleapis.com" },
-  { id: "openrouter", label: "OpenRouter", sub: "many models", icon: "hub", format: "openai", base_url: "https://openrouter.ai/api/v1" },
-  { id: "groq", label: "Groq", sub: "fast inference", icon: "speed", format: "openai", base_url: "https://api.groq.com/openai/v1" },
-  { id: "custom", label: "Custom", sub: "blank form", icon: "tune", format: "openai", base_url: "" },
+  {
+    id: "openai", label: "OpenAI compatible", sub: "/v1/chat/completions", icon: "bolt",
+    format: "openai", base_url: "https://api.openai.com/v1",
+    hint: "Base URL ending in /v1 for any OpenAI-compatible API.", modelHint: "e.g. gpt-4o, glm-5.2",
+  },
+  {
+    id: "anthropic", label: "Anthropic compatible", sub: "/v1/messages", icon: "smart_toy",
+    format: "anthropic", base_url: "https://api.anthropic.com",
+    hint: "Base URL of an Anthropic-compatible API; /messages is appended.", modelHint: "e.g. claude-sonnet-4-6",
+  },
 ];
 
 function AddProviderForm({ onDone }: { onDone: () => void }) {
@@ -147,40 +151,46 @@ function AddProviderForm({ onDone }: { onDone: () => void }) {
   const [format, setFormat] = useState<WireFormat>("openai");
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
+  const [showKey, setShowKey] = useState(false);
   const [modelId, setModelId] = useState("");
   const [free, setFree] = useState(false);
   const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(false);
-  const [checkResult, setCheckResult] = useState<null | "ok" | "fail">(null);
+  const [checkRes, setCheckRes] = useState<PingResult | null>(null);
   const [err, setErr] = useState("");
 
   function choosePreset(p: Preset) {
     setPreset(p);
     setFormat(p.format);
     setBaseUrl(p.base_url);
-    setCheckResult(null);
+    setCheckRes(null);
     setErr("");
-    if (!id && p.id !== "custom") setId(p.id);
+    if (!id) setId(p.id);
   }
 
-  // step 1: pick a type. base_url + format come from the preset.
+  // step 1: pick a type (OpenAI- or Anthropic-compatible). It prefills Base URL
+  // + API Type; only Name + Key remain.
   if (!preset) {
     return (
-      <div className="mb-5 rounded-brand-lg border border-border bg-surface p-4 shadow-soft">
-        <span className="text-[11px] font-medium uppercase tracking-wider text-text-subtle">New provider — pick a type</span>
-        <div className="mt-3 grid gap-2.5 sm:grid-cols-3">
+      <div className="mb-5 rounded-brand-lg border border-border bg-surface p-5 shadow-soft">
+        <h2 className="text-[14px] font-semibold text-text">Add a provider</h2>
+        <p className="mt-0.5 text-[12.5px] text-text-muted">Pick the API your endpoint speaks — the rest is prefilled.</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {PRESETS.map((p) => (
             <button
               key={p.id}
               type="button"
               onClick={() => choosePreset(p)}
-              className="flex flex-col items-start gap-1.5 rounded-brand border border-border bg-bg p-3 text-left transition-colors hover:border-accent hover:bg-accent-soft"
+              className="group flex items-start gap-3 rounded-brand-lg border border-border bg-bg p-4 text-left transition-colors hover:border-accent hover:bg-accent-soft"
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-brand bg-surface-2 text-text-muted">
-                <Icon name={p.icon} size={17} />
+              <span className="flex h-10 w-10 flex-none items-center justify-center rounded-brand bg-surface-2 text-text-muted group-hover:text-accent">
+                <Icon name={p.icon} size={20} />
               </span>
-              <span className="text-[13px] font-semibold text-text">{p.label}</span>
-              <span className="text-[11px] text-text-subtle">{p.sub}</span>
+              <span className="min-w-0">
+                <span className="block text-[13.5px] font-semibold text-text">{p.label}</span>
+                <span className="block tnum text-[11.5px] text-text-subtle">{p.sub}</span>
+                <span className="mt-1 block text-[11.5px] text-text-muted">{p.hint}</span>
+              </span>
             </button>
           ))}
         </div>
@@ -194,10 +204,10 @@ function AddProviderForm({ onDone }: { onDone: () => void }) {
       return;
     }
     setChecking(true);
-    setCheckResult(null);
+    setCheckRes(null);
     const r = await adminApi.validateProvider({ format, base_url: baseUrl, api_key: apiKey || undefined });
     setChecking(false);
-    setCheckResult(r.ok && r.data?.reachable ? "ok" : "fail");
+    setCheckRes(r.data ?? { ok: false, reachable: false, status: 0, error: r.error });
   }
 
   async function submit(e: React.FormEvent) {
@@ -221,63 +231,96 @@ function AddProviderForm({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <form onSubmit={submit} className="mb-5 rounded-brand-lg border border-border bg-surface p-4 shadow-soft">
-      <div className="mb-3 flex items-center gap-2">
-        <span className="flex h-7 w-7 items-center justify-center rounded-brand bg-surface-2 text-text-muted">
-          <Icon name={preset.icon} size={15} />
+    <form onSubmit={submit} className="mb-5 rounded-brand-lg border border-border bg-surface p-5 shadow-soft">
+      <div className="mb-4 flex items-center gap-2.5 border-b border-border-subtle pb-4">
+        <span className="flex h-8 w-8 items-center justify-center rounded-brand bg-surface-2 text-text-muted">
+          <Icon name={preset.icon} size={17} />
         </span>
-        <span className="text-[13px] font-semibold text-text">{preset.label}</span>
+        <div>
+          <div className="text-[13.5px] font-semibold text-text">{preset.label}</div>
+          <div className="tnum text-[11px] text-text-subtle">{preset.sub}</div>
+        </div>
         <button
           type="button"
-          onClick={() => { setPreset(null); setCheckResult(null); }}
-          className="ml-auto inline-flex items-center gap-1 text-[12px] text-text-subtle hover:text-text"
+          onClick={() => { setPreset(null); setCheckRes(null); }}
+          className="ml-auto inline-flex items-center gap-1 rounded-brand border border-border px-2.5 py-1.5 text-[12px] text-text-subtle hover:text-text hover:border-text-subtle"
         >
           <Icon name="arrow_back" size={14} /> change type
         </button>
       </div>
+
+      {/* identity */}
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Name" hint="the id — also the model prefix (id/model)">
+        <Field label="Name" hint="the id — also the model prefix (name/model)">
           <Input value={id} onChange={(e) => setId(e.target.value)} placeholder="e.g. openai, Huki" />
         </Field>
-        <Field label="API Type" hint="the wire format this endpoint speaks">
+        <Field label="API Type" hint="wire format this endpoint speaks">
           <Select value={format} onChange={(e) => setFormat(e.target.value as WireFormat)}>
             <option value="openai">OpenAI — /v1/chat/completions</option>
             <option value="anthropic">Anthropic — /v1/messages</option>
-            <option value="gemini">Gemini</option>
           </Select>
         </Field>
-        <Field label="Base URL" hint="ending in /v1 for an OpenAI-compatible API">
-          <Input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://api.openai.com/v1" />
-        </Field>
-        <Field label="API Key" hint={free ? "not needed — free / no-auth" : "optional; used for Check + requests"}>
+        <div className="sm:col-span-2">
+          <Field label="Base URL" hint={preset.hint}>
+            <Input value={baseUrl} onChange={(e) => { setBaseUrl(e.target.value); setCheckRes(null); }} placeholder={preset.base_url} className="font-mono text-[12.5px]" />
+          </Field>
+        </div>
+      </div>
+
+      {/* credentials + check */}
+      <div className="mt-4 border-t border-border-subtle pt-4">
+        <Field label="API Key" hint={free ? "not needed — free / no-auth" : "used for Check and for live requests"}>
           <div className="flex gap-2">
-            <Input
-              value={apiKey}
-              onChange={(e) => { setApiKey(e.target.value); setCheckResult(null); }}
-              placeholder="sk-…"
-              disabled={free}
-              className="flex-1"
-            />
+            <div className="relative flex-1">
+              <Input
+                type={showKey ? "text" : "password"}
+                value={apiKey}
+                onChange={(e) => { setApiKey(e.target.value); setCheckRes(null); }}
+                placeholder="sk-…"
+                disabled={free}
+                className="font-mono text-[12.5px] pr-9"
+              />
+              {apiKey && (
+                <button type="button" onClick={() => setShowKey((v) => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-text-subtle hover:text-text" aria-label={showKey ? "Hide key" : "Show key"}>
+                  <Icon name={showKey ? "visibility_off" : "visibility"} size={15} />
+                </button>
+              )}
+            </div>
             <Button type="button" variant="ghost" disabled={checking || !baseUrl} onClick={check}>
+              <Icon name={checking ? "progress_activity" : "wifi_tethering"} size={15} />
               {checking ? "Checking…" : "Check"}
             </Button>
           </div>
         </Field>
-        <Field label="Model ID" hint="optional — seed one model id (provider lacks /models)">
-          <Input value={modelId} onChange={(e) => setModelId(e.target.value)} placeholder="e.g. gpt-4o" />
-        </Field>
+        {checkRes && (
+          <div className="mt-2 flex items-center gap-2 text-[12px]">
+            <Badge tone={checkRes.ok ? "live" : checkRes.reachable ? "warn" : "down"}>
+              {checkRes.ok ? "valid" : checkRes.reachable ? `reachable (${checkRes.status})` : "invalid"}
+            </Badge>
+            {checkRes.error && <span className="text-text-subtle">{checkRes.error}</span>}
+          </div>
+        )}
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-3">
-        <label className="flex cursor-pointer items-center gap-2 text-[12px] text-text-muted">
+      {/* optional seed model + free toggle */}
+      <div className="mt-4 grid items-end gap-3 border-t border-border-subtle pt-4 sm:grid-cols-2">
+        <Field label="Model ID" hint="optional — seed one if the provider has no /models">
+          <Input value={modelId} onChange={(e) => setModelId(e.target.value)} placeholder={preset.modelHint} className="font-mono text-[12.5px]" />
+        </Field>
+        <label className="flex cursor-pointer items-center gap-2 pb-2 text-[12.5px] text-text-muted">
           <Checkbox checked={free} onChange={() => setFree((v) => !v)} ariaLabel="Free passthrough" />
           Free passthrough (no upstream auth)
         </label>
-        {checkResult && <Badge tone={checkResult === "ok" ? "live" : "down"}>{checkResult === "ok" ? "reachable" : "unreachable"}</Badge>}
       </div>
 
+      {id && (
+        <p className="mt-3 text-[12px] text-text-subtle">
+          Models will be callable as <span className="tnum text-text-muted">{id}/&lt;model&gt;</span>.
+        </p>
+      )}
       {err && <div className="mt-2 text-[12px] text-danger">{err}</div>}
-      <div className="mt-3 flex justify-end">
+      <div className="mt-4 flex justify-end gap-2">
+        <Button type="button" variant="ghost" onClick={() => setPreset(null)}>Back</Button>
         <Button type="submit" disabled={busy}>{busy ? "Adding…" : "Add provider"}</Button>
       </div>
     </form>
