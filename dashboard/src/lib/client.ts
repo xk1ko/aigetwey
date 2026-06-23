@@ -120,6 +120,9 @@ export const adminApi = {
   revealServerKey: (index: number) => api<{ key: string }>("GET", `/admin/endpoint/keys/${index}/reveal`),
 
   putConfig: (text: string) => api<{ ok: boolean }>("PUT", "/admin/config", { text }),
+
+  version: () => api<{ current: string; latest: string | null; updateAvailable: boolean }>("GET", "/admin/version"),
+  shutdown: () => api<{ ok: boolean; message: string }>("POST", "/admin/shutdown"),
 };
 
 // Local CLI-tool detection/auto-config. These hit the dashboard's OWN server

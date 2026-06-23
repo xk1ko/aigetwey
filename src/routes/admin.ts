@@ -10,6 +10,8 @@
  * who forgot what they pasted. Granular provider/combo mutation endpoints land in
  * Phase 11 alongside the dashboard; Phase 5 ships read surfaces + config CRUD.
  */
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import type { GatewayState } from "../core/state.js";
 import type { UsageDB } from "../db.js";
@@ -489,10 +491,66 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     consoleBuffer.clear();
     reply.send({ ok: true });
   });
+
+  // ---- version: current build + best-effort npm "update available" check ----
+  // Mirrors 9router's Sidebar npm version poll. The package is private/unpublished,
+  // so the registry call 404s and `latest` stays null — we never show a false
+  // "update available". If it is ever published, a newer semver flips the flag.
+  app.get("/admin/version", requireAdmin, async (_req, reply) => {
+    const current = readVersion();
+    let latest: string | null = null;
+    try {
+      const res = await fetch("https://registry.npmjs.org/aigetwey/latest", {
+        signal: AbortSignal.timeout(3000),
+      });
+      if (res.ok) {
+        const j = (await res.json()) as { version?: string };
+        latest = j.version ?? null;
+      }
+    } catch {
+      /* offline or unpublished — leave latest null (no update info) */
+    }
+    reply.send({ current, latest, updateAvailable: !!(latest && isNewerVersion(latest, current)) });
+  });
+
+  // ---- shutdown: stop the gateway process (dashboard power button) ----
+  // Mirrors 9router's POST /api/shutdown: reply first, then exit after a short
+  // delay so the response reaches the browser. Admin-gated like everything else;
+  // the DB is closed cleanly (same path as the SIGINT/SIGTERM handler).
+  app.post("/admin/shutdown", requireAdmin, (_req, reply) => {
+    app.log.warn("[admin] shutdown requested via dashboard");
+    reply.send({ ok: true, message: "shutting down" });
+    setTimeout(() => {
+      deps.db?.close();
+      process.exit(0);
+    }, 300);
+  });
 }
 
 function isLevel(v: unknown): v is EndpointSettings["caveman"] {
   return v === "off" || v === "lite" || v === "full" || v === "ultra";
+}
+
+/** Current package version, read from the repo's package.json (cwd). */
+function readVersion(): string {
+  try {
+    const pkg = JSON.parse(readFileSync(resolve(process.cwd(), "package.json"), "utf8")) as { version?: string };
+    return pkg.version ?? "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
+
+/** True if semver `a` is strictly newer than `b` (numeric compare, ignores pre-release). */
+function isNewerVersion(a: string, b: string): boolean {
+  const pa = a.split(".").map((n) => parseInt(n, 10) || 0);
+  const pb = b.split(".").map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const x = pa[i] ?? 0;
+    const y = pb[i] ?? 0;
+    if (x !== y) return x > y;
+  }
+  return false;
 }
 
 /** Endpoint settings: toggles + masked gateway keys + port. */
