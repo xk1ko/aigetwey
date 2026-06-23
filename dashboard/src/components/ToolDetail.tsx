@@ -4,37 +4,51 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RichCard, CardTitle } from "@/components/RichCard";
 import { Badge } from "@/components/Badge";
+import { Select } from "@/components/Button";
 import { Icon } from "@/components/Icon";
 import { Empty } from "@/components/ui";
+import { adminApi } from "@/lib/client";
 import { toolById } from "@/lib/cliTools";
-import type { EndpointPayload } from "@/lib/gateway";
+import type { EndpointPayload, MaskedConfig } from "@/lib/gateway";
 
-/** Step-by-step setup for one CLI tool, with copy-ready env lines. */
+/** Step-by-step setup for one CLI tool, with copy-ready env (real key inlined). */
 export function ToolDetail({ id }: { id: string }) {
   const router = useRouter();
   const tool = toolById(id);
   const [ep, setEp] = useState<EndpointPayload | null>(null);
+  const [combos, setCombos] = useState<string[]>([]);
+  const [keyIdx, setKeyIdx] = useState(0);
+  const [realKey, setRealKey] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
     void (async () => {
-      const res = await fetch("/api/gw/admin/endpoint");
-      if (!res.ok) {
+      const [epRes, cfgRes] = await Promise.all([
+        fetch("/api/gw/admin/endpoint"),
+        fetch("/api/gw/admin/config"),
+      ]);
+      if (!epRes.ok) {
         setError("could not reach the gateway");
         return;
       }
-      setEp((await res.json()) as EndpointPayload);
+      setEp((await epRes.json()) as EndpointPayload);
+      if (cfgRes.ok) setCombos(((await cfgRes.json()) as MaskedConfig).models.map((m) => m.alias));
     })();
   }, []);
+
+  // reveal the selected gateway key so the env block is copy-ready (the whole
+  // point of this page is to paste a working config locally).
+  useEffect(() => {
+    if (!ep || ep.keys.length === 0) return;
+    void adminApi.revealServerKey(keyIdx).then((r) => setRealKey(r.ok ? r.data?.key ?? "" : ""));
+  }, [ep, keyIdx]);
 
   if (!tool) return <Empty>Unknown tool.</Empty>;
   if (error) return <Empty>{error}</Empty>;
   if (!ep) return <Empty>Loading…</Empty>;
 
   const base = `http://127.0.0.1:${ep.port}`;
-  // first masked key is shown as a placeholder hint; the real key is the user's.
-  const env = tool.env(base, "");
-
+  const env = tool.env(base, realKey);
   const block = env.map((e) => `export ${e.name}="${e.value}"`).join("\n");
 
   return (
@@ -52,11 +66,28 @@ export function ToolDetail({ id }: { id: string }) {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <RichCard header={<CardTitle title="Environment" sub="copy into your shell" />}>
+        <RichCard
+          header={
+            <>
+              <CardTitle title="Environment" sub="copy into your shell" />
+              {ep.keys.length > 1 && (
+                <Select value={String(keyIdx)} onChange={(e) => setKeyIdx(Number(e.target.value))} className="max-w-[180px]">
+                  {ep.keys.map((k, i) => (
+                    <option key={i} value={i}>{k.name || `key ${i + 1}`}</option>
+                  ))}
+                </Select>
+              )}
+            </>
+          }
+        >
           <CopyBlock text={block} />
-          {ep.keys.length === 0 && (
+          {ep.keys.length === 0 ? (
             <p className="mt-3 text-[12px] text-warning">
-              No gateway key set — auth is disabled. Add one under Endpoint, then use it as the key above.
+              No gateway key set — auth is disabled. Add one under Endpoint, then it appears here.
+            </p>
+          ) : (
+            <p className="mt-3 text-[12px] text-text-subtle">
+              Using key <span className="text-text-muted">{ep.keys[keyIdx]?.name || `#${keyIdx + 1}`}</span>. The real value is filled in above.
             </p>
           )}
         </RichCard>
@@ -72,6 +103,20 @@ export function ToolDetail({ id }: { id: string }) {
               </li>
             ))}
           </ol>
+        </RichCard>
+
+        <RichCard className="lg:col-span-2" header={<CardTitle title="Models to call" sub="use one of these as the model name" />}>
+          {combos.length === 0 ? (
+            <Empty>No combos yet. Create one under Combos, or call a provider model directly as provider/model.</Empty>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {combos.map((c) => (
+                <span key={c} className="tnum rounded-brand border border-border-subtle bg-bg px-2.5 py-1.5 text-[12.5px] text-text">
+                  {c}
+                </span>
+              ))}
+            </div>
+          )}
         </RichCard>
       </div>
     </div>
