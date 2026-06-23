@@ -113,6 +113,12 @@ export OPENAI_API_KEY=my-key
 The gateway translates formats, so an Anthropic-format client can be served by
 an OpenAI or Gemini provider transparently.
 
+**Naming a model** — the `model` field your client sends resolves three ways, in
+order: (1) a **combo alias** → its provider chain; (2) **`provider/model`**
+(e.g. `anthropic/claude-sonnet-4-6`) → straight to that provider, like 9router's
+prefix; (3) a **bare model id** → auto-detected against every provider's catalog,
+routed to whoever lists it (multiple → fallback chain). No prefix required.
+
 ## Environment
 
 Gateway:

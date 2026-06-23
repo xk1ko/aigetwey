@@ -112,6 +112,35 @@ describe("GatewayConfig.resolve", () => {
   it("returns [] for an unknown name", () => {
     expect(cfg.resolve("nope")).toEqual([]);
   });
+
+  it("auto-detects a bare model id across provider catalogs", () => {
+    const c = validateConfig({
+      providers: [
+        { id: "p1", format: "openai", base_url: "https://a", api_key: "k1", models: [{ id: "shared-m" }] },
+        {
+          id: "p2",
+          format: "openai",
+          base_url: "https://b",
+          api_key: "k2",
+          models: [{ id: "shared-m" }, { id: "only-2", price_in: 1, price_out: 2 }],
+        },
+      ],
+    });
+
+    // listed by both providers => fallback chain in config order
+    const chain = c.resolve("shared-m");
+    expect(chain.map((r) => r.provider.id)).toEqual(["p1", "p2"]);
+    expect(chain.every((r) => r.model === "shared-m")).toBe(true);
+
+    // listed by one => single route, carries that catalog entry's price
+    const single = c.resolve("only-2");
+    expect(single).toHaveLength(1);
+    expect(single[0]!.provider.id).toBe("p2");
+    expect(single[0]!.price_in).toBe(1);
+
+    // not in any catalog => still nothing
+    expect(c.resolve("ghost")).toEqual([]);
+  });
 });
 
 describe("maskKey", () => {
