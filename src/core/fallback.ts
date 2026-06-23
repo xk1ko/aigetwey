@@ -9,6 +9,7 @@
  */
 import type { ResolvedRoute } from "../config.js";
 import type { CanonicalRequest } from "./canonical.js";
+import type { ThinkingConfig } from "../translator/thinkingUnified.js";
 import type { KeyPool } from "./keypool.js";
 import {
   callUpstream,
@@ -32,6 +33,8 @@ export interface FallbackOpts {
   onServed?: (route: ResolvedRoute, key: string) => void;
   /** when set, a provider this returns true for is skipped (quota exhausted). */
   isExhausted?: (provider: ResolvedRoute["provider"]) => boolean;
+  /** captured client thinking intent, applied per-attempt in the provider's format. */
+  thinkingIntent?: ThinkingConfig | null;
 }
 
 export interface FallbackResult {
@@ -74,6 +77,7 @@ export async function executeWithFallback(
           stream: opts.stream,
           key,
           signal: opts.signal,
+          thinkingIntent: opts.thinkingIntent,
         });
         pool.success(provider, key);
         opts.onServed?.(route, key);

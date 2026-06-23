@@ -7,6 +7,7 @@ import { request } from "undici";
 import type { Provider } from "../config.js";
 import type { CanonicalRequest, CanonicalResponse } from "../core/canonical.js";
 import { adapterFor } from "../adapters/index.js";
+import { applyThinking, type ThinkingConfig } from "../translator/thinkingUnified.js";
 
 export interface UpstreamError extends Error {
   status?: number;
@@ -57,10 +58,21 @@ function buildUrl(provider: Provider, model: string, stream: boolean): string {
   return base + (provider.format === "anthropic" ? "/messages" : "/chat/completions");
 }
 
-function buildBody(provider: Provider, req: CanonicalRequest, model: string, stream: boolean): unknown {
+function buildBody(
+  provider: Provider,
+  req: CanonicalRequest,
+  model: string,
+  stream: boolean,
+  thinkingIntent?: ThinkingConfig | null,
+): unknown {
   const adapter = adapterFor(provider.format);
   const upstreamReq: CanonicalRequest = { ...req, model, stream };
-  return adapter.requestFromCanonical(upstreamReq);
+  const out = adapter.requestFromCanonical(upstreamReq) as Record<string, unknown>;
+  // Normalize thinking into THIS provider's native format, keyed by the upstream
+  // model's capabilities. No-op for non-reasoning models. Runs per-attempt so each
+  // provider in a fallback chain gets the right shape.
+  applyThinking(provider.format, model, out, provider.id, thinkingIntent);
+  return out;
 }
 
 export interface NonStreamResult {
@@ -76,11 +88,11 @@ export async function callUpstream(
   provider: Provider,
   req: CanonicalRequest,
   model: string,
-  opts: { stream: boolean; key?: string; signal?: AbortSignal },
+  opts: { stream: boolean; key?: string; signal?: AbortSignal; thinkingIntent?: ThinkingConfig | null },
 ): Promise<NonStreamResult | StreamResult> {
   const url = buildUrl(provider, model, opts.stream);
   const headers = buildHeaders(provider, opts.key);
-  const body = buildBody(provider, req, model, opts.stream);
+  const body = buildBody(provider, req, model, opts.stream, opts.thinkingIntent);
 
   let res;
   try {

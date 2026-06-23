@@ -25,6 +25,7 @@ import { executeWithFallback } from "./fallback.js";
 import { type UsageDB, computeCost } from "../db.js";
 import { compressMessages } from "../rtk/index.js";
 import { injectInto } from "../inject/index.js";
+import { parseSuffix, captureThinking, type ThinkingConfig } from "../translator/thinkingUnified.js";
 
 export interface HandleResult {
   status: number;
@@ -95,6 +96,17 @@ export async function handle(
     throw new GatewayError(400, { error: "missing 'model' in request" });
   }
 
+  // Thinking: a model-name suffix like "claude-opus-4-6(high)" or "alias(none)"
+  // carries the client's thinking intent. Strip it so routing matches the clean
+  // model, and capture the intent (suffix wins, else any reasoning param already
+  // in the body). It's applied per-attempt in the served provider's native format
+  // (upstream/client.ts), driven by the capabilities table — a no-op for models
+  // that can't reason. Mirrors 9router's capture-before-translate flow.
+  const { cleanModel, override } = parseSuffix(canonical.model);
+  canonical.model = cleanModel;
+  const thinkingIntent: ThinkingConfig | null =
+    override ?? captureThinking(canonical as Record<string, unknown>);
+
   const routes = config.resolve(canonical.model);
   if (routes.length === 0) {
     throw new GatewayError(404, { error: `unknown model "${canonical.model}"` });
@@ -132,6 +144,7 @@ export async function handle(
     won = await executeWithFallback(routes, pool, canonical, {
       stream: wantStream,
       signal,
+      thinkingIntent,
       isExhausted: deps.quota ? (p) => deps.quota!.isExhausted(p) : undefined,
       onAttempt: (a) =>
         deps.log?.(`[fallback] ${a.provider} ${a.status ?? "-"} -> ${a.outcome}${a.detail ? ` (${a.detail})` : ""}`),
