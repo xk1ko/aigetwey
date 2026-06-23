@@ -130,6 +130,17 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     reply.send(maskedConfig(deps.state.config.raw));
   });
 
+  // export the FULL config as YAML for backup — UNMASKED (real keys), so the
+  // backup can actually be restored. Admin-gated and same-origin only, like the
+  // /reveal endpoints that already hand back raw keys; intended for the local
+  // operator backing up their own gateway. Import is the existing PUT /admin/config.
+  app.get("/admin/config/export", requireAdmin, (_req, reply) => {
+    reply
+      .header("Content-Type", "text/yaml; charset=utf-8")
+      .header("Content-Disposition", 'attachment; filename="aigetwey-config.yaml"')
+      .send(serializeConfig(deps.state.config.raw));
+  });
+
   // replace config (full YAML/JSON), validate + hot-reload. raw text in body.
   app.put("/admin/config", requireAdmin, (req, reply) => {
     const body = req.body as { text?: string } | string;

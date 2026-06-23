@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Button } from "@/components/Button";
 import { Badge } from "@/components/Badge";
 import { RichCard, CardTitle } from "@/components/RichCard";
@@ -65,6 +65,29 @@ export function ConfigEditor() {
     }
   }
 
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  // Export the UNMASKED backup straight through the proxy. The download attribute
+  // forces a save with our filename even though the proxy labels it as JSON.
+  function exportConfig() {
+    const a = document.createElement("a");
+    a.href = "/api/gw/admin/config/export";
+    a.download = "aigetwey-config.yaml";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  // Load a backup file INTO the editor (not a blind apply) so it goes through the
+  // same validate + hot-reload path on Save, and the operator reviews it first.
+  async function importFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setText(await file.text());
+    setError("");
+  }
+
   const dirty = text !== original;
   const keyCount = info?.api_keys.length ?? 0;
 
@@ -107,6 +130,13 @@ export function ConfigEditor() {
                     <Icon name="check" size={14} /> saved
                   </span>
                 )}
+                <input ref={fileInput} type="file" accept=".yaml,.yml,.json,text/*" className="hidden" onChange={importFile} />
+                <Button variant="ghost" disabled={busy} onClick={exportConfig} title="Download the full config (includes real keys)">
+                  <Icon name="download" size={14} /> Export
+                </Button>
+                <Button variant="ghost" disabled={busy} onClick={() => fileInput.current?.click()} title="Load a backup file into the editor">
+                  <Icon name="upload" size={14} /> Import
+                </Button>
                 <Button variant="ghost" disabled={!dirty || busy} onClick={() => setText(original)}>Revert</Button>
                 <Button disabled={!dirty || busy} onClick={save}>{busy ? "Saving…" : "Save & reload"}</Button>
               </div>
