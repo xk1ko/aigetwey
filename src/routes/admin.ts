@@ -4,9 +4,11 @@
  * expose health/usage/logs; the config endpoints allow live editing with
  * hot-reload.
  *
- * Provider keys are MASKED in every response — raw secrets never leave here.
- * Granular provider/combo mutation endpoints land in Phase 11 alongside the
- * dashboard that drives them; Phase 5 ships read surfaces + whole-config CRUD.
+ * Provider keys are MASKED in every response. The only exception is the explicit
+ * `.../reveal` endpoints, which return one raw key on demand (the dashboard's
+ * "show key" button) — admin-gated like everything else, for the local operator
+ * who forgot what they pasted. Granular provider/combo mutation endpoints land in
+ * Phase 11 alongside the dashboard; Phase 5 ships read surfaces + config CRUD.
  */
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import type { GatewayState } from "../core/state.js";
@@ -198,6 +200,20 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     applyMutation(reply, (c) => removeProviderKey(c, id, i));
   });
 
+  // reveal ONE raw provider key (the "show key" button). Index mirrors how the
+  // dashboard lists them: api_keys[], or the single api_key as index 0.
+  app.get("/admin/providers/:id/keys/:index/reveal", requireAdmin, (req, reply) => {
+    const { id, index } = req.params as { id: string; index: string };
+    const i = Number(index);
+    const provider = deps.state.config.raw.providers.find((p) => p.id === id);
+    if (!provider) return reply.code(404).send({ error: `provider "${id}" not found` });
+    const keys = provider.api_keys ?? (provider.api_key ? [provider.api_key] : []);
+    if (!Number.isInteger(i) || i < 0 || i >= keys.length) {
+      return reply.code(404).send({ error: "key index out of range" });
+    }
+    reply.send({ key: keys[i] });
+  });
+
   app.post("/admin/providers/:id/models", requireAdmin, (req, reply) => {
     const { id } = req.params as { id: string };
     const b = req.body as { model?: string; models?: string[]; price_in?: number; price_out?: number };
@@ -320,6 +336,17 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     const i = Number(index);
     if (!Number.isInteger(i)) return reply.code(400).send({ error: "index must be an integer" });
     applyMutation(reply, (c) => removeServerKey(c, i));
+  });
+
+  // reveal ONE raw gateway key (the "show key" button on the Endpoint page).
+  app.get("/admin/endpoint/keys/:index/reveal", requireAdmin, (req, reply) => {
+    const { index } = req.params as { index: string };
+    const i = Number(index);
+    const keys = deps.state.config.raw.server.api_keys;
+    if (!Number.isInteger(i) || i < 0 || i >= keys.length) {
+      return reply.code(404).send({ error: "key index out of range" });
+    }
+    reply.send({ key: keys[i] });
   });
 }
 

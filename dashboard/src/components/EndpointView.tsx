@@ -6,6 +6,7 @@ import { Badge } from "@/components/Badge";
 import { RichCard, CardTitle } from "@/components/RichCard";
 import { Button, Input } from "@/components/Button";
 import { Icon } from "@/components/Icon";
+import { KeyReveal } from "@/components/KeyReveal";
 import { Empty } from "@/components/ui";
 import type { EndpointPayload, InjectLevel } from "@/lib/gateway";
 
@@ -77,9 +78,15 @@ export function EndpointView() {
           ) : (
             <div className="space-y-1.5">
               {ep.keys.map((k, i) => (
-                <div key={i} className="flex items-center justify-between rounded-brand border border-border-subtle px-3 py-2">
-                  <span className="tnum text-[12.5px] text-text">{k}</span>
-                  <button onClick={() => run(`rmkey${i}`, () => adminApi.removeServerKey(i))} className="text-text-subtle hover:text-danger" aria-label="Remove key">
+                <div key={i} className="flex items-center justify-between gap-2 rounded-brand border border-border-subtle px-3 py-2">
+                  <KeyReveal
+                    masked={k}
+                    reveal={async () => {
+                      const r = await adminApi.revealServerKey(i);
+                      return r.ok ? r.data?.key ?? null : null;
+                    }}
+                  />
+                  <button onClick={() => run(`rmkey${i}`, () => adminApi.removeServerKey(i))} className="flex-none text-text-subtle hover:text-danger" aria-label="Remove key">
                     <Icon name="delete" size={16} />
                   </button>
                 </div>

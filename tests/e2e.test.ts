@@ -270,4 +270,29 @@ describe("E2E — admin surface over real HTTP", () => {
     // every successful non-stream + stream request was recorded
     expect(summary.total.requests).toBeGreaterThan(0);
   });
+
+  it("reveals a raw provider/gateway key only with admin auth", async () => {
+    const admin = { authorization: "Bearer admin-pw" };
+
+    // config masks the real secret
+    const cfg = (await (await fetch(gwUrl("/admin/config"), { headers: admin })).json()) as {
+      providers: { id: string; api_key?: string }[];
+      server: { api_keys: string[] };
+    };
+    const masked = cfg.providers.find((p) => p.id === "oa-ok")!.api_key!;
+    expect(masked).not.toBe("sk-oa");
+
+    // reveal hands back the real one, but only behind the admin gate
+    expect((await fetch(gwUrl("/admin/providers/oa-ok/keys/0/reveal"))).status).toBe(401);
+    const provReveal = await fetch(gwUrl("/admin/providers/oa-ok/keys/0/reveal"), { headers: admin });
+    expect(provReveal.status).toBe(200);
+    expect(((await provReveal.json()) as { key: string }).key).toBe("sk-oa");
+
+    // out-of-range index => 404, not a crash
+    expect((await fetch(gwUrl("/admin/providers/oa-ok/keys/9/reveal"), { headers: admin })).status).toBe(404);
+
+    // server key too
+    const srvReveal = await fetch(gwUrl("/admin/endpoint/keys/0/reveal"), { headers: admin });
+    expect(((await srvReveal.json()) as { key: string }).key).toBe("gw-key");
+  });
 });

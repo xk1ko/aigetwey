@@ -11,6 +11,7 @@ import { Button, Input } from "@/components/Button";
 import { Icon } from "@/components/Icon";
 import { fmt, Empty } from "@/components/ui";
 import { ModelSelectModal, type DiscoveredModel } from "@/components/ModelSelectModal";
+import { KeyReveal } from "@/components/KeyReveal";
 import type { MaskedConfig, MaskedProvider, ProviderSnapshot, PingResult } from "@/lib/gateway";
 
 export function ProviderDetail({ id }: { id: string }) {
@@ -121,9 +122,15 @@ export function ProviderDetail({ id }: { id: string }) {
                 const ks = health?.keys[i];
                 return (
                   <div key={i} className="flex items-center justify-between rounded-brand border border-border-subtle px-3 py-2">
-                    <div className="flex items-center gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
                       <Lamp state={ks ? (ks.healthy ? "live" : "down") : "idle"} />
-                      <span className="tnum text-[12.5px] text-text">{k}</span>
+                      <KeyReveal
+                        masked={k}
+                        reveal={async () => {
+                          const r = await adminApi.revealKey(id, i);
+                          return r.ok ? r.data?.key ?? null : null;
+                        }}
+                      />
                       {ks && ks.cooldown_ms > 0 && <CooldownTimer ms={ks.cooldown_ms} />}
                     </div>
                     <button

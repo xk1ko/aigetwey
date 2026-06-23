@@ -68,6 +68,8 @@ export const adminApi = {
     api<ConfigReply>("POST", `/admin/providers/${encodeURIComponent(id)}/keys`, { key }),
   removeKey: (id: string, index: number) =>
     api<ConfigReply>("DELETE", `/admin/providers/${encodeURIComponent(id)}/keys/${index}`),
+  revealKey: (id: string, index: number) =>
+    api<{ key: string }>("GET", `/admin/providers/${encodeURIComponent(id)}/keys/${index}/reveal`),
   addModel: (id: string, model: string, price?: { price_in?: number; price_out?: number }) =>
     api<ConfigReply>("POST", `/admin/providers/${encodeURIComponent(id)}/models`, { model, ...price }),
   addModels: (id: string, models: string[]) =>
@@ -95,6 +97,7 @@ export const adminApi = {
   setPonytail: (level: InjectLevel) => api<ConfigReply>("PUT", "/admin/endpoint/ponytail", { level }),
   addServerKey: (key: string) => api<ConfigReply>("POST", "/admin/endpoint/keys", { key }),
   removeServerKey: (index: number) => api<ConfigReply>("DELETE", `/admin/endpoint/keys/${index}`),
+  revealServerKey: (index: number) => api<{ key: string }>("GET", `/admin/endpoint/keys/${index}/reveal`),
 
   putConfig: (text: string) => api<{ ok: boolean }>("PUT", "/admin/config", { text }),
 };
