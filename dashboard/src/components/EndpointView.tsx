@@ -8,7 +8,7 @@ import { Button, Input } from "@/components/Button";
 import { Icon } from "@/components/Icon";
 import { KeyReveal } from "@/components/KeyReveal";
 import { Empty } from "@/components/ui";
-import type { EndpointPayload, InjectLevel } from "@/lib/gateway";
+import type { EndpointPayload, HeadroomStatusReply, InjectLevel } from "@/lib/gateway";
 
 const LEVELS: InjectLevel[] = ["off", "lite", "full", "ultra"];
 
@@ -27,6 +27,7 @@ export function EndpointView() {
   const [newKey, setNewKey] = useState("");
   const [keyName, setKeyName] = useState("");
   const [created, setCreated] = useState<{ key: string; name: string } | null>(null);
+  const [hr, setHr] = useState<HeadroomStatusReply | null>(null);
 
   const reload = useCallback(async () => {
     const r = await adminApi.endpoint();
@@ -38,9 +39,17 @@ export function EndpointView() {
     setEp(r.data);
   }, []);
 
+  // Headroom status is a live probe (installed/running/python), separate from the
+  // endpoint config — reload it on mount and after any headroom action.
+  const reloadHr = useCallback(async () => {
+    const r = await adminApi.headroomStatus();
+    if (r.ok) setHr(r.data);
+  }, []);
+
   useEffect(() => {
     void reload();
-  }, [reload]);
+    void reloadHr();
+  }, [reload, reloadHr]);
 
   if (error) return <Empty>{error}</Empty>;
   if (!ep) return <Empty>Loading…</Empty>;
@@ -172,10 +181,117 @@ export function EndpointView() {
             />
           </div>
         </RichCard>
+
+        <HeadroomCard
+          ep={ep}
+          hr={hr}
+          refresh={async () => {
+            await reload();
+            await reloadHr();
+          }}
+        />
       </div>
 
       {created && <KeyCreatedModal name={created.name} value={created.key} onClose={() => setCreated(null)} />}
     </div>
+  );
+}
+
+/**
+ * Headroom = external context-compression proxy. Status is a live probe; the
+ * enable/url/compress fields persist to endpoint config; Start/Stop manage a
+ * gateway-spawned proxy when the CLI is installed and the URL is loopback.
+ */
+function HeadroomCard({
+  ep,
+  hr,
+  refresh,
+}: {
+  ep: EndpointPayload;
+  hr: HeadroomStatusReply | null;
+  refresh: () => Promise<void>;
+}) {
+  const h = ep.headroom;
+  const [url, setUrl] = useState(h.url);
+  const [localBusy, setLocalBusy] = useState("");
+  const [msg, setMsg] = useState("");
+  useEffect(() => setUrl(h.url), [h.url]);
+
+  async function act(label: string, fn: () => Promise<{ ok: boolean; error?: string }>) {
+    setLocalBusy(label);
+    setMsg("");
+    const r = await fn();
+    setLocalBusy("");
+    if (!r.ok) setMsg(r.error ?? "action failed");
+    await refresh();
+  }
+
+  return (
+    <RichCard className="lg:col-span-2" header={<CardTitle title="Headroom" sub="external context-compression proxy" />}>
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center gap-2 text-[12px]">
+          <Badge tone={hr?.installed ? "live" : "neutral"}>{hr?.installed ? "installed" : "not installed"}</Badge>
+          <Badge tone={hr?.running ? "live" : "warn"}>{hr?.running ? "proxy running" : "proxy down"}</Badge>
+          <Badge tone={hr?.python ? "info" : "neutral"}>{hr?.python ? `python ${hr.python}` : "no python ≥3.10"}</Badge>
+          {hr?.managedPid ? <span className="tnum text-text-subtle">pid {hr.managedPid}</span> : null}
+        </div>
+
+        <Toggle
+          label="Enable headroom"
+          desc="Compress the full context through the proxy before each request (fail-open if it's down)."
+          on={h.enabled}
+          busy={localBusy === "enable"}
+          onChange={(v) => act("enable", () => adminApi.setHeadroom({ enabled: v }))}
+        />
+        <Toggle
+          label="Compress user messages"
+          desc="Also squeeze user turns, not just tool/assistant context."
+          on={h.compress_user_messages}
+          busy={localBusy === "cum"}
+          onChange={(v) => act("cum", () => adminApi.setHeadroom({ compress_user_messages: v }))}
+        />
+
+        <div className="flex items-end gap-2">
+          <div className="flex-1">
+            <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-text-subtle">Proxy URL</div>
+            <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="http://localhost:8787" className="font-mono text-[12.5px]" />
+          </div>
+          <Button
+            variant="ghost"
+            disabled={url.trim() === h.url || localBusy === "url"}
+            onClick={() => act("url", () => adminApi.setHeadroom({ url: url.trim() }))}
+          >
+            Save URL
+          </Button>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            disabled={!hr?.canStart || hr?.running || localBusy === "start"}
+            onClick={() => act("start", () => adminApi.headroomStart())}
+          >
+            <Icon name="play_arrow" size={16} /> {localBusy === "start" ? "Starting…" : "Start proxy"}
+          </Button>
+          <Button
+            variant="danger"
+            disabled={!hr?.managedPid || localBusy === "stop"}
+            onClick={() => act("stop", () => adminApi.headroomStop())}
+          >
+            <Icon name="stop" size={16} /> Stop
+          </Button>
+          {hr && !hr.installed && (
+            <span className="text-[11px] text-text-subtle">
+              Install the <code className="rounded bg-surface-2 px-1">headroom</code> CLI (pip install headroom-ai) to manage the proxy here.
+            </span>
+          )}
+          {hr?.installed && !hr.localUrl && (
+            <span className="text-[11px] text-text-subtle">URL isn’t loopback — start that proxy yourself.</span>
+          )}
+        </div>
+
+        {msg && <p className="text-[12px] text-danger">{msg}</p>}
+      </div>
+    </RichCard>
   );
 }
 

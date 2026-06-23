@@ -9,6 +9,7 @@
 import type {
   ConfigReply,
   EndpointPayload,
+  HeadroomStatusReply,
   InjectLevel,
   PingResult,
   ProviderSnapshot,
@@ -118,6 +119,12 @@ export const adminApi = {
   addServerKey: (key: string, name?: string) => api<ConfigReply>("POST", "/admin/endpoint/keys", { key, name }),
   removeServerKey: (index: number) => api<ConfigReply>("DELETE", `/admin/endpoint/keys/${index}`),
   revealServerKey: (index: number) => api<{ key: string }>("GET", `/admin/endpoint/keys/${index}/reveal`),
+
+  setHeadroom: (patch: { enabled?: boolean; url?: string; compress_user_messages?: boolean }) =>
+    api<ConfigReply>("PUT", "/admin/endpoint/headroom", patch),
+  headroomStatus: () => api<HeadroomStatusReply>("GET", "/admin/headroom/status"),
+  headroomStart: () => api<{ success?: boolean; pid?: number; alreadyRunning?: boolean }>("POST", "/admin/headroom/start"),
+  headroomStop: () => api<{ stopped: boolean; reason?: string; pid?: number }>("POST", "/admin/headroom/stop"),
 
   putConfig: (text: string) => api<{ ok: boolean }>("PUT", "/admin/config", { text }),
 

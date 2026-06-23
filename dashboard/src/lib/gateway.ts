@@ -166,7 +166,21 @@ export interface EndpointPayload {
   rtk: boolean;
   caveman: InjectLevel;
   ponytail: InjectLevel;
+  headroom: { enabled: boolean; url: string; compress_user_messages: boolean };
   keys: Array<{ key: string; name?: string }>;
+}
+
+export interface HeadroomStatusReply {
+  installed: boolean;
+  path: string | null;
+  running: boolean;
+  python: string | null;
+  localUrl: boolean;
+  canStart: boolean;
+  url: string;
+  managedPid: number | null;
+  enabled: boolean;
+  compress_user_messages: boolean;
 }
 
 export interface PingResult {
