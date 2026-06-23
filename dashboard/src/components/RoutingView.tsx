@@ -128,9 +128,20 @@ function RouteForm({ providers, onDone }: { providers: string[]; onDone: () => v
   const [priceOut, setPriceOut] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
 
   function toggle(pid: string) {
     setTargets((t) => (t.includes(pid) ? t.filter((x) => x !== pid) : [...t, pid]));
+  }
+
+  // reorder the fallback chain: dropping target #from onto slot #to
+  function move(from: number, to: number) {
+    setTargets((t) => {
+      const next = [...t];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
   }
 
   async function submit(e: React.FormEvent) {
@@ -165,26 +176,64 @@ function RouteForm({ providers, onDone }: { providers: string[]; onDone: () => v
         <Field label="Price out" hint="per 1M, optional"><Input value={priceOut} onChange={(e) => setPriceOut(e.target.value)} placeholder="15" /></Field>
       </div>
       <div className="mt-3">
-        <span className="text-[11px] font-medium uppercase tracking-wider text-text-subtle">Chain (click to order)</span>
+        <span className="text-[11px] font-medium uppercase tracking-wider text-text-subtle">Providers — click to add to the chain</span>
         <div className="mt-1.5 flex flex-wrap gap-2">
           {providers.map((pid) => {
-            const idx = targets.indexOf(pid);
+            const inChain = targets.includes(pid);
             return (
               <button
                 type="button"
                 key={pid}
                 onClick={() => toggle(pid)}
                 className={`rounded-brand border px-3 py-1.5 text-[12.5px] transition-colors ${
-                  idx === -1 ? "border-border text-text-muted hover:text-text" : "border-accent bg-accent-soft text-text"
+                  inChain ? "border-accent bg-accent-soft text-text" : "border-border text-text-muted hover:text-text"
                 }`}
               >
-                {idx !== -1 && <span className="mr-1 tnum text-accent">{idx + 1}.</span>}
+                {inChain && <Icon name="check" size={13} className="mr-1 align-[-2px] text-accent" />}
                 {pid}
               </button>
             );
           })}
         </div>
       </div>
+
+      {targets.length > 0 && (
+        <div className="mt-3">
+          <span className="text-[11px] font-medium uppercase tracking-wider text-text-subtle">
+            Order — drag to set fallback priority
+          </span>
+          <ul className="mt-1.5 space-y-1.5">
+            {targets.map((pid, i) => (
+              <li
+                key={pid}
+                draggable
+                onDragStart={() => setDragIdx(i)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => {
+                  if (dragIdx !== null && dragIdx !== i) move(dragIdx, i);
+                  setDragIdx(null);
+                }}
+                onDragEnd={() => setDragIdx(null)}
+                className={`flex cursor-grab items-center gap-2.5 rounded-brand border px-3 py-2 active:cursor-grabbing ${
+                  dragIdx === i ? "border-accent bg-accent-soft" : "border-border-subtle"
+                }`}
+              >
+                <Icon name="drag_indicator" size={16} className="text-text-subtle" />
+                <span className="tnum text-[11px] text-text-subtle">{i === 0 ? "primary" : `#${i + 1}`}</span>
+                <span className="text-[13px] text-text">{pid}</span>
+                <button
+                  type="button"
+                  onClick={() => toggle(pid)}
+                  className="ml-auto text-text-subtle hover:text-danger"
+                  aria-label={`Remove ${pid}`}
+                >
+                  <Icon name="close" size={14} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div className="mt-3 max-w-[280px]">
         <Field label="Strategy" hint="how the chain is tried">
           <Select value={strategy} onChange={(e) => setStrategy(e.target.value as "fallback" | "round-robin")}>
