@@ -15,7 +15,6 @@ const LABELS: Record<string, string> = {
   usage: "Usage",
   quota: "Quota Tracker",
   tools: "CLI Tools",
-  logs: "Request Logs",
   console: "Server Console",
   config: "Settings",
 };
