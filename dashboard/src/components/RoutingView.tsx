@@ -72,7 +72,7 @@ export function RoutingView() {
 
       {adding && (
         <RouteForm
-          providers={config.providers.map((p) => p.id)}
+          providers={config.providers}
           onDone={() => { setAdding(false); void reload(); }}
         />
       )}
@@ -119,10 +119,15 @@ export function RoutingView() {
   );
 }
 
-function RouteForm({ providers, onDone }: { providers: string[]; onDone: () => void }) {
+// Combo create form, modeled on 9router's ComboFormModal: a name + ONE ordered
+// list of concrete `provider/model` entries (fallback priority), picked from the
+// providers' catalogs. On save each entry splits into target[i]/model[i].
+type ProviderOption = { id: string; models: { id: string }[] };
+
+function RouteForm({ providers, onDone }: { providers: ProviderOption[]; onDone: () => void }) {
   const [alias, setAlias] = useState("");
-  const [targets, setTargets] = useState<string[]>([]);
-  const [models, setModels] = useState("");
+  const [entries, setEntries] = useState<string[]>([]); // "provider/model"
+  const [pick, setPick] = useState("");
   const [strategy, setStrategy] = useState<"fallback" | "round-robin">("fallback");
   const [priceIn, setPriceIn] = useState("");
   const [priceOut, setPriceOut] = useState("");
@@ -130,14 +135,26 @@ function RouteForm({ providers, onDone }: { providers: string[]; onDone: () => v
   const [err, setErr] = useState("");
   const [dragIdx, setDragIdx] = useState<number | null>(null);
 
-  function toggle(pid: string) {
-    setTargets((t) => (t.includes(pid) ? t.filter((x) => x !== pid) : [...t, pid]));
+  const options = providers
+    .flatMap((p) => p.models.map((m) => `${p.id}/${m.id}`))
+    .filter((o) => !entries.includes(o));
+
+  function add() {
+    const v = pick.trim();
+    if (!v) return;
+    if (v.indexOf("/") <= 0) {
+      setErr("entry must be provider/model");
+      return;
+    }
+    if (!entries.includes(v)) setEntries((e) => [...e, v]);
+    setPick("");
+    setErr("");
   }
 
-  // reorder the fallback chain: dropping target #from onto slot #to
+  // reorder fallback priority: dropping entry #from onto slot #to
   function move(from: number, to: number) {
-    setTargets((t) => {
-      const next = [...t];
+    setEntries((e) => {
+      const next = [...e];
       const [moved] = next.splice(from, 1);
       next.splice(to, 0, moved);
       return next;
@@ -146,16 +163,17 @@ function RouteForm({ providers, onDone }: { providers: string[]; onDone: () => v
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!alias || targets.length === 0) {
-      setErr("alias and at least one target required");
+    if (!alias || entries.length === 0) {
+      setErr("a name and at least one model are required");
       return;
     }
     setBusy(true);
     setErr("");
-    const modelList = models.split(",").map((s) => s.trim()).filter(Boolean);
+    const target = entries.map((x) => x.slice(0, x.indexOf("/")));
+    const model = entries.map((x) => x.slice(x.indexOf("/") + 1));
     const r = await adminApi.setRoute(alias, {
-      target: targets,
-      model: modelList.length === 0 ? undefined : modelList.length === 1 ? modelList[0] : modelList,
+      target,
+      model,
       strategy,
       price_in: priceIn ? Number(priceIn) : undefined,
       price_out: priceOut ? Number(priceOut) : undefined,
@@ -168,44 +186,49 @@ function RouteForm({ providers, onDone }: { providers: string[]; onDone: () => v
   return (
     <form onSubmit={submit} className="mb-5 rounded-brand-lg border border-border bg-surface p-4 shadow-soft">
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Alias" hint="what your CLI calls"><Input value={alias} onChange={(e) => setAlias(e.target.value)} placeholder="claude-sonnet-4-6" /></Field>
-        <Field label="Upstream models" hint="comma-sep, matches chain order">
-          <Input value={models} onChange={(e) => setModels(e.target.value)} placeholder="claude-sonnet-4-6, claude-sonnet-4-5" />
+        <Field label="Name" hint="the model name your CLI calls">
+          <Input value={alias} onChange={(e) => setAlias(e.target.value)} placeholder="claude-sonnet-4-6" />
+        </Field>
+        <Field label="Strategy" hint="how the chain is tried">
+          <Select value={strategy} onChange={(e) => setStrategy(e.target.value as "fallback" | "round-robin")}>
+            <option value="fallback">Fallback — try in order, next on failure</option>
+            <option value="round-robin">Round Robin — rotate to spread load</option>
+          </Select>
         </Field>
         <Field label="Price in" hint="per 1M, optional"><Input value={priceIn} onChange={(e) => setPriceIn(e.target.value)} placeholder="3" /></Field>
         <Field label="Price out" hint="per 1M, optional"><Input value={priceOut} onChange={(e) => setPriceOut(e.target.value)} placeholder="15" /></Field>
       </div>
-      <div className="mt-3">
-        <span className="text-[11px] font-medium uppercase tracking-wider text-text-subtle">Providers — click to add to the chain</span>
-        <div className="mt-1.5 flex flex-wrap gap-2">
-          {providers.map((pid) => {
-            const inChain = targets.includes(pid);
-            return (
-              <button
-                type="button"
-                key={pid}
-                onClick={() => toggle(pid)}
-                className={`rounded-brand border px-3 py-1.5 text-[12.5px] transition-colors ${
-                  inChain ? "border-accent bg-accent-soft text-text" : "border-border text-text-muted hover:text-text"
-                }`}
-              >
-                {inChain && <Icon name="check" size={13} className="mr-1 align-[-2px] text-accent" />}
-                {pid}
-              </button>
-            );
-          })}
-        </div>
-      </div>
 
-      {targets.length > 0 && (
-        <div className="mt-3">
-          <span className="text-[11px] font-medium uppercase tracking-wider text-text-subtle">
-            Order — drag to set fallback priority
-          </span>
-          <ul className="mt-1.5 space-y-1.5">
-            {targets.map((pid, i) => (
+      <div className="mt-3">
+        <span className="text-[11px] font-medium uppercase tracking-wider text-text-subtle">
+          Models — add provider/model in fallback order
+        </span>
+        <div className="mt-1.5 flex gap-2">
+          <Input
+            list="combo-model-options"
+            value={pick}
+            onChange={(e) => setPick(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
+            placeholder="provider/model — e.g. Huki/claude-sonnet-4-6"
+            className="flex-1"
+          />
+          <datalist id="combo-model-options">
+            {options.map((o) => <option key={o} value={o} />)}
+          </datalist>
+          <Button type="button" variant="ghost" disabled={!pick.trim()} onClick={add}>
+            <Icon name="add" size={16} /> Add
+          </Button>
+        </div>
+
+        {entries.length === 0 ? (
+          <div className="mt-2 rounded-brand border border-dashed border-border-subtle px-3 py-4 text-center text-[12px] text-text-subtle">
+            No models yet. Add <span className="tnum">provider/model</span> entries — fetch a provider's models first to autocomplete.
+          </div>
+        ) : (
+          <ul className="mt-2 space-y-1.5">
+            {entries.map((entry, i) => (
               <li
-                key={pid}
+                key={entry}
                 draggable
                 onDragStart={() => setDragIdx(i)}
                 onDragOver={(e) => e.preventDefault()}
@@ -220,31 +243,24 @@ function RouteForm({ providers, onDone }: { providers: string[]; onDone: () => v
               >
                 <Icon name="drag_indicator" size={16} className="text-text-subtle" />
                 <span className="tnum text-[11px] text-text-subtle">{i === 0 ? "primary" : `#${i + 1}`}</span>
-                <span className="text-[13px] text-text">{pid}</span>
+                <span className="tnum truncate text-[13px] text-text">{entry}</span>
                 <button
                   type="button"
-                  onClick={() => toggle(pid)}
-                  className="ml-auto text-text-subtle hover:text-danger"
-                  aria-label={`Remove ${pid}`}
+                  onClick={() => setEntries((e) => e.filter((_, idx) => idx !== i))}
+                  className="ml-auto flex-none text-text-subtle hover:text-danger"
+                  aria-label={`Remove ${entry}`}
                 >
                   <Icon name="close" size={14} />
                 </button>
               </li>
             ))}
           </ul>
-        </div>
-      )}
-      <div className="mt-3 max-w-[280px]">
-        <Field label="Strategy" hint="how the chain is tried">
-          <Select value={strategy} onChange={(e) => setStrategy(e.target.value as "fallback" | "round-robin")}>
-            <option value="fallback">Fallback — try in order, next on failure</option>
-            <option value="round-robin">Round Robin — rotate to spread load</option>
-          </Select>
-        </Field>
+        )}
       </div>
+
       {err && <div className="mt-2 text-[12px] text-danger">{err}</div>}
       <div className="mt-3 flex justify-end">
-        <Button type="submit" disabled={busy}>{busy ? "Saving…" : "Save alias"}</Button>
+        <Button type="submit" disabled={busy}>{busy ? "Saving…" : "Save combo"}</Button>
       </div>
     </form>
   );
