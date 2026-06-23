@@ -78,6 +78,11 @@ export const adminApi = {
     api<ConfigReply>("DELETE", `/admin/providers/${encodeURIComponent(id)}/models/${encodeURIComponent(model)}`),
   clearModels: (id: string) => api<ConfigReply>("DELETE", `/admin/providers/${encodeURIComponent(id)}/models`),
   testProvider: (id: string) => api<PingResult>("POST", `/admin/providers/${encodeURIComponent(id)}/test`),
+  testModel: (id: string, model: string) =>
+    api<{ ok: boolean; status?: number; error?: string }>(
+      "POST",
+      `/admin/providers/${encodeURIComponent(id)}/models/${encodeURIComponent(model)}/test`,
+    ),
   validateProvider: (b: { format: WireFormat; base_url: string; api_key?: string }) =>
     api<PingResult>("POST", "/admin/providers/validate", b),
   // discover: returns the upstream catalog flagged with which ids are in config.

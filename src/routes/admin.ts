@@ -37,7 +37,7 @@ import {
   type Provider,
   type EndpointSettings,
 } from "../config.js";
-import { pingProvider } from "../upstream/client.js";
+import { pingProvider, callUpstream, type UpstreamError } from "../upstream/client.js";
 import { fetchModels } from "../providers/free.js";
 
 export interface AdminDeps {
@@ -273,6 +273,30 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     if (!provider) return reply.code(404).send({ error: `provider "${id}" not found` });
     const key = provider.api_keys?.[0] ?? provider.api_key;
     reply.send(await pingProvider(provider, key));
+  });
+
+  // Test ONE model end-to-end (9router's per-model science button): send a tiny
+  // non-stream completion to the provider for that model id and report ok/error.
+  // Real upstream call, so it catches "model not found / not entitled" that a
+  // /models ping can't.
+  app.post("/admin/providers/:id/models/:model/test", requireAdmin, async (req, reply) => {
+    const { id, model } = req.params as { id: string; model: string };
+    const provider = deps.state.config.raw.providers.find((p) => p.id === id);
+    if (!provider) return reply.code(404).send({ error: `provider "${id}" not found` });
+    const modelId = decodeURIComponent(model);
+    const key = provider.api_keys?.[0] ?? provider.api_key;
+    try {
+      await callUpstream(
+        provider,
+        { model: modelId, messages: [{ role: "user", content: "ping" }], max_tokens: 1, stream: false },
+        modelId,
+        { stream: false, key },
+      );
+      reply.send({ ok: true });
+    } catch (e) {
+      const err = e as UpstreamError;
+      reply.send({ ok: false, status: err.status, error: err.message });
+    }
   });
 
   // DISCOVER a provider's catalog without adding anything — returns the full

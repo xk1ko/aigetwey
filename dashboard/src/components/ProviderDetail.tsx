@@ -25,6 +25,13 @@ export function ProviderDetail({ id }: { id: string }) {
   const [newModel, setNewModel] = useState("");
   const [modelFilter, setModelFilter] = useState("");
   const [discovered, setDiscovered] = useState<DiscoveredModel[] | null>(null);
+  const [modelTest, setModelTest] = useState<Record<string, "testing" | "ok" | "fail">>({});
+
+  async function testModel(mid: string) {
+    setModelTest((t) => ({ ...t, [mid]: "testing" }));
+    const r = await adminApi.testModel(id, mid);
+    setModelTest((t) => ({ ...t, [mid]: r.ok && r.data?.ok ? "ok" : "fail" }));
+  }
 
   const reload = useCallback(async () => {
     const [cfgRes, provRes] = await Promise.all([fetch("/api/gw/admin/config"), adminApi.providers()]);
@@ -195,30 +202,47 @@ export function ProviderDetail({ id }: { id: string }) {
                 <Empty>No model matches “{modelFilter}”.</Empty>
               ) : (
                 <div className="max-h-[360px] divide-y divide-border-subtle overflow-y-auto rounded-brand border border-border-subtle">
-                  {shownModels.map((m) => (
-                    <div key={m.id} className="group flex items-center justify-between gap-3 px-3 py-2 hover:bg-bg">
-                      <div className="flex min-w-0 items-center gap-2">
-                        {/* the prefix (= provider id) is what makes the call string; show it like 9router */}
-                        <span className="tnum truncate text-[12.5px]">
-                          <span className="text-text-subtle">{provider.id}/</span>
-                          <span className="text-text">{m.id}</span>
-                        </span>
-                        {(m.price_in !== undefined || m.price_out !== undefined) && (
-                          <span className="tnum whitespace-nowrap text-[11px] text-text-subtle">
-                            {fmt.cost(m.price_in ?? 0)}/{fmt.cost(m.price_out ?? 0)} per 1M
+                  {shownModels.map((m) => {
+                    const st = modelTest[m.id];
+                    const statusIcon = st === "ok" ? "check_circle" : st === "fail" ? "cancel" : "smart_toy";
+                    const statusColor = st === "ok" ? "text-success" : st === "fail" ? "text-danger" : "text-text-subtle";
+                    return (
+                      <div key={m.id} className="group flex items-center justify-between gap-3 px-3 py-2 hover:bg-bg">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <Icon name={statusIcon} size={15} className={`flex-none ${statusColor}`} />
+                          {/* the prefix (= provider id) is what makes the call string; show it like 9router */}
+                          <span className="tnum truncate text-[12.5px]">
+                            <span className="text-text-subtle">{provider.id}/</span>
+                            <span className="text-text">{m.id}</span>
                           </span>
-                        )}
+                          {(m.price_in !== undefined || m.price_out !== undefined) && (
+                            <span className="tnum whitespace-nowrap text-[11px] text-text-subtle">
+                              {fmt.cost(m.price_in ?? 0)}/{fmt.cost(m.price_out ?? 0)} per 1M
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-none items-center gap-0.5">
+                          <button
+                            onClick={() => testModel(m.id)}
+                            disabled={st === "testing"}
+                            className="rounded p-1 text-text-subtle transition-colors hover:bg-surface hover:text-accent disabled:opacity-60"
+                            aria-label={`Test ${m.id}`}
+                            title={st === "fail" ? "Test failed — click to retry" : "Test this model"}
+                          >
+                            <Icon name={st === "testing" ? "progress_activity" : "science"} size={15} />
+                          </button>
+                          <button
+                            onClick={() => run(`rmmodel${m.id}`, () => adminApi.removeModel(id, m.id))}
+                            disabled={busy === `rmmodel${m.id}`}
+                            className="rounded p-1 text-text-subtle transition-colors hover:bg-surface hover:text-danger disabled:opacity-40"
+                            aria-label={`Remove ${m.id}`}
+                          >
+                            <Icon name="delete" size={16} />
+                          </button>
+                        </div>
                       </div>
-                      <button
-                        onClick={() => run(`rmmodel${m.id}`, () => adminApi.removeModel(id, m.id))}
-                        disabled={busy === `rmmodel${m.id}`}
-                        className="flex-none rounded p-1 text-text-subtle transition-colors hover:bg-surface hover:text-danger disabled:opacity-40"
-                        aria-label={`Remove ${m.id}`}
-                      >
-                        <Icon name="delete" size={16} />
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </>
