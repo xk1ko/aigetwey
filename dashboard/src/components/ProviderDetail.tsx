@@ -22,6 +22,7 @@ export function ProviderDetail({ id }: { id: string }) {
   const [busy, setBusy] = useState("");
   const [newKey, setNewKey] = useState("");
   const [newModel, setNewModel] = useState("");
+  const [modelFilter, setModelFilter] = useState("");
   const [discovered, setDiscovered] = useState<DiscoveredModel[] | null>(null);
 
   const reload = useCallback(async () => {
@@ -49,6 +50,8 @@ export function ProviderDetail({ id }: { id: string }) {
   if (!provider) return <Empty>Loading…</Empty>;
 
   const keys = provider.api_keys ?? (provider.api_key ? [provider.api_key] : []);
+  const q = modelFilter.trim().toLowerCase();
+  const shownModels = q ? provider.models.filter((m) => m.id.toLowerCase().includes(q)) : provider.models;
 
   async function run(label: string, fn: () => Promise<{ ok: boolean; error?: string }>) {
     setBusy(label);
@@ -165,21 +168,46 @@ export function ProviderDetail({ id }: { id: string }) {
           {provider.models.length === 0 ? (
             <Empty>No models. Add one below, or fetch them for a free/auto provider.</Empty>
           ) : (
-            <div className="flex flex-wrap gap-2">
-              {provider.models.map((m) => (
-                <span key={m.id} className="inline-flex items-center gap-2 rounded-brand border border-border-subtle bg-bg px-2.5 py-1.5 text-[12.5px]">
-                  <span className="text-text">{m.id}</span>
-                  {(m.price_in !== undefined || m.price_out !== undefined) && (
-                    <span className="tnum text-[11px] text-text-subtle">
-                      {fmt.cost(m.price_in ?? 0)}/{fmt.cost(m.price_out ?? 0)} per 1M
-                    </span>
-                  )}
-                  <button onClick={() => run(`rmmodel${m.id}`, () => adminApi.removeModel(id, m.id))} className="text-text-subtle hover:text-danger" aria-label="Remove model">
-                    <Icon name="close" size={14} />
-                  </button>
-                </span>
-              ))}
-            </div>
+            <>
+              {/* filter only earns its space once the catalog is long enough to scroll */}
+              {provider.models.length > 8 && (
+                <div className="mb-2.5 flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Icon name="search" size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-text-subtle" />
+                    <Input value={modelFilter} onChange={(e) => setModelFilter(e.target.value)} placeholder="filter models…" className="pl-8" />
+                  </div>
+                  <span className="tnum whitespace-nowrap text-[12px] text-text-subtle">
+                    {q ? `${shownModels.length} of ${provider.models.length}` : `${provider.models.length}`}
+                  </span>
+                </div>
+              )}
+              {shownModels.length === 0 ? (
+                <Empty>No model matches “{modelFilter}”.</Empty>
+              ) : (
+                <div className="max-h-[360px] divide-y divide-border-subtle overflow-y-auto rounded-brand border border-border-subtle">
+                  {shownModels.map((m) => (
+                    <div key={m.id} className="group flex items-center justify-between gap-3 px-3 py-2 hover:bg-bg">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="tnum truncate text-[12.5px] text-text">{m.id}</span>
+                        {(m.price_in !== undefined || m.price_out !== undefined) && (
+                          <span className="tnum whitespace-nowrap text-[11px] text-text-subtle">
+                            {fmt.cost(m.price_in ?? 0)}/{fmt.cost(m.price_out ?? 0)} per 1M
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => run(`rmmodel${m.id}`, () => adminApi.removeModel(id, m.id))}
+                        disabled={busy === `rmmodel${m.id}`}
+                        className="flex-none rounded p-1 text-text-subtle transition-colors hover:bg-surface hover:text-danger disabled:opacity-40"
+                        aria-label={`Remove ${m.id}`}
+                      >
+                        <Icon name="delete" size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
           <div className="mt-3 flex gap-2">
             <Input value={newModel} onChange={(e) => setNewModel(e.target.value)} placeholder="add a model id…" />
