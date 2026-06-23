@@ -135,11 +135,21 @@ export function ProviderDetail({ id }: { id: string }) {
         <RichCard header={<CardTitle title="Connection" />}>
           {editingConn ? (
             <div className="space-y-3">
-              <Field label="Name" hint="display label">
-                <Input value={connName} onChange={(e) => setConnName(e.target.value)} placeholder="Friendly display name" />
-              </Field>
-              <Field label="Prefix" hint="the call id — renaming repoints combos">
+              <Field label="Prefix" hint="the call id — used in Huki/model and combos">
                 <Input value={connPrefix} onChange={(e) => setConnPrefix(e.target.value)} placeholder="e.g. Huki" className="font-mono text-[12.5px]" />
+              </Field>
+              {connPrefix.trim() && connPrefix.trim() !== id && (
+                <p className="flex items-start gap-1.5 rounded-brand border border-warning/40 bg-warning/8 px-2.5 py-2 text-[11.5px] text-warning">
+                  <Icon name="warning" size={14} className="mt-0.5 flex-none" />
+                  <span>
+                    Changing the prefix rewrites the call string. CLI tools pointing at{" "}
+                    <code className="tnum">{id}/…</code> will break until repointed; combos that target it are
+                    updated automatically.
+                  </span>
+                </p>
+              )}
+              <Field label="Name" hint="optional nickname — defaults to the prefix">
+                <Input value={connName} onChange={(e) => setConnName(e.target.value)} placeholder={connPrefix.trim() || "Friendly display name"} />
               </Field>
               <Field label="Base URL">
                 <Input value={connUrl} onChange={(e) => setConnUrl(e.target.value)} placeholder="https://..." className="font-mono text-[12.5px]" />
