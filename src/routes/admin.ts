@@ -236,6 +236,28 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     applyMutation(reply, (c) => removeProviderModel(c, id, decodeURIComponent(model)));
   });
 
+  // Pre-save connectivity check for the add-provider form's "Check" button:
+  // ping an ad-hoc provider config without persisting it. Mirrors 9router's
+  // validate-before-save. Never stores anything; the key stays in the request.
+  app.post("/admin/providers/validate", requireAdmin, async (req, reply) => {
+    const b = req.body as { format?: Provider["format"]; base_url?: string; api_key?: string };
+    if (!b?.format || !b?.base_url) {
+      return reply.code(400).send({ error: "format and base_url required" });
+    }
+    const probe = {
+      id: "_probe",
+      format: b.format,
+      base_url: b.base_url,
+      api_key: b.api_key,
+      free: !b.api_key,
+      auto_models: false,
+      models: [],
+      cooldown_base_ms: 1000,
+      max_retries: 0,
+    } as unknown as Provider;
+    reply.send(await pingProvider(probe, b.api_key));
+  });
+
   // live connectivity check against the provider's /models. Uses a real
   // (unmasked) key from the live config; never returns the key itself.
   app.post("/admin/providers/:id/test", requireAdmin, async (req, reply) => {

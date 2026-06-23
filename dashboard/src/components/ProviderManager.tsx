@@ -127,53 +127,96 @@ export function ProviderManager() {
   );
 }
 
+// Field set mirrors 9router's "OpenAI Compatible" provider form (Name, API Type,
+// Base URL, API Key + Check, Model ID), minus the separate Prefix — our Name is
+// the id and doubles as the model prefix (id/model), as discussed.
 function AddProviderForm({ onDone }: { onDone: () => void }) {
   const [id, setId] = useState("");
   const [format, setFormat] = useState<WireFormat>("openai");
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
+  const [modelId, setModelId] = useState("");
   const [free, setFree] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [checkResult, setCheckResult] = useState<null | "ok" | "fail">(null);
   const [err, setErr] = useState("");
+
+  async function check() {
+    if (!baseUrl) {
+      setErr("base URL required to check");
+      return;
+    }
+    setChecking(true);
+    setCheckResult(null);
+    const r = await adminApi.validateProvider({ format, base_url: baseUrl, api_key: apiKey || undefined });
+    setChecking(false);
+    setCheckResult(r.ok && r.data?.reachable ? "ok" : "fail");
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (!id || !baseUrl) {
+      setErr("name and base URL are required");
+      return;
+    }
     setBusy(true);
     setErr("");
-    const res = await adminApi.addProvider({
-      id,
-      format,
-      base_url: baseUrl,
-      api_key: apiKey || undefined,
-      free,
-    });
+    const res = await adminApi.addProvider({ id, format, base_url: baseUrl, api_key: apiKey || undefined, free });
+    if (!res.ok) {
+      setBusy(false);
+      setErr(res.error ?? "failed");
+      return;
+    }
+    // optional seed model, like 9router's "Model ID (optional)" field
+    if (modelId.trim()) await adminApi.addModel(id, modelId.trim());
     setBusy(false);
-    if (res.ok) onDone();
-    else setErr(res.error ?? "failed");
+    onDone();
   }
 
   return (
     <form onSubmit={submit} className="mb-5 rounded-brand-lg border border-border bg-surface p-4 shadow-soft">
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="ID" hint="also the model prefix: call models as id/model"><Input value={id} onChange={(e) => setId(e.target.value)} placeholder="openai" /></Field>
-        <Field label="Format">
+        <Field label="Name" hint="the id — also the model prefix (id/model)">
+          <Input value={id} onChange={(e) => setId(e.target.value)} placeholder="e.g. openai, Huki" />
+        </Field>
+        <Field label="API Type" hint="the wire format this endpoint speaks">
           <Select value={format} onChange={(e) => setFormat(e.target.value as WireFormat)}>
-            <option value="openai">openai</option>
-            <option value="anthropic">anthropic</option>
-            <option value="gemini">gemini</option>
+            <option value="openai">OpenAI — /v1/chat/completions</option>
+            <option value="anthropic">Anthropic — /v1/messages</option>
+            <option value="gemini">Gemini</option>
           </Select>
         </Field>
-        <Field label="Base URL">
+        <Field label="Base URL" hint="ending in /v1 for an OpenAI-compatible API">
           <Input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://api.openai.com/v1" />
         </Field>
-        <Field label="API key" hint={free ? "not needed for free" : "optional"}>
-          <Input value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-…" disabled={free} />
+        <Field label="API Key" hint={free ? "not needed — free / no-auth" : "optional; used for Check + requests"}>
+          <div className="flex gap-2">
+            <Input
+              value={apiKey}
+              onChange={(e) => { setApiKey(e.target.value); setCheckResult(null); }}
+              placeholder="sk-…"
+              disabled={free}
+              className="flex-1"
+            />
+            <Button type="button" variant="ghost" disabled={checking || !baseUrl} onClick={check}>
+              {checking ? "Checking…" : "Check"}
+            </Button>
+          </div>
+        </Field>
+        <Field label="Model ID" hint="optional — seed one model id (provider lacks /models)">
+          <Input value={modelId} onChange={(e) => setModelId(e.target.value)} placeholder="e.g. gpt-4o" />
         </Field>
       </div>
-      <label className="mt-3 flex cursor-pointer items-center gap-2 text-[12px] text-text-muted">
-        <Checkbox checked={free} onChange={() => setFree((v) => !v)} ariaLabel="Free passthrough" />
-        Free passthrough (no upstream auth)
-      </label>
+
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <label className="flex cursor-pointer items-center gap-2 text-[12px] text-text-muted">
+          <Checkbox checked={free} onChange={() => setFree((v) => !v)} ariaLabel="Free passthrough" />
+          Free passthrough (no upstream auth)
+        </label>
+        {checkResult && <Badge tone={checkResult === "ok" ? "live" : "down"}>{checkResult === "ok" ? "reachable" : "unreachable"}</Badge>}
+      </div>
+
       {err && <div className="mt-2 text-[12px] text-danger">{err}</div>}
       <div className="mt-3 flex justify-end">
         <Button type="submit" disabled={busy}>{busy ? "Adding…" : "Add provider"}</Button>
