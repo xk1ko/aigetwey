@@ -11,6 +11,7 @@ import { Button, Input, Field } from "@/components/Button";
 import { Icon } from "@/components/Icon";
 import { fmt, Empty } from "@/components/ui";
 import { ModelSelectModal, type DiscoveredModel } from "@/components/ModelSelectModal";
+import { CapacityBadges } from "@/components/CapacityBadges";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import type { MaskedConfig, MaskedProvider, ProviderSnapshot, PingResult } from "@/lib/gateway";
 
@@ -436,6 +437,7 @@ export function ProviderDetail({ id }: { id: string }) {
                             <span className="text-text-subtle">{provider.id}/</span>
                             <span className="text-text">{m.id}</span>
                           </span>
+                          <CapacityBadges model={m.id} provider={provider.id} />
                           {(m.price_in !== undefined || m.price_out !== undefined) && (
                             <span className="tnum whitespace-nowrap text-[11px] text-text-subtle">
                               {fmt.cost(m.price_in ?? 0)}/{fmt.cost(m.price_out ?? 0)} per 1M
