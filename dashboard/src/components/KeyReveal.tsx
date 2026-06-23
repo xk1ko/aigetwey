@@ -9,7 +9,22 @@ import { Icon } from "./Icon";
  * string the dashboard renders everywhere; `reveal` lazily fetches the real key
  * (admin-gated) the first time it's shown, then we cache it for copy/hide.
  */
-export function KeyReveal({ masked, reveal, className }: { masked: string; reveal: () => Promise<string | null>; className?: string }) {
+/**
+ * `align`: "inline" keeps the eye + copy right next to the key text (use in a
+ * label/column context like Endpoint). "right" lets the text grow so the eye +
+ * copy push to the right edge (use in a single-line row like Provider keys).
+ */
+export function KeyReveal({
+  masked,
+  reveal,
+  className,
+  align = "inline",
+}: {
+  masked: string;
+  reveal: () => Promise<string | null>;
+  className?: string;
+  align?: "inline" | "right";
+}) {
   const [real, setReal] = useState<string | null>(null);
   const [shown, setShown] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -34,7 +49,7 @@ export function KeyReveal({ masked, reveal, className }: { masked: string; revea
 
   return (
     <span className={`flex min-w-0 items-center gap-1.5${className ? ` ${className}` : ""}`}>
-      <span className="tnum flex-1 truncate text-[12.5px] text-text">{display}</span>
+      <span className={`tnum truncate text-[12.5px] text-text${align === "right" ? " flex-1" : ""}`}>{display}</span>
       <button
         type="button"
         onClick={toggle}

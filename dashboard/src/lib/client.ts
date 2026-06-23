@@ -123,6 +123,9 @@ export interface CliStatus {
   path?: string;
   baseUrl?: string | null;
   models?: string[];
+  activeModel?: string | null;
+  // claude returns its three slot defaults instead of a flat list
+  modelSlots?: { opus?: string | null; sonnet?: string | null; haiku?: string | null };
 }
 
 async function appApi<T>(method: string, url: string, body?: unknown): Promise<ApiResult<T>> {
@@ -147,7 +150,7 @@ async function appApi<T>(method: string, url: string, body?: unknown): Promise<A
 
 export const cliConfig = {
   status: (tool: string) => appApi<CliStatus>("GET", `/api/cli-detect/${encodeURIComponent(tool)}`),
-  apply: (tool: string, body: { base: string; key?: string; models?: string[] | Record<string, string> }) =>
+  apply: (tool: string, body: { base: string; key?: string; models?: string[] | Record<string, string>; active?: string }) =>
     appApi<{ success?: boolean; path?: string }>("POST", `/api/cli-detect/${encodeURIComponent(tool)}`, body),
   reset: (tool: string) => appApi<{ success?: boolean }>("DELETE", `/api/cli-detect/${encodeURIComponent(tool)}`),
 };

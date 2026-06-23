@@ -144,6 +144,7 @@ export function ProviderDetail({ id }: { id: string }) {
                       <Lamp state={lamp} />
                       <KeyReveal
                         className="flex-1"
+                        align="right"
                         masked={k}
                         reveal={async () => {
                           const r = await adminApi.revealKey(id, i);

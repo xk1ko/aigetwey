@@ -58,13 +58,18 @@ export function ProviderManager() {
           <h1 className="text-[22px] font-semibold tracking-tight text-text">Providers &amp; Keys</h1>
           <p className="mt-1 text-[13px] text-text-muted">Upstream providers the gateway routes to.</p>
         </div>
-        <Button onClick={() => setAdding((v) => !v)}>
-          <Icon name={adding ? "close" : "add"} size={17} />
-          {adding ? "Cancel" : "Add provider"}
+        <Button onClick={() => setAdding(true)}>
+          <Icon name="add" size={17} />
+          Add provider
         </Button>
       </div>
 
-      {adding && <AddProviderForm onDone={() => { setAdding(false); void reload(); }} />}
+      {adding && (
+        <AddProviderForm
+          onClose={() => setAdding(false)}
+          onDone={() => { setAdding(false); void reload(); }}
+        />
+      )}
 
       {data.config.providers.length === 0 ? (
         <Empty>No providers yet. Add one to start routing.</Empty>
@@ -145,7 +150,27 @@ const PRESETS: Preset[] = [
   },
 ];
 
-function AddProviderForm({ onDone }: { onDone: () => void }) {
+/** Centered modal shell (overlay + click-outside), matching 9router's add flow. */
+function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-6 sm:p-10" onClick={onClose}>
+      <div
+        className="w-full max-w-xl rounded-brand-lg border border-border bg-surface shadow-elevated"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-border-subtle px-5 py-3.5">
+          <h2 className="text-[14px] font-semibold text-text">{title}</h2>
+          <button onClick={onClose} className="text-text-subtle hover:text-text" aria-label="Close">
+            <Icon name="close" size={18} />
+          </button>
+        </div>
+        <div className="p-5">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function AddProviderForm({ onDone, onClose }: { onDone: () => void; onClose: () => void }) {
   const [preset, setPreset] = useState<Preset | null>(null);
   const [id, setId] = useState("");
   const [format, setFormat] = useState<WireFormat>("openai");
@@ -172,9 +197,8 @@ function AddProviderForm({ onDone }: { onDone: () => void }) {
   // + API Type; only Name + Key remain.
   if (!preset) {
     return (
-      <div className="mb-5 rounded-brand-lg border border-border bg-surface p-5 shadow-soft">
-        <h2 className="text-[14px] font-semibold text-text">Add a provider</h2>
-        <p className="mt-0.5 text-[12.5px] text-text-muted">Pick the API your endpoint speaks — the rest is prefilled.</p>
+      <Modal title="Add a provider" onClose={onClose}>
+        <p className="text-[12.5px] text-text-muted">Pick the API your endpoint speaks — the rest is prefilled.</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {PRESETS.map((p) => (
             <button
@@ -194,7 +218,7 @@ function AddProviderForm({ onDone }: { onDone: () => void }) {
             </button>
           ))}
         </div>
-      </div>
+      </Modal>
     );
   }
 
@@ -231,23 +255,15 @@ function AddProviderForm({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <form onSubmit={submit} className="mb-5 rounded-brand-lg border border-border bg-surface p-5 shadow-soft">
-      <div className="mb-4 flex items-center gap-2.5 border-b border-border-subtle pb-4">
-        <span className="flex h-8 w-8 items-center justify-center rounded-brand bg-surface-2 text-text-muted">
-          <Icon name={preset.icon} size={17} />
-        </span>
-        <div>
-          <div className="text-[13.5px] font-semibold text-text">{preset.label}</div>
-          <div className="tnum text-[11px] text-text-subtle">{preset.sub}</div>
-        </div>
-        <button
-          type="button"
-          onClick={() => { setPreset(null); setCheckRes(null); }}
-          className="ml-auto inline-flex items-center gap-1 rounded-brand border border-border px-2.5 py-1.5 text-[12px] text-text-subtle hover:text-text hover:border-text-subtle"
-        >
-          <Icon name="arrow_back" size={14} /> change type
-        </button>
-      </div>
+    <Modal title={`Add ${preset.label}`} onClose={onClose}>
+    <form onSubmit={submit}>
+      <button
+        type="button"
+        onClick={() => { setPreset(null); setCheckRes(null); }}
+        className="mb-3 inline-flex items-center gap-1 text-[12px] text-text-subtle hover:text-text"
+      >
+        <Icon name="arrow_back" size={14} /> change type
+      </button>
 
       {/* identity */}
       <div className="grid gap-3 sm:grid-cols-2">
@@ -320,9 +336,10 @@ function AddProviderForm({ onDone }: { onDone: () => void }) {
       )}
       {err && <div className="mt-2 text-[12px] text-danger">{err}</div>}
       <div className="mt-4 flex justify-end gap-2">
-        <Button type="button" variant="ghost" onClick={() => setPreset(null)}>Back</Button>
+        <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
         <Button type="submit" disabled={busy}>{busy ? "Adding…" : "Add provider"}</Button>
       </div>
     </form>
+    </Modal>
   );
 }

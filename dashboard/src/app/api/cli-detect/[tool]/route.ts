@@ -74,6 +74,11 @@ async function claudeStatus() {
     configured: typeof env.ANTHROPIC_BASE_URL === "string",
     path: claudePath(),
     baseUrl: (env.ANTHROPIC_BASE_URL as string) ?? null,
+    modelSlots: {
+      opus: (env.ANTHROPIC_DEFAULT_OPUS_MODEL as string) ?? null,
+      sonnet: (env.ANTHROPIC_DEFAULT_SONNET_MODEL as string) ?? null,
+      haiku: (env.ANTHROPIC_DEFAULT_HAIKU_MODEL as string) ?? null,
+    },
   };
 }
 
@@ -133,16 +138,20 @@ async function opencodeStatus() {
   }
   const prov = (cfg?.provider as Json | undefined)?.[OC_PROVIDER] as Json | undefined;
   const models = prov?.models ? Object.keys(prov.models as Json) : [];
+  const active = typeof cfg?.model === "string" && cfg.model.startsWith(`${OC_PROVIDER}/`)
+    ? cfg.model.slice(OC_PROVIDER.length + 1)
+    : null;
   return {
     installed: true as const,
     configured: !!prov,
     path: ocPath(),
     models,
+    activeModel: active,
     baseUrl: ((prov?.options as Json | undefined)?.baseURL as string) ?? null,
   };
 }
 
-async function opencodeApply(body: { base?: string; key?: string; models?: string[] }) {
+async function opencodeApply(body: { base?: string; key?: string; models?: string[]; active?: string }) {
   const models = (body.models ?? []).filter(Boolean);
   if (!body.base || models.length === 0) return { error: "base and at least one model are required" };
   const p = ocPath();
@@ -166,7 +175,8 @@ async function opencodeApply(body: { base?: string; key?: string; models?: strin
   existing.models = modelMap;
   provider[OC_PROVIDER] = existing;
   cfg.provider = provider;
-  cfg.model = `${OC_PROVIDER}/${models[0]}`;
+  const active = body.active && models.includes(body.active) ? body.active : models[0];
+  cfg.model = `${OC_PROVIDER}/${active}`;
   await fs.writeFile(p, JSON.stringify(cfg, null, 2));
   return { success: true, path: p };
 }
@@ -186,13 +196,10 @@ async function opencodeReset() {
   return { success: true };
 }
 
+type ApplyBody = { base?: string; key?: string; models?: string[] | Record<string, string>; active?: string };
 const HANDLERS: Record<
   string,
-  {
-    status: () => Promise<unknown>;
-    apply: (b: { base?: string; key?: string; models?: string[] | Record<string, string> }) => Promise<unknown>;
-    reset: () => Promise<unknown>;
-  }
+  { status: () => Promise<unknown>; apply: (b: ApplyBody) => Promise<unknown>; reset: () => Promise<unknown> }
 > = {
   "claude-code": {
     status: claudeStatus,
@@ -201,7 +208,7 @@ const HANDLERS: Record<
   },
   opencode: {
     status: opencodeStatus,
-    apply: (b) => opencodeApply(b as { base?: string; key?: string; models?: string[] }),
+    apply: (b) => opencodeApply(b as { base?: string; key?: string; models?: string[]; active?: string }),
     reset: opencodeReset,
   },
 };
@@ -224,7 +231,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   const h = HANDLERS[tool];
   if (!h) return NextResponse.json({ error: "tool does not support auto-config" }, { status: 400 });
   try {
-    const body = (await req.json()) as { base?: string; key?: string; models?: string[] | Record<string, string> };
+    const body = (await req.json()) as ApplyBody;
     const res = (await h.apply(body)) as { error?: string };
     if (res.error) return NextResponse.json(res, { status: 400 });
     return NextResponse.json(res);
