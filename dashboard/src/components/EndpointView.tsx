@@ -28,6 +28,8 @@ export function EndpointView() {
   const [keyName, setKeyName] = useState("");
   const [created, setCreated] = useState<{ key: string; name: string } | null>(null);
   const [hr, setHr] = useState<HeadroomStatusReply | null>(null);
+  const [editKey, setEditKey] = useState<number | null>(null);
+  const [editKeyName, setEditKeyName] = useState("");
 
   const reload = useCallback(async () => {
     const r = await adminApi.endpoint();
@@ -109,23 +111,54 @@ export function EndpointView() {
             <Empty>No keys — auth is DISABLED (localhost only). Generate one below.</Empty>
           ) : (
             <div className="space-y-1.5">
-              {ep.keys.map((k, i) => (
-                <div key={i} className="flex items-center justify-between gap-2 rounded-brand border border-border-subtle px-3 py-2">
-                  <div className="flex min-w-0 flex-col gap-0.5">
-                    {k.name && <span className="text-[12px] font-semibold text-text-muted">{k.name}</span>}
-                    <KeyReveal
-                      masked={k.key}
-                      reveal={async () => {
-                        const r = await adminApi.revealServerKey(i);
-                        return r.ok ? r.data?.key ?? null : null;
-                      }}
-                    />
+              {ep.keys.map((k, i) =>
+                editKey === i ? (
+                  <div key={i} className="space-y-2 rounded-brand border border-accent bg-accent-soft/40 px-3 py-2.5">
+                    <Input value={editKeyName} onChange={(e) => setEditKeyName(e.target.value)} placeholder="key name (e.g. Claude Code)" />
+                    <div className="flex justify-end gap-2">
+                      <Button variant="ghost" onClick={() => setEditKey(null)}>Cancel</Button>
+                      <Button
+                        disabled={busy === `editkey${i}`}
+                        onClick={() =>
+                          run(`editkey${i}`, async () => {
+                            const r = await adminApi.editServerKey(i, editKeyName.trim());
+                            if (r.ok) setEditKey(null);
+                            return r;
+                          })
+                        }
+                      >
+                        Save
+                      </Button>
+                    </div>
                   </div>
-                  <button onClick={() => run(`rmkey${i}`, () => adminApi.removeServerKey(i))} className="flex-none text-text-subtle hover:text-danger" aria-label="Remove key">
-                    <Icon name="delete" size={16} />
-                  </button>
-                </div>
-              ))}
+                ) : (
+                  <div key={i} className="flex items-center justify-between gap-2 rounded-brand border border-border-subtle px-3 py-2">
+                    <div className="flex min-w-0 flex-col gap-0.5">
+                      {k.name && <span className="text-[12px] font-semibold text-text-muted">{k.name}</span>}
+                      <KeyReveal
+                        masked={k.key}
+                        reveal={async () => {
+                          const r = await adminApi.revealServerKey(i);
+                          return r.ok ? r.data?.key ?? null : null;
+                        }}
+                      />
+                    </div>
+                    <div className="flex flex-none items-center gap-1">
+                      <button
+                        onClick={() => { setEditKey(i); setEditKeyName(k.name ?? ""); }}
+                        className="text-text-subtle hover:text-text"
+                        aria-label="Rename key"
+                        title="Rename key"
+                      >
+                        <Icon name="edit" size={15} />
+                      </button>
+                      <button onClick={() => run(`rmkey${i}`, () => adminApi.removeServerKey(i))} className="text-text-subtle hover:text-danger" aria-label="Remove key">
+                        <Icon name="delete" size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ),
+              )}
             </div>
           )}
           <div className="mt-3 space-y-2">

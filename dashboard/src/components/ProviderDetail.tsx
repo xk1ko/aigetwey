@@ -38,6 +38,7 @@ export function ProviderDetail({ id }: { id: string }) {
   const [editingConn, setEditingConn] = useState(false);
   const [connUrl, setConnUrl] = useState("");
   const [connName, setConnName] = useState("");
+  const [connPrefix, setConnPrefix] = useState("");
   const [revealedKeys, setRevealedKeys] = useState<Record<number, string>>({});
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -134,8 +135,11 @@ export function ProviderDetail({ id }: { id: string }) {
         <RichCard header={<CardTitle title="Connection" />}>
           {editingConn ? (
             <div className="space-y-3">
-              <Field label="Name">
+              <Field label="Name" hint="display label">
                 <Input value={connName} onChange={(e) => setConnName(e.target.value)} placeholder="Friendly display name" />
+              </Field>
+              <Field label="Prefix" hint="the call id — renaming repoints combos">
+                <Input value={connPrefix} onChange={(e) => setConnPrefix(e.target.value)} placeholder="e.g. Huki" className="font-mono text-[12.5px]" />
               </Field>
               <Field label="Base URL">
                 <Input value={connUrl} onChange={(e) => setConnUrl(e.target.value)} placeholder="https://..." className="font-mono text-[12.5px]" />
@@ -143,8 +147,20 @@ export function ProviderDetail({ id }: { id: string }) {
               <div className="flex justify-end gap-2">
                 <Button variant="ghost" onClick={() => setEditingConn(false)}>Cancel</Button>
                 <Button disabled={busy === "editconn"} onClick={() => run("editconn", async () => {
-                  const r = await adminApi.editProvider(id, { base_url: connUrl.trim() || undefined, name: connName });
-                  if (r.ok) setEditingConn(false);
+                  // Rename the prefix (id) first if changed — it cascades to combos and
+                  // moves this page to the new id. Then apply name/base_url on that id.
+                  const newPrefix = connPrefix.trim();
+                  let activeId = id;
+                  if (newPrefix && newPrefix !== id) {
+                    const rr = await adminApi.renameProvider(id, newPrefix);
+                    if (!rr.ok) return rr;
+                    activeId = newPrefix;
+                  }
+                  const r = await adminApi.editProvider(activeId, { base_url: connUrl.trim() || undefined, name: connName });
+                  if (r.ok) {
+                    setEditingConn(false);
+                    if (activeId !== id) { router.push(`/providers/${encodeURIComponent(activeId)}`); return r; }
+                  }
                   return r;
                 })}>Save</Button>
               </div>
@@ -158,7 +174,7 @@ export function ProviderDetail({ id }: { id: string }) {
                 <Row k="Max retries" v={String(provider.max_retries)} />
               </div>
               <div className="mt-4 flex items-center gap-2">
-                <Button variant="ghost" onClick={() => { setEditingConn(true); setConnUrl(provider.base_url); setConnName(provider.name ?? ""); }}>
+                <Button variant="ghost" onClick={() => { setEditingConn(true); setConnUrl(provider.base_url); setConnName(provider.name ?? ""); setConnPrefix(provider.id); }}>
                   <Icon name="edit" size={15} /> Edit
                 </Button>
                 <Button variant="ghost" disabled={busy === "test"} onClick={() => run("test", async () => {

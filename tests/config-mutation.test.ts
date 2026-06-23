@@ -16,7 +16,9 @@ import {
   setCaveman,
   setPonytail,
   addServerKey,
+  editServerKey,
   removeServerKey,
+  renameProvider,
   maskKey,
 } from "../src/config.js";
 
@@ -198,5 +200,39 @@ describe("mutations preserve maskability (secrets still real after mutate)", () 
     const real = reval(c).getProvider("oa")!.api_keys!.at(-1)!;
     expect(real).toBe("sk-brand-new-123456");
     expect(maskKey(real)).toBe("sk-…3456");
+  });
+});
+
+describe("renameProvider", () => {
+  it("renames the id and repoints combos that target it", () => {
+    const c = renameProvider(base(), "oa", "openai-x");
+    expect(reval(c).getProvider("openai-x")).toBeDefined();
+    expect(reval(c).getProvider("oa")).toBeUndefined();
+    // the "smart" combo targeted ["oa","an"] → ["openai-x","an"]
+    expect(reval(c).listRoutes().find((r) => r.alias === "smart")!.target).toEqual(["openai-x", "an"]);
+  });
+
+  it("rejects a duplicate id, a blank id, or spaces/slashes", () => {
+    expect(() => renameProvider(base(), "oa", "an")).toThrow(/already exists/);
+    expect(() => renameProvider(base(), "oa", "  ")).toThrow(/must not be empty/);
+    expect(() => renameProvider(base(), "oa", "a b")).toThrow(/spaces or/);
+    expect(() => renameProvider(base(), "oa", "a/b")).toThrow(/spaces or/);
+  });
+
+  it("renaming to the same id is a no-op", () => {
+    expect(reval(renameProvider(base(), "oa", "oa")).getProvider("oa")).toBeDefined();
+  });
+});
+
+describe("editServerKey", () => {
+  it("sets and clears a gateway key label", () => {
+    const named = editServerKey(base(), 0, { name: "Claude Code" });
+    expect(named.server.key_names?.["gw-1"]).toBe("Claude Code");
+    const cleared = editServerKey(named, 0, { name: "" });
+    expect(cleared.server.key_names).toBeUndefined();
+  });
+
+  it("rejects an out-of-range index", () => {
+    expect(() => editServerKey(base(), 9, { name: "x" })).toThrow(/no gateway key/);
   });
 });

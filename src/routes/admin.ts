@@ -21,6 +21,7 @@ import {
   serializeConfig,
   addProvider,
   editProvider,
+  renameProvider,
   removeProvider,
   addProviderKey,
   removeProviderKey,
@@ -39,6 +40,7 @@ import {
   setPonytail,
   setHeadroom,
   addServerKey,
+  editServerKey,
   removeServerKey,
   type Config,
   type Provider,
@@ -215,6 +217,14 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     const { id } = req.params as { id: string };
     const b = req.body as { base_url?: string; format?: Provider["format"]; name?: string };
     applyMutation(reply, (c) => editProvider(c, id, { base_url: b?.base_url, format: b?.format, name: b?.name }));
+  });
+
+  // rename a provider's id (the call prefix); cascades to combos that target it.
+  app.put("/admin/providers/:id/rename", requireAdmin, (req, reply) => {
+    const { id } = req.params as { id: string };
+    const b = req.body as { id?: string };
+    if (!b?.id) return reply.code(400).send({ error: "new id required" });
+    applyMutation(reply, (c) => renameProvider(c, id, b.id!));
   });
 
   app.delete("/admin/providers/:id", requireAdmin, (req, reply) => {
@@ -469,6 +479,15 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     const b = req.body as { key?: string; name?: string };
     if (!b?.key) return reply.code(400).send({ error: "key required" });
     applyMutation(reply, (c) => addServerKey(c, b.key!, b.name));
+  });
+
+  // rename ONE gateway key's label (the Endpoint page's edit-name button).
+  app.put("/admin/endpoint/keys/:index", requireAdmin, (req, reply) => {
+    const { index } = req.params as { index: string };
+    const i = Number(index);
+    if (!Number.isInteger(i)) return reply.code(400).send({ error: "index must be an integer" });
+    const b = req.body as { name?: string };
+    applyMutation(reply, (c) => editServerKey(c, i, { name: b?.name }));
   });
 
   app.delete("/admin/endpoint/keys/:index", requireAdmin, (req, reply) => {

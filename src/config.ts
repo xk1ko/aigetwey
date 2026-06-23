@@ -417,6 +417,27 @@ export function editProvider(
   return next;
 }
 
+/**
+ * Rename a provider's id (the call prefix). Cascades to every combo that targets
+ * it so routing stays intact — the id is the routing key, not just a label.
+ */
+export function renameProvider(config: Config, oldId: string, newId: string): Config {
+  const next = cloneConfig(config);
+  const trimmed = newId.trim();
+  if (!trimmed) throw new Error("new provider id must not be empty");
+  if (/\s|\//.test(trimmed)) throw new Error("provider id can't contain spaces or '/'");
+  const p = next.providers.find((x) => x.id === oldId);
+  if (!p) throw new Error(`provider "${oldId}" not found`);
+  if (trimmed === oldId) return next;
+  if (next.providers.some((x) => x.id === trimmed)) throw new Error(`provider "${trimmed}" already exists`);
+  p.id = trimmed;
+  // repoint any combo chains that referenced the old id.
+  for (const m of next.models) {
+    m.target = m.target.map((t) => (t === oldId ? trimmed : t));
+  }
+  return next;
+}
+
 /** Remove a provider; refuses if any routing alias still targets it. */
 export function removeProvider(config: Config, id: string): Config {
   const next = cloneConfig(config);
@@ -685,6 +706,20 @@ export function addServerKey(config: Config, key: string, name?: string): Config
   next.server.api_keys = [...next.server.api_keys, trimmed];
   const label = name?.trim();
   if (label) next.server.key_names = { ...(next.server.key_names ?? {}), [trimmed]: label };
+  return next;
+}
+
+/** Rename a gateway key's label (by index, since keys are masked in the API). */
+export function editServerKey(config: Config, index: number, patch: { name?: string }): Config {
+  const next = cloneConfig(config);
+  const keys = next.server.api_keys;
+  if (index < 0 || index >= keys.length) throw new Error(`no gateway key at index ${index}`);
+  const key = keys[index]!;
+  const names = { ...(next.server.key_names ?? {}) };
+  const label = patch.name?.trim();
+  if (label) names[key] = label;
+  else delete names[key];
+  next.server.key_names = Object.keys(names).length > 0 ? names : undefined;
   return next;
 }
 

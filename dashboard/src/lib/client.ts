@@ -64,6 +64,8 @@ export const adminApi = {
   }) => api<ConfigReply>("POST", "/admin/providers", p),
   editProvider: (id: string, patch: { base_url?: string; format?: WireFormat; name?: string }) =>
     api<ConfigReply>("PUT", `/admin/providers/${encodeURIComponent(id)}`, patch),
+  renameProvider: (id: string, newId: string) =>
+    api<ConfigReply>("PUT", `/admin/providers/${encodeURIComponent(id)}/rename`, { id: newId }),
   removeProvider: (id: string) => api<ConfigReply>("DELETE", `/admin/providers/${encodeURIComponent(id)}`),
   addKey: (id: string, key: string, name?: string) =>
     api<ConfigReply>("POST", `/admin/providers/${encodeURIComponent(id)}/keys`, { key, name }),
@@ -117,6 +119,7 @@ export const adminApi = {
   setCaveman: (level: InjectLevel) => api<ConfigReply>("PUT", "/admin/endpoint/caveman", { level }),
   setPonytail: (level: InjectLevel) => api<ConfigReply>("PUT", "/admin/endpoint/ponytail", { level }),
   addServerKey: (key: string, name?: string) => api<ConfigReply>("POST", "/admin/endpoint/keys", { key, name }),
+  editServerKey: (index: number, name: string) => api<ConfigReply>("PUT", `/admin/endpoint/keys/${index}`, { name }),
   removeServerKey: (index: number) => api<ConfigReply>("DELETE", `/admin/endpoint/keys/${index}`),
   revealServerKey: (index: number) => api<{ key: string }>("GET", `/admin/endpoint/keys/${index}/reveal`),
 
