@@ -84,13 +84,24 @@ const ModelRouteSchema = z.object({
   price_out: z.number().nonnegative().optional(),
 });
 
+// Headroom = external context-compression proxy. Off by default; url points at a
+// locally-run `headroom proxy`. compress_user_messages also squeezes user turns.
+const HeadroomSchema = z
+  .object({
+    enabled: z.boolean().default(false),
+    url: z.string().default("http://localhost:8787"),
+    compress_user_messages: z.boolean().default(false),
+  })
+  .default({ enabled: false, url: "http://localhost:8787", compress_user_messages: false });
+
 const EndpointSchema = z
   .object({
     rtk: z.boolean().default(false),
     caveman: z.enum(["off", "lite", "full", "ultra"]).default("off"),
     ponytail: z.enum(["off", "lite", "full", "ultra"]).default("off"),
+    headroom: HeadroomSchema,
   })
-  .default({ rtk: false, caveman: "off", ponytail: "off" });
+  .default({});
 
 const ServerSchema = z
   .object({
@@ -648,6 +659,20 @@ export function setCaveman(config: Config, level: EndpointSettings["caveman"]): 
 export function setPonytail(config: Config, level: EndpointSettings["ponytail"]): Config {
   const next = cloneConfig(config);
   next.endpoint.ponytail = level;
+  return next;
+}
+
+/** Update the headroom (external context-compression proxy) settings. */
+export function setHeadroom(
+  config: Config,
+  patch: { enabled?: boolean; url?: string; compress_user_messages?: boolean },
+): Config {
+  const next = cloneConfig(config);
+  if (patch.enabled !== undefined) next.endpoint.headroom.enabled = patch.enabled;
+  if (patch.url !== undefined) next.endpoint.headroom.url = patch.url.trim() || "http://localhost:8787";
+  if (patch.compress_user_messages !== undefined) {
+    next.endpoint.headroom.compress_user_messages = patch.compress_user_messages;
+  }
   return next;
 }
 

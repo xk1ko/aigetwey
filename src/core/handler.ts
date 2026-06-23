@@ -26,6 +26,7 @@ import { type UsageDB, computeCost } from "../db.js";
 import { compressMessages } from "../rtk/index.js";
 import { injectInto } from "../inject/index.js";
 import { parseSuffix, captureThinking, type ThinkingConfig } from "../translator/thinkingUnified.js";
+import { compressWithHeadroom, formatHeadroomLog } from "../headroom/compress.js";
 
 export interface HandleResult {
   status: number;
@@ -135,6 +136,22 @@ export async function handle(
     if (injected) deps.log?.(`[inject] caveman=${config.endpoint.caveman} ponytail=${config.endpoint.ponytail}`);
   } catch (e) {
     deps.log?.(`[inject] skipped (error): ${(e as Error).message}`);
+  }
+
+  // Headroom: pipe the (OpenAI-shaped) messages through the external compression
+  // proxy when enabled. Fail-open — on any error the original messages stand and
+  // the request proceeds. Runs after RTK/inject so it compresses the final context.
+  if (config.endpoint.headroom.enabled) {
+    const hr = await compressWithHeadroom(canonical.messages, {
+      url: config.endpoint.headroom.url,
+      model: canonical.model,
+      compressUserMessages: config.endpoint.headroom.compress_user_messages,
+    });
+    if (hr) {
+      canonical.messages = hr.messages;
+      const line = formatHeadroomLog(hr);
+      if (line) deps.log?.(`[headroom] ${line}`);
+    }
   }
 
   const wantStream = canonical.stream === true;

@@ -37,6 +37,7 @@ import {
   setRtk,
   setCaveman,
   setPonytail,
+  setHeadroom,
   addServerKey,
   removeServerKey,
   type Config,
@@ -47,6 +48,8 @@ import { pingProvider } from "../upstream/client.js";
 import { handle, GatewayError } from "../core/handler.js";
 import { fetchModels } from "../providers/free.js";
 import { consoleBuffer } from "../core/console-buffer.js";
+import { getHeadroomStatus, isLoopbackHeadroomUrl, DEFAULT_HEADROOM_URL } from "../headroom/detect.js";
+import { startHeadroomProxy, stopHeadroomProxy, getManagedPid, getHeadroomLogTail } from "../headroom/process.js";
 
 export interface AdminDeps {
   state: GatewayState;
@@ -455,6 +458,13 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     applyMutation(reply, (c) => setPonytail(c, b.level!));
   });
 
+  app.put("/admin/endpoint/headroom", requireAdmin, (req, reply) => {
+    const b = req.body as { enabled?: boolean; url?: string; compress_user_messages?: boolean };
+    applyMutation(reply, (c) =>
+      setHeadroom(c, { enabled: b?.enabled, url: b?.url, compress_user_messages: b?.compress_user_messages }),
+    );
+  });
+
   app.post("/admin/endpoint/keys", requireAdmin, (req, reply) => {
     const b = req.body as { key?: string; name?: string };
     if (!b?.key) return reply.code(400).send({ error: "key required" });
@@ -477,6 +487,58 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
       return reply.code(404).send({ error: "key index out of range" });
     }
     reply.send({ key: keys[i] });
+  });
+
+  // ---- headroom: external context-compression proxy lifecycle ----
+
+  app.get("/admin/headroom/status", requireAdmin, async (_req, reply) => {
+    const hr = deps.state.config.raw.endpoint.headroom;
+    const url = hr.url || DEFAULT_HEADROOM_URL;
+    const status = await getHeadroomStatus(url);
+    reply.send({
+      ...status,
+      url,
+      managedPid: getManagedPid(),
+      enabled: hr.enabled,
+      compress_user_messages: hr.compress_user_messages,
+    });
+  });
+
+  app.post("/admin/headroom/start", requireAdmin, async (_req, reply) => {
+    const url = deps.state.config.raw.endpoint.headroom.url || DEFAULT_HEADROOM_URL;
+    if (!isLoopbackHeadroomUrl(url)) {
+      return reply
+        .code(400)
+        .send({ error: "external headroom proxies must be started outside aigetwey", code: "EXTERNAL_PROXY" });
+    }
+    let port = 8787;
+    try {
+      const p = parseInt(new URL(url).port, 10);
+      if (p > 0 && p < 65536) port = p;
+    } catch {
+      /* default */
+    }
+    try {
+      const result = await startHeadroomProxy({ port });
+      reply.send({ success: true, ...result });
+    } catch (e) {
+      const err = e as Error & { code?: string };
+      reply.code(err.code === "NOT_INSTALLED" ? 400 : 500).send({ error: err.message, code: err.code ?? null });
+    }
+  });
+
+  app.post("/admin/headroom/stop", requireAdmin, (_req, reply) => {
+    try {
+      const result = stopHeadroomProxy();
+      reply.code(result.stopped ? 200 : 409).send(result);
+    } catch (e) {
+      const err = e as Error & { code?: string };
+      reply.code(500).send({ error: err.message, code: err.code ?? null });
+    }
+  });
+
+  app.get("/admin/headroom/log", requireAdmin, (_req, reply) => {
+    reply.send({ log: getHeadroomLogTail() });
   });
 
   // ---- console log SSE stream ----
@@ -571,6 +633,7 @@ function endpointPayload(config: Config) {
     rtk: config.endpoint.rtk,
     caveman: config.endpoint.caveman,
     ponytail: config.endpoint.ponytail,
+    headroom: config.endpoint.headroom,
     keys: config.server.api_keys.map((k) => ({ key: maskKey(k), name: config.server.key_names?.[k] })),
   };
 }
