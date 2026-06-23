@@ -309,6 +309,18 @@ html.light .rail-icon-active:hover {
   overflow-x: auto;
 }
 
+/* Tailwind preflight leaves a plain <button> with the default arrow cursor, so
+ * raw toggles/pills/icon buttons gave no hover affordance. Pointer for every
+ * enabled interactive control; disabled keeps not-allowed. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+label:has(> input[type="checkbox"]:not(:disabled)) {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+
 ::selection {
   background: color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
