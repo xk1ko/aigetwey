@@ -7,6 +7,7 @@ import { Lamp } from "@/components/Lamp";
 import { Badge, FormatBadge } from "@/components/Badge";
 import { CooldownTimer } from "@/components/CooldownTimer";
 import { Button, Input, Select, Field } from "@/components/Button";
+import { Checkbox } from "@/components/Checkbox";
 import { Icon } from "@/components/Icon";
 import { fmt, Empty } from "@/components/ui";
 import type { MaskedConfig, ProviderSnapshot, QuotaSnapshot, WireFormat } from "@/lib/gateway";
@@ -154,7 +155,7 @@ function AddProviderForm({ onDone }: { onDone: () => void }) {
   return (
     <form onSubmit={submit} className="mb-5 rounded-brand-lg border border-border bg-surface p-4 shadow-soft">
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="ID"><Input value={id} onChange={(e) => setId(e.target.value)} placeholder="openai" /></Field>
+        <Field label="ID" hint="also the model prefix: call models as id/model"><Input value={id} onChange={(e) => setId(e.target.value)} placeholder="openai" /></Field>
         <Field label="Format">
           <Select value={format} onChange={(e) => setFormat(e.target.value as WireFormat)}>
             <option value="openai">openai</option>
@@ -169,8 +170,8 @@ function AddProviderForm({ onDone }: { onDone: () => void }) {
           <Input value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-…" disabled={free} />
         </Field>
       </div>
-      <label className="mt-3 flex items-center gap-2 text-[12px] text-text-muted">
-        <input type="checkbox" checked={free} onChange={(e) => setFree(e.target.checked)} />
+      <label className="mt-3 flex cursor-pointer items-center gap-2 text-[12px] text-text-muted">
+        <Checkbox checked={free} onChange={() => setFree((v) => !v)} ariaLabel="Free passthrough" />
         Free passthrough (no upstream auth)
       </label>
       {err && <div className="mt-2 text-[12px] text-danger">{err}</div>}

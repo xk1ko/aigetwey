@@ -169,6 +169,9 @@ export function ProviderDetail({ id }: { id: string }) {
             <Empty>No models. Add one below, or fetch them for a free/auto provider.</Empty>
           ) : (
             <>
+              <p className="mb-2.5 text-[12px] text-text-subtle">
+                Call any of these as <span className="tnum text-text-muted">{provider.id}/&lt;model&gt;</span>, as a combo alias, or by the bare id.
+              </p>
               {/* filter only earns its space once the catalog is long enough to scroll */}
               {provider.models.length > 8 && (
                 <div className="mb-2.5 flex items-center gap-2">
@@ -188,7 +191,11 @@ export function ProviderDetail({ id }: { id: string }) {
                   {shownModels.map((m) => (
                     <div key={m.id} className="group flex items-center justify-between gap-3 px-3 py-2 hover:bg-bg">
                       <div className="flex min-w-0 items-center gap-2">
-                        <span className="tnum truncate text-[12.5px] text-text">{m.id}</span>
+                        {/* the prefix (= provider id) is what makes the call string; show it like 9router */}
+                        <span className="tnum truncate text-[12.5px]">
+                          <span className="text-text-subtle">{provider.id}/</span>
+                          <span className="text-text">{m.id}</span>
+                        </span>
                         {(m.price_in !== undefined || m.price_out !== undefined) && (
                           <span className="tnum whitespace-nowrap text-[11px] text-text-subtle">
                             {fmt.cost(m.price_in ?? 0)}/{fmt.cost(m.price_out ?? 0)} per 1M
