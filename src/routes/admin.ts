@@ -565,8 +565,10 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
   app.get("/admin/console/stream", requireAdmin, (req, reply) => {
     reply.raw.writeHead(200, {
       "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
+      "Cache-Control": "no-cache, no-transform",
       Connection: "keep-alive",
+      // stop reverse proxies / Next's prod server from buffering the stream.
+      "X-Accel-Buffering": "no",
     });
 
     const recent = consoleBuffer.recent();
@@ -576,7 +578,14 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
       reply.raw.write(`data: ${JSON.stringify({ type: "line", ...entry })}\n\n`);
     });
 
-    req.raw.on("close", unsub);
+    // heartbeat: keeps the connection (and any proxy in between) alive while idle,
+    // so the viewer stays "Connected" instead of silently dropping.
+    const keepalive = setInterval(() => reply.raw.write(": keepalive\n\n"), 15000);
+
+    req.raw.on("close", () => {
+      clearInterval(keepalive);
+      unsub();
+    });
   });
 
   app.delete("/admin/console", requireAdmin, (_req, reply) => {

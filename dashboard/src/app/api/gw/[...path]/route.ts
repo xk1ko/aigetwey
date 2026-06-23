@@ -34,8 +34,10 @@ async function proxy(req: NextRequest, path: string[]): Promise<NextResponse | R
       return new Response(res.body, {
         headers: {
           "Content-Type": "text/event-stream",
-          "Cache-Control": "no-cache",
+          "Cache-Control": "no-cache, no-transform",
           Connection: "keep-alive",
+          // don't let Next's prod server buffer the proxied stream.
+          "X-Accel-Buffering": "no",
         },
       });
     } catch (e) {

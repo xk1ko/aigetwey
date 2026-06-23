@@ -18,8 +18,31 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  // Tee pino's output into the console buffer for the dashboard's live SSE viewer.
+  // pino (sonic-boom) writes straight to fd 1, bypassing process.stdout.write — so
+  // we hand it an explicit destination stream instead of patching stdout, otherwise
+  // app.log.* lines never reach the buffer and the Server Console looks dead.
+  const logStream = {
+    write(line: string): boolean {
+      process.stdout.write(line);
+      for (const raw of line.split("\n")) {
+        if (!raw.trim()) continue;
+        try {
+          const o = JSON.parse(raw) as { level?: number; msg?: unknown; reqId?: string };
+          const lvl =
+            (o.level ?? 30) >= 50 ? "ERROR" : (o.level ?? 30) >= 40 ? "WARN" : (o.level ?? 30) >= 20 ? "INFO" : "DEBUG";
+          const msg = typeof o.msg === "string" ? o.msg : o.msg !== undefined ? JSON.stringify(o.msg) : raw.trim();
+          consoleBuffer.push(lvl, o.reqId ? `[${o.reqId}] ${msg}` : msg);
+        } catch {
+          consoleBuffer.push("LOG", raw.trim());
+        }
+      }
+      return true;
+    },
+  };
+
   const app = Fastify({
-    logger: { level: process.env.LOG_LEVEL ?? "info" },
+    logger: { level: process.env.LOG_LEVEL ?? "info", stream: logStream },
     // gateway proxies large prompts; raise the JSON body cap.
     bodyLimit: 32 * 1024 * 1024,
   });
@@ -39,21 +62,6 @@ async function main(): Promise<void> {
   const adminPassword = process.env.AIGETWEY_ADMIN_PASSWORD;
 
   registerRoutes(app, state, db, adminPassword);
-
-  // Pipe Fastify pino logs into the console buffer for the dashboard SSE viewer.
-  const origWrite = process.stdout.write.bind(process.stdout);
-  process.stdout.write = (chunk: string | Uint8Array, ...args: unknown[]): boolean => {
-    const str = typeof chunk === "string" ? chunk : Buffer.from(chunk).toString();
-    for (const line of str.split("\n").filter(Boolean)) {
-      let level: "LOG" | "INFO" | "WARN" | "ERROR" | "DEBUG" = "LOG";
-      if (line.includes('"level":30') || line.includes('"INFO"')) level = "INFO";
-      else if (line.includes('"level":40') || line.includes('"WARN"')) level = "WARN";
-      else if (line.includes('"level":50') || line.includes('"ERROR"')) level = "ERROR";
-      else if (line.includes('"level":20') || line.includes('"DEBUG"')) level = "DEBUG";
-      consoleBuffer.push(level, line);
-    }
-    return origWrite(chunk, ...(args as [BufferEncoding, (err?: Error | null) => void]));
-  };
 
   const close = () => {
     db.close();
