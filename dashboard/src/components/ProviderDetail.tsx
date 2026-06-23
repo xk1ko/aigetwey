@@ -37,7 +37,6 @@ export function ProviderDetail({ id }: { id: string }) {
   const stopTestAll = useRef(false);
   const [editingConn, setEditingConn] = useState(false);
   const [connUrl, setConnUrl] = useState("");
-  const [connName, setConnName] = useState("");
   const [connPrefix, setConnPrefix] = useState("");
   const [revealedKeys, setRevealedKeys] = useState<Record<number, string>>({});
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -135,38 +134,35 @@ export function ProviderDetail({ id }: { id: string }) {
         <RichCard header={<CardTitle title="Connection" />}>
           {editingConn ? (
             <div className="space-y-3">
-              <Field label="Prefix" hint="the call id — used in Huki/model and combos">
-                <Input value={connPrefix} onChange={(e) => setConnPrefix(e.target.value)} placeholder="e.g. Huki" className="font-mono text-[12.5px]" />
+              <Field label="Name" hint="the id — also the call prefix (name/model) & combos">
+                <Input value={connPrefix} onChange={(e) => setConnPrefix(e.target.value)} placeholder="e.g. huki" className="font-mono text-[12.5px]" />
               </Field>
               {connPrefix.trim() && connPrefix.trim() !== id && (
                 <p className="flex items-start gap-1.5 rounded-brand border border-warning/40 bg-warning/8 px-2.5 py-2 text-[11.5px] text-warning">
                   <Icon name="warning" size={14} className="mt-0.5 flex-none" />
                   <span>
-                    Changing the prefix rewrites the call string. CLI tools pointing at{" "}
+                    Renaming rewrites the call string. CLI tools pointing at{" "}
                     <code className="tnum">{id}/…</code> will break until repointed; combos that target it are
                     updated automatically.
                   </span>
                 </p>
               )}
-              <Field label="Name" hint="optional nickname — defaults to the prefix">
-                <Input value={connName} onChange={(e) => setConnName(e.target.value)} placeholder={connPrefix.trim() || "Friendly display name"} />
-              </Field>
               <Field label="Base URL">
                 <Input value={connUrl} onChange={(e) => setConnUrl(e.target.value)} placeholder="https://..." className="font-mono text-[12.5px]" />
               </Field>
               <div className="flex justify-end gap-2">
                 <Button variant="ghost" onClick={() => setEditingConn(false)}>Cancel</Button>
                 <Button disabled={busy === "editconn"} onClick={() => run("editconn", async () => {
-                  // Rename the prefix (id) first if changed — it cascades to combos and
-                  // moves this page to the new id. Then apply name/base_url on that id.
-                  const newPrefix = connPrefix.trim();
+                  // One identifier: Name == id == call prefix. Rename it (cascades to
+                  // combos, moves this page to the new id) then apply base_url.
+                  const newId = connPrefix.trim();
                   let activeId = id;
-                  if (newPrefix && newPrefix !== id) {
-                    const rr = await adminApi.renameProvider(id, newPrefix);
+                  if (newId && newId !== id) {
+                    const rr = await adminApi.renameProvider(id, newId);
                     if (!rr.ok) return rr;
-                    activeId = newPrefix;
+                    activeId = newId;
                   }
-                  const r = await adminApi.editProvider(activeId, { base_url: connUrl.trim() || undefined, name: connName });
+                  const r = await adminApi.editProvider(activeId, { base_url: connUrl.trim() || undefined });
                   if (r.ok) {
                     setEditingConn(false);
                     if (activeId !== id) { router.push(`/providers/${encodeURIComponent(activeId)}`); return r; }
@@ -184,7 +180,7 @@ export function ProviderDetail({ id }: { id: string }) {
                 <Row k="Max retries" v={String(provider.max_retries)} />
               </div>
               <div className="mt-4 flex items-center gap-2">
-                <Button variant="ghost" onClick={() => { setEditingConn(true); setConnUrl(provider.base_url); setConnName(provider.name ?? ""); setConnPrefix(provider.id); }}>
+                <Button variant="ghost" onClick={() => { setEditingConn(true); setConnUrl(provider.base_url); setConnPrefix(provider.id); }}>
                   <Icon name="edit" size={15} /> Edit
                 </Button>
                 <Button variant="ghost" disabled={busy === "test"} onClick={() => run("test", async () => {
