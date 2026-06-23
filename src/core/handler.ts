@@ -27,6 +27,7 @@ import { compressMessages } from "../rtk/index.js";
 import { injectInto } from "../inject/index.js";
 import { parseSuffix, captureThinking, type ThinkingConfig } from "../translator/thinkingUnified.js";
 import { compressWithHeadroom, formatHeadroomLog } from "../headroom/compress.js";
+import { getPricingForModel } from "../providers/pricing.js";
 
 export interface HandleResult {
   status: number;
@@ -67,6 +68,11 @@ function recordUsage(
   // count the full request against the served provider's window budget.
   deps.quota?.consume(route.provider, tokensIn + tokensOut);
   if (!deps.db) return;
+  // Cost: a combo/route may set explicit prices; otherwise fall back to the ported
+  // 9router pricing table so cost auto-resolves per model instead of showing $0.
+  const pricing = getPricingForModel(route.provider.id, route.model);
+  const priceIn = route.price_in ?? pricing?.input;
+  const priceOut = route.price_out ?? pricing?.output;
   deps.db.record({
     alias: route.alias,
     provider: route.provider.id,
@@ -74,7 +80,7 @@ function recordUsage(
     tokens_in: tokensIn,
     tokens_out: tokensOut,
     cached_tokens: usage?.cached_tokens ?? 0,
-    cost: computeCost(tokensIn, tokensOut, route.price_in, route.price_out),
+    cost: computeCost(tokensIn, tokensOut, priceIn, priceOut),
     status,
     latency_ms: latencyMs,
     stream: stream ? 1 : 0,
