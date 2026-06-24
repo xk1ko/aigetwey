@@ -6,7 +6,8 @@ import { Badge } from "@/components/Badge";
 import { RichCard, CardTitle } from "@/components/RichCard";
 import { CooldownTimer } from "@/components/CooldownTimer";
 import { fmt, Empty } from "@/components/ui";
-import { BudgetEditor } from "@/components/BudgetEditor";
+import { BudgetModal } from "@/components/BudgetModal";
+import { Button } from "@/components/Button";
 import type { QuotaSnapshot, BudgetStatus } from "@/lib/gateway";
 
 /**
@@ -14,21 +15,19 @@ import type { QuotaSnapshot, BudgetStatus } from "@/lib/gateway";
  * visible as a strip on each provider card, now their own page: consumption vs
  * limit, a fill bar, and a live countdown to the next scheduled window reset.
  *
- * Also renders the global budget card (if configured) above the provider grid.
+ * Also renders scoped budget cards (global / per-provider / per-model) above
+ * the per-provider quota grid, with an Add / Edit / Remove flow via BudgetModal.
  */
 export function QuotaView() {
   const [quota, setQuota] = useState<QuotaSnapshot[] | null>(null);
-  const [budget, setBudget] = useState<BudgetStatus | null>(null);
-  const [editing, setEditing] = useState(false);
+  const [budgets, setBudgets] = useState<BudgetStatus[]>([]);
+  const [modal, setModal] = useState<{ open: boolean; initial: BudgetStatus | null }>({ open: false, initial: null });
   const [error, setError] = useState("");
 
   const refresh = () =>
     void adminApi.quota().then((r) => {
       if (!r.ok) setError(r.error ?? "could not reach the gateway");
-      else {
-        setQuota(r.data?.quota ?? []);
-        setBudget(r.data?.budget ?? null);
-      }
+      else { setQuota(r.data?.quota ?? []); setBudgets(r.data?.budgets ?? []); }
     });
 
   useEffect(() => { refresh(); }, []);
@@ -45,67 +44,70 @@ export function QuotaView() {
         </p>
       </div>
 
-      {/* ── Global budget card ── */}
-      <div className="mb-4">
-        <RichCard
-          header={
-            <>
-              <CardTitle title="Global budget" sub={budget ? `window · ${budget.window}` : "not set"} />
-              {budget ? (
-                <Badge tone={budget.exhausted ? "down" : budget.alert ? "warn" : "live"}>
-                  {budget.exhausted ? "exhausted" : budget.alert ? "alert" : "active"}
-                </Badge>
-              ) : null}
-            </>
-          }
-        >
-          {editing ? (
-            <BudgetEditor
-              initial={budget}
-              onSaved={() => { setEditing(false); refresh(); }}
-              onCancel={() => setEditing(false)}
-            />
-          ) : budget ? (
-            <div className="space-y-2.5">
-              <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
-                <div
-                  className={`h-full rounded-full transition-all ${budget.exhausted ? "bg-danger" : budget.alert ? "bg-warning" : "bg-accent"}`}
-                  style={{ width: `${Math.min(100, Math.round(budget.pct * 100))}%` }}
-                />
-              </div>
-              <div className="flex items-center justify-between text-[12px]">
-                <span className="tnum text-text-muted">
-                  {budget.unit === "usd"
-                    ? `$${budget.spent.toFixed(2)} / $${budget.limit.toFixed(2)}`
-                    : `${fmt.compact(budget.spent)} / ${fmt.compact(budget.limit)} tokens`}
-                  {budget.est_converse != null
-                    ? budget.unit === "usd"
-                      ? ` · ~${fmt.compact(budget.est_converse)} tok`
-                      : ` · ~$${budget.est_converse.toFixed(2)}`
-                    : " · —"}
-                </span>
-                <CooldownTimer ms={budget.reset_in_ms} tone="muted" icon="restart_alt" keepZero />
-              </div>
-              <div className="flex items-center gap-3">
-                <button type="button" onClick={() => setEditing(true)} className="text-[12px] text-accent hover:underline">
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => { const r = await adminApi.clearBudget(); if (!r.ok) setError(r.error ?? "could not clear budget"); refresh(); }}
-                  className="text-[12px] text-text-muted hover:text-danger"
-                >
-                  Clear
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button type="button" onClick={() => setEditing(true)} className="text-[13px] text-accent hover:underline">
-              Set a budget
-            </button>
-          )}
-        </RichCard>
+      {/* ── Budgets ── */}
+      <div className="mb-6">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-[15px] font-semibold text-text">Budgets</h2>
+          <Button onClick={() => setModal({ open: true, initial: null })}>+ Add budget</Button>
+        </div>
+        {budgets.length === 0 ? (
+          <Empty>No budgets yet. Add one to cap spend globally, per provider, or per model.</Empty>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {budgets.map((b) => (
+              <RichCard
+                key={b.key}
+                header={
+                  <>
+                    <CardTitle title={b.label} sub={`${b.scope.type} · ${b.window}`} />
+                    <Badge tone={b.exhausted ? "down" : b.alert ? "warn" : "live"}>
+                      {b.exhausted ? "exhausted" : b.alert ? "alert" : "active"}
+                    </Badge>
+                  </>
+                }
+              >
+                <div className="space-y-2.5">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
+                    <div
+                      className={`h-full rounded-full transition-all ${b.exhausted ? "bg-danger" : b.alert ? "bg-warning" : "bg-accent"}`}
+                      style={{ width: `${Math.min(100, Math.round(b.pct * 100))}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-[12px]">
+                    <span className="tnum text-text-muted">
+                      {b.unit === "usd"
+                        ? `$${b.spent.toFixed(2)} / $${b.limit.toFixed(2)}`
+                        : `${fmt.compact(b.spent)} / ${fmt.compact(b.limit)} tokens`}
+                      {b.est_converse != null
+                        ? b.unit === "usd" ? ` · ~${fmt.compact(b.est_converse)} tok` : ` · ~$${b.est_converse.toFixed(2)}`
+                        : " · —"}
+                    </span>
+                    <CooldownTimer ms={b.reset_in_ms} tone="muted" icon="restart_alt" keepZero />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button type="button" onClick={() => setModal({ open: true, initial: b })} className="text-[12px] text-accent hover:underline">Edit</button>
+                    <button
+                      type="button"
+                      onClick={async () => { const r = await adminApi.clearBudget(b.key); if (!r.ok) setError(r.error ?? "could not remove budget"); refresh(); }}
+                      className="text-[12px] text-text-muted hover:text-danger"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              </RichCard>
+            ))}
+          </div>
+        )}
       </div>
+
+      {modal.open && (
+        <BudgetModal
+          initial={modal.initial}
+          onSaved={() => { setModal({ open: false, initial: null }); refresh(); }}
+          onCancel={() => setModal({ open: false, initial: null })}
+        />
+      )}
 
       {/* ── Per-provider quota grid ── */}
       {quota.length === 0 ? (
