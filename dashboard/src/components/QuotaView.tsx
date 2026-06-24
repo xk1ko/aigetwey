@@ -9,7 +9,7 @@ import { fmt, Empty } from "@/components/ui";
 import type { QuotaSnapshot } from "@/lib/gateway";
 
 /**
- * Quota Tracker (9router parity) — the per-provider token budgets that were only
+ * Quota Tracker  — the per-provider token budgets that were only
  * visible as a strip on each provider card, now their own page: consumption vs
  * limit, a fill bar, and a live countdown to the next scheduled window reset.
  */

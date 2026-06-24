@@ -2,7 +2,7 @@
  * Headroom proxy lifecycle — start/stop the external `headroom proxy` as a
  * detached child of the gateway, tracked by a PID file under the data dir.
  *
- * Ported from 9router (src/lib/headroom/process.js). See [[replicate-9router-fully]].
+ * aigetwey's own implementation.
  */
 import fs from "node:fs";
 import path from "node:path";

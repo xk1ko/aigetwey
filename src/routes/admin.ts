@@ -254,7 +254,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     applyMutation(reply, (c) => addProviderKey(c, id, b.key!, b.name));
   });
 
-  // edit ONE provider key: rename and/or swap its value (9router-style).
+  // edit ONE provider key: rename and/or swap its value (aigetwey-style).
   app.put("/admin/providers/:id/keys/:index", requireAdmin, (req, reply) => {
     const { id, index } = req.params as { id: string; index: string };
     const i = Number(index);
@@ -337,7 +337,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
   });
 
   // Pre-save connectivity check for the add-provider form's "Check" button:
-  // ping an ad-hoc provider config without persisting it. Mirrors 9router's
+  // ping an ad-hoc provider config without persisting it. Matches aigetwey's
   // validate-before-save. Never stores anything; the key stays in the request.
   app.post("/admin/providers/validate", requireAdmin, async (req, reply) => {
     const b = req.body as { format?: Provider["format"]; base_url?: string; api_key?: string };
@@ -383,7 +383,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     reply.send(await pingProvider(provider, keys[i]));
   });
 
-  // Test ONE model end-to-end (9router's per-model science button). Routes through
+  // Test ONE model end-to-end (aigetwey's per-model science button). Routes through
   // the real pipeline via handle(), so the ping lands in usage/quota exactly like
   // a normal call — and it catches "model not found / not entitled" a /models
   // ping can't. Model id travels as ?model= to survive slashes through the proxy.
@@ -643,7 +643,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
   });
 
   // ---- version: current build + best-effort npm "update available" check ----
-  // Mirrors 9router's Sidebar npm version poll. The package is private/unpublished,
+  // Matches aigetwey's Sidebar npm version poll. The package is private/unpublished,
   // so the registry call 404s and `latest` stays null — we never show a false
   // "update available". If it is ever published, a newer semver flips the flag.
   app.get("/admin/version", requireAdmin, async (_req, reply) => {
@@ -664,7 +664,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
   });
 
   // ---- shutdown: stop the gateway process (dashboard power button) ----
-  // Mirrors 9router's POST /api/shutdown: reply first, then exit after a short
+  // Matches aigetwey's POST /api/shutdown: reply first, then exit after a short
   // delay so the response reaches the browser. Admin-gated like everything else;
   // the DB is closed cleanly (same path as the SIGINT/SIGTERM handler).
   app.post("/admin/shutdown", requireAdmin, (_req, reply) => {

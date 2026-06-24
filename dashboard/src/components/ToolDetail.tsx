@@ -443,7 +443,7 @@ export function ToolDetail({ id }: { id: string }) {
   );
 }
 
-/** label → control row used by the Local setup card (mirrors 9router's layout). */
+/** label → control row used by the Local setup card (matches aigetwey's layout). */
 function SetupRow({ label, children, top }: { label: string; children: React.ReactNode; top?: boolean }) {
   return (
     <div className={`grid grid-cols-[7rem_1fr] gap-3 ${top ? "items-start" : "items-center"}`}>

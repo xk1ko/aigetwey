@@ -469,7 +469,7 @@ export function ProviderDetail({ id }: { id: string }) {
                       <div key={m.id} className="group flex items-center justify-between gap-3 px-3 py-2 hover:bg-bg">
                         <div className="flex min-w-0 items-center gap-2">
                           <Icon name={statusIcon} size={15} className={`flex-none ${statusColor}`} />
-                          {/* the prefix (= provider id) is what makes the call string; show it like 9router */}
+                          {/* the prefix (= provider id) is what makes the call string; show it aigetwey-style */}
                           <span className="tnum truncate text-[12.5px]">
                             <span className="text-text-subtle">{provider.id}/</span>
                             <span className="text-text">{m.id}</span>

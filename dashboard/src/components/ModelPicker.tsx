@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Icon } from "@/components/Icon";
+import { CapacityBadges } from "@/components/CapacityBadges";
 
 export interface ModelGroup {
   label: string;
@@ -9,7 +10,7 @@ export interface ModelGroup {
 }
 
 /**
- * 9router-style model picker: a search box + provider-grouped chips you click to
+ * aigetwey-style model picker: a search box + provider-grouped chips you click to
  * toggle in/out of a selection. Used by the combo form and the CLI-tool model
  * selection so both add models the same way (click to add, click again to drop).
  */
@@ -89,6 +90,7 @@ export function ModelPicker({
                         >
                           {on && <Icon name="check" size={12} />}
                           <span className="tnum">{it.label}</span>
+                          <CapacityBadges model={it.value} size={13} />
                           {it.tag && <span className="rounded bg-surface-2 px-1 text-[10px] text-text-subtle">{it.tag}</span>}
                         </button>
                       );

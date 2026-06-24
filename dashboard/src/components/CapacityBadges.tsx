@@ -4,9 +4,9 @@ import { getCapabilitiesForModel, type Caps } from "@/lib/capabilities";
 import { Icon } from "@/components/Icon";
 
 /**
- * Per-model capability icons, ported from 9router's CapacityBadges + CAPACITY_META.
+ * Per-model capability icons, aigetwey's own CapacityBadges + CAPACITY_META.
  * Caps are DERIVED from the model id (not stored per-model) via the same resolver
- * 9router uses, so badges match wherever the model appears. Only set caps render.
+ * aigetwey uses, so badges match wherever the model appears. Only set caps render.
  */
 const CAPACITY_META: Record<string, { icon: string; label: string; desc: string; color: string }> = {
   vision: { icon: "visibility", label: "Vision", desc: "Supports image input", color: "text-info" },

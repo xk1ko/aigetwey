@@ -4,7 +4,7 @@
  * pipes request messages through. This module only DETECTS it — install, python
  * interpreter, and whether a proxy is already reachable.
  *
- * Ported from 9router (src/lib/headroom/detect.js). See [[replicate-9router-fully]].
+ * aigetwey's own implementation.
  */
 import { execSync } from "node:child_process";
 import { delimiter } from "node:path";

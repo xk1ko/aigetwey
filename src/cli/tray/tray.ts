@@ -1,8 +1,8 @@
 /**
- * System tray icon, ported from 9router. macOS/Linux use the lazy-installed
- * `systray2` Go binary; Windows uses a PowerShell NotifyIcon (see trayWin).
- * Menu: status · Open Dashboard · Auto-start toggle · Quit. Adapted to
- * aigetwey's launcher (which owns the gateway + dashboard child processes).
+ * System tray icon. macOS/Linux use the lazy-installed `systray2` Go binary;
+ * Windows uses a PowerShell NotifyIcon (see trayWin). Menu: status · Open
+ * Dashboard · Auto-start toggle · Quit. The launcher owns the gateway +
+ * dashboard child processes, so Quit tears those down too.
  */
 import { exec } from "node:child_process";
 import { createRequire } from "node:module";

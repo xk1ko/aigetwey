@@ -42,18 +42,19 @@ Toggle these per-endpoint in the dashboard. The first three are **built into the
 gateway** — nothing extra to install, they ship with the npm package. Headroom is
 the only one that needs an **external** tool.
 
-| Saver | What it does | Install |
-| --- | --- | --- |
-| **RTK** | Compresses bulky `tool_result` blocks in the request (git/grep/ls/logs). | built-in |
-| **Caveman** | Terse-output system prompt — cuts output prose tokens. | built-in |
-| **Ponytail** | Biases the model toward minimal code (YAGNI, reuse, deletion). | built-in |
-| **Headroom** | Pipes context through an external `/v1/compress` proxy. | **external** — see below |
+| Saver | What it does | Upstream | Install |
+| --- | --- | --- | --- |
+| **RTK** | Compresses bulky `tool_result` blocks in the request (git/grep/ls/logs). | [rtk-ai/rtk](https://github.com/rtk-ai/rtk) | built-in |
+| **Caveman** | Terse-output system prompt — cuts output prose tokens. | [JuliusBrussee/caveman](https://github.com/JuliusBrussee/caveman) | built-in |
+| **Ponytail** | Biases the model toward minimal code (YAGNI, reuse, deletion). | [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail) | built-in |
+| **Headroom** | Pipes context through an external `/v1/compress` proxy. | [chopratejas/headroom](https://github.com/chopratejas/headroom) | **external** |
 
-The token-saver concept is modeled on [9router](https://github.com/decolua/9router).
-**Headroom** is a separate Python tool (not bundled — the gateway only detects and
-calls it): it needs Python ≥ 3.10 and the `headroom-ai` package, then runs as
-`headroom proxy` (default `http://localhost:8787`). With it absent, the Headroom
-toggle stays off and everything else works unchanged.
+**Headroom** is the only external piece — a separate Python tool the gateway just
+detects and calls, never bundled. Install it from
+[chopratejas/headroom](https://github.com/chopratejas/headroom) (Python ≥ 3.10),
+then run `headroom proxy` (default `http://localhost:8787`). With it absent the
+Headroom toggle stays off and everything else works unchanged. The dashboard's
+Endpoint &amp; Key page shows install status and a one-line install hint.
 
 ### Install
 
@@ -192,12 +193,15 @@ npm run build           # compile to dist/
 
 ### Penghemat token
 
-**RTK**, **Caveman**, **Ponytail** = **built-in** (ikut paket npm, tak perlu
-install apa pun). Hanya **Headroom** yang **eksternal**: tool Python terpisah
-(tidak di-bundle — gateway cuma mendeteksi & memanggilnya), butuh Python ≥ 3.10 +
-paket `headroom-ai`, jalankan `headroom proxy` (default `http://localhost:8787`).
-Tanpa Headroom, toggle-nya mati dan sisanya tetap jalan. Konsep penghemat token
-mengacu ke [9router](https://github.com/decolua/9router).
+**RTK** ([rtk-ai/rtk](https://github.com/rtk-ai/rtk)), **Caveman**
+([JuliusBrussee/caveman](https://github.com/JuliusBrussee/caveman)), **Ponytail**
+([DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail)) =
+**built-in** (ikut paket npm, tak perlu install apa pun). Hanya **Headroom**
+([chopratejas/headroom](https://github.com/chopratejas/headroom)) yang
+**eksternal**: tool Python terpisah (tidak di-bundle — gateway cuma mendeteksi &
+memanggilnya), butuh Python ≥ 3.10, jalankan `headroom proxy` (default
+`http://localhost:8787`). Tanpa Headroom toggle-nya mati & sisanya tetap jalan;
+halaman Endpoint &amp; Key di dashboard menampilkan status install + hint.
 
 ### Instalasi
 

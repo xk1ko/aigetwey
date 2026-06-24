@@ -45,7 +45,7 @@ export interface Caps {
 }
 
 /**
- * Glob (* = wildcard) match, anchored + case-insensitive. Ported from 9router's
+ * Glob (* = wildcard) match, anchored + case-insensitive. aigetwey's
  * pricing.matchPattern so capabilities resolve identically.
  */
 export function matchPattern(pattern: string, model: string): boolean {

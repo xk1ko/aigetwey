@@ -1,6 +1,6 @@
 /**
- * Run-on-OS-startup, toggled from the tray menu. Ported from 9router's
- * autostart, retargeted at the aigetwey CLI launched with `--tray`.
+ * Run-on-OS-startup, toggled from the tray menu — registers the aigetwey CLI to
+ * launch with `--tray` at login.
  *
  *   macOS  → ~/Library/LaunchAgents/com.aigetwey.autostart.plist (launchd)
  *   Windows→ %APPDATA%/.../Startup/aigetwey.vbs

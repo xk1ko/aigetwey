@@ -25,7 +25,7 @@ import { enableAutoStart } from "./cli/tray/autostart.js";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const dashboardDir = join(root, "dashboard");
 
-// ── CLI flags (9router-style): -p/--port, -n/--no-browser, -y/--yes, -h/--help ──
+// ── CLI flags (aigetwey-style): -p/--port, -n/--no-browser, -y/--yes, -h/--help ──
 interface CliOpts {
   port?: number;
   noBrowser: boolean;
@@ -249,7 +249,7 @@ function prompt(q: string): Promise<string> {
 }
 
 /**
- * 9router-style launch menu. With a TTY (and no --yes), let the operator pick
+ * aigetwey-style launch menu. With a TTY (and no --yes), let the operator pick
  * how to run; otherwise honor the flags. "web" opens the browser, "terminal"
  * runs with live logs only, "exit" quits before starting anything.
  */
@@ -272,7 +272,7 @@ async function chooseMode(): Promise<"web" | "terminal" | "hide" | "exit"> {
 /**
  * "Hide to Tray": re-launch ourselves detached with --tray (which runs the stack
  * + tray icon and survives the terminal closing), then exit so the background
- * copy claims the ports. Also enables run-on-startup, matching 9router.
+ * copy claims the ports. Also enables run-on-startup, matching aigetwey.
  */
 function hideToTray(): void {
   try { enableAutoStart(); } catch { /* optional */ }

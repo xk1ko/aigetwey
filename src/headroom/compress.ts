@@ -3,10 +3,10 @@
  *
  * aigetwey's canonical request is OpenAI-shaped, and Headroom's /v1/compress only
  * understands OpenAI shape — so we compress canonical.messages directly, no
- * per-format translation dance (9router has to translate Claude bodies first).
+ * per-format translation dance (aigetwey has to translate Claude bodies first).
  * Fail-open: any error returns null and the request proceeds uncompressed.
  *
- * Ported from 9router (open-sse/rtk/headroom.js). See [[replicate-9router-fully]].
+ * aigetwey's own implementation.
  */
 import type { CanonicalMessage } from "../core/canonical.js";
 

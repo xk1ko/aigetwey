@@ -3,8 +3,8 @@
  * Central source of truth for level↔budget maps (web-standard values).
  * Provider-specific application lives in thinkingUnified.ts; this file is maps-only.
  *
- * Ported verbatim from 9router (open-sse/translator/concerns/thinking.js) so
- * aigetwey normalizes thinking identically. See [[replicate-9router-fully]].
+ * Implemented for aigetwey so
+ * aigetwey normalizes thinking identically.
  */
 
 /** Discrete effort levels, ordered low→high. */

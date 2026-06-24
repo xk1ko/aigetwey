@@ -3,11 +3,11 @@
  * Config-driven: thinking format/limits come from capabilities.ts, never hardcoded
  * per-model here.
  *
- * Ported from 9router (open-sse/translator/concerns/thinkingUnified.js). The one
+ * aigetwey's own implementation. The one
  * adaptation for aigetwey: there is no provider registry carrying a thinkingFormat,
  * so resolveFormat relies on the capabilities table + the wire format alone, and
  * FORMAT_TO_NATIVE also maps aigetwey's "anthropic" wire format. See
- * [[replicate-9router-fully]].
+ * 
  */
 import { getCapabilitiesForModel, type Caps } from "../providers/capabilities.js";
 import { LEVEL_TO_BUDGET, budgetToLevel, effortToBudget } from "./thinking.js";

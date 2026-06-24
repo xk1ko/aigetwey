@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Icon } from "./Icon";
 
-// Floating icon-rail (user's preferred chrome), carrying 9router's IA: Endpoint
+// Floating icon-rail (user's preferred chrome), carrying aigetwey's IA: Endpoint
 // is the landing, routing lives in Combos, and operational pages sit below a
 // divider. Labels surface as hover tooltips (data-label).
 type NavItem = { href: string; label: string; icon: string };

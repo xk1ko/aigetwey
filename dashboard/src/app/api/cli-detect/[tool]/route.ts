@@ -10,7 +10,7 @@ import { modalitiesForModel } from "@/lib/capabilities";
 /**
  * Local CLI-tool detection + auto-config. These run in the Next.js server (which,
  * like the gateway, lives on the operator's machine), so they can read/write the
- * tool's own config files — the trick behind 9router's "it just detects and
+ * tool's own config files — the trick behind aigetwey's "it just detects and
  * configures itself". Session-gated by middleware like every other /api route.
  *
  * Only claude-code + opencode auto-configure (the two with a stable local config

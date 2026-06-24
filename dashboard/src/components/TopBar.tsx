@@ -30,7 +30,7 @@ export function TopBar() {
   const [stopped, setStopped] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  // version + update check on mount, mirroring 9router's sidebar npm poll.
+  // version + update check on mount, via aigetwey's sidebar npm poll.
   useEffect(() => {
     void adminApi.version().then((r) => {
       if (r.ok && r.data) setVersion(r.data);

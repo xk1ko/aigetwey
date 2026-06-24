@@ -8,7 +8,7 @@ import { Empty } from "@/components/ui";
 import type { PricingPayload, PricingModel } from "@/lib/gateway";
 
 /**
- * Per-model price override editor (9router's Pricing settings, adapted). Each model
+ * Per-model price override editor (aigetwey's Pricing settings, adapted). Each model
  * shows the auto-resolved default from the pricing table; typing an override stores
  * it in config, and "use default" clears it. All rates are $/1M tokens.
  */

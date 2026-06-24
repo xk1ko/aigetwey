@@ -1,8 +1,8 @@
 /**
- * Lazy-install the system-tray runtime (`systray2`) into a user data dir, NOT
- * the published npm tarball — exactly 9router's approach. systray2 ships a small
- * Go binary; keeping it out of the tarball avoids antivirus false positives
- * (e.g. Kaspersky) and per-arch packaging in the published package.
+ * Lazy-install the system-tray runtime (`systray2`) into a user data dir rather
+ * than the published npm tarball. systray2 ships a small Go binary; keeping it
+ * out of the tarball avoids antivirus false positives (e.g. Kaspersky) and
+ * per-arch packaging in the published package.
  *
  * macOS/Linux: install systray2 into ~/.aigetwey/runtime/node_modules.
  * Windows: no binary — a PowerShell NotifyIcon is used instead (see trayWin).

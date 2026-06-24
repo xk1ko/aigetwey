@@ -71,7 +71,7 @@ const ProviderSchema = z
   });
 
 /**
- * A combo (9router term): a client-facing `alias` resolved to an ordered chain
+ * A combo — a client-facing `alias` resolved to an ordered chain
  * of providers, tried by `strategy`. `model[i]` pairs with `target[i]`; a single
  * string applies to all targets; omitted falls back to the alias name as the
  * upstream model id. Call the alias directly as the model name from a CLI tool.

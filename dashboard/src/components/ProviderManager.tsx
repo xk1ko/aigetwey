@@ -136,8 +136,8 @@ export function ProviderManager() {
 }
 
 // Provider presets — pick a type first, which prefills Base URL + API Type, then
-// you only fill Name + Key. Mirrors 9router's per-type forms but friendlier; the
-// fields below are still 9router's (Name, API Type, Base URL, Key + Check, Model
+// you only fill Name + Key. Matches aigetwey's per-type forms but friendlier; the
+// fields below are still aigetwey's (Name, API Type, Base URL, Key + Check, Model
 // ID), minus the separate Prefix — our Name is the id and the model prefix.
 type Preset = { id: string; label: string; sub: string; icon: string; format: WireFormat; base_url: string; hint: string; modelHint: string };
 const PRESETS: Preset[] = [
@@ -173,7 +173,7 @@ function AddProviderForm({ onDone, onClose }: { onDone: () => void; onClose: () 
   }
 
   // step 1: pick a type (OpenAI- or Anthropic-compatible) — this sets the wire
-  // format + base URL, exactly like 9router's "Add OpenAI/Anthropic Compatible".
+  // format + base URL, exactly aigetwey's "Add OpenAI/Anthropic Compatible".
   if (!preset) {
     return (
       <div className="mb-5 rounded-brand-lg border border-border bg-surface p-5 shadow-soft">
@@ -237,7 +237,7 @@ function AddProviderForm({ onDone, onClose }: { onDone: () => void; onClose: () 
     onDone();
   }
 
-  // step 2: the 9router field set — Name, Base URL, API Key (for Check), Model ID.
+  // step 2: the aigetwey field set — Name, Base URL, API Key (for Check), Model ID.
   return (
     <div className="mb-5 rounded-brand-lg border border-border bg-surface p-5 shadow-soft">
       <form onSubmit={submit}>

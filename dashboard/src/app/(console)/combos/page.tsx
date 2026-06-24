@@ -1,7 +1,7 @@
 import { RoutingView } from "@/components/RoutingView";
 
 /**
- * Combos & Routing — one concept (like 9router): each combo is an alias + an
+ * Combos & Routing — one concept (aigetwey-style): each combo is an alias + an
  * ordered provider chain + a strategy. Call the alias as the model name from a
  * CLI tool. No separate snapshot layer.
  */

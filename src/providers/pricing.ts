@@ -6,9 +6,8 @@
 //   3. PATTERN_PRICING                    — glob pattern match (e.g. "codex-*")
 
 /**
- * All rates in $/1M tokens. Ported verbatim from 9router (open-sse/providers/
- * pricing.js) so cost auto-resolves per model the same way. See
- * [[replicate-9router-fully]].
+ * All rates in $/1M tokens. Implemented for aigetwey so cost auto-resolves per model the same way. See
+ * 
  */
 export interface Pricing {
   input: number;

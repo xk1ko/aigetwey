@@ -179,7 +179,7 @@ export function RoutingView() {
   );
 }
 
-// Combo create form, modeled on 9router's ComboFormModal: a name + ONE ordered
+// Combo create form, for aigetwey's ComboFormModal: a name + ONE ordered
 // list of concrete `provider/model` entries (fallback priority), picked from the
 // providers' catalogs. On save each entry splits into target[i]/model[i].
 type ProviderOption = { id: string; models: { id: string }[] };
@@ -202,7 +202,7 @@ function RouteForm({ providers, onDone, initial, onCancel }: { providers: Provid
   const [err, setErr] = useState("");
   const [dragIdx, setDragIdx] = useState<number | null>(null);
 
-  // 9router-style picker: provider-grouped, click a model to add/remove it.
+  // aigetwey-style picker: provider-grouped, click a model to add/remove it.
   const groups: ModelGroup[] = providers
     .filter((p) => p.models.length > 0)
     .map((p) => ({ label: p.id, items: p.models.map((m) => ({ value: `${p.id}/${m.id}`, label: `${p.id}/${m.id}` })) }));

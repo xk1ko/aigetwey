@@ -12,7 +12,7 @@ import type { EndpointPayload, HeadroomStatusReply, InjectLevel } from "@/lib/ga
 
 const LEVELS: InjectLevel[] = ["off", "lite", "full", "ultra"];
 
-/** Generate a random gateway key client-side (like 9router's one-click create). */
+/** Generate a random gateway key client-side (aigetwey's one-click create). */
 function generateKey(): string {
   const bytes = new Uint8Array(24);
   crypto.getRandomValues(bytes);
@@ -70,7 +70,7 @@ export function EndpointView() {
   }
 
   // Create a key (generated or pasted) with its label, then surface it once in a
-  // modal — like 9router, where the full key is shown at creation time.
+  // modal — aigetwey, where the full key is shown at creation time.
   async function addKey(label: string, rawKey: string) {
     const name = (label || "Gateway key").trim();
     setBusy("genkey");
@@ -314,7 +314,13 @@ function HeadroomCard({
           </Button>
           {hr && !hr.installed && (
             <span className="text-[11px] text-text-subtle">
-              Install the <code className="rounded bg-surface-2 px-1">headroom</code> CLI (pip install headroom-ai) to manage the proxy here.
+              Headroom isn’t installed. Get it from{" "}
+              <a href="https://github.com/chopratejas/headroom" target="_blank" rel="noreferrer" className="text-accent hover:underline">
+                chopratejas/headroom
+              </a>{" "}
+              (needs Python ≥ 3.10):{" "}
+              <code className="rounded bg-surface-2 px-1">pipx install git+https://github.com/chopratejas/headroom</code>{" "}
+              — then re-open this page.
             </span>
           )}
           {hr?.installed && !hr.localUrl && (

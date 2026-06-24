@@ -69,7 +69,7 @@ function recordUsage(
   deps.quota?.consume(route.provider, tokensIn + tokensOut);
   if (!deps.db) return;
   // Cost: a combo/route may set explicit prices; otherwise fall back to the ported
-  // 9router pricing table so cost auto-resolves per model instead of showing $0.
+  // aigetwey pricing table so cost auto-resolves per model instead of showing $0.
   const pricing = getPricingForModel(route.provider.id, route.model);
   const priceIn = route.price_in ?? pricing?.input;
   const priceOut = route.price_out ?? pricing?.output;
@@ -108,7 +108,7 @@ export async function handle(
   // model, and capture the intent (suffix wins, else any reasoning param already
   // in the body). It's applied per-attempt in the served provider's native format
   // (upstream/client.ts), driven by the capabilities table — a no-op for models
-  // that can't reason. Mirrors 9router's capture-before-translate flow.
+  // that can't reason. Matches aigetwey's capture-before-translate flow.
   const { cleanModel, override } = parseSuffix(canonical.model);
   canonical.model = cleanModel;
   const thinkingIntent: ThinkingConfig | null =
