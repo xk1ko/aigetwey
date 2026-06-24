@@ -1,9 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 320" width="1120" height="320">
-  <rect width="1120" height="320" rx="48" fill="#0f0f0e"/>
-  <text x="80" y="222" font-family="ui-sans-serif, Inter, Arial, sans-serif" font-size="200" font-weight="800" letter-spacing="-8" text-anchor="start" fill="#f2f2ec">ai</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1300 320" width="1300" height="320">
+  <rect width="1300" height="320" rx="48" fill="#0f0f0e"/>
+  <text x="90" y="222" font-family="ui-sans-serif, Inter, Arial, sans-serif" font-size="200" font-weight="800" letter-spacing="-8" text-anchor="start" fill="#f2f2ec">ai</text>
   <g fill="none" stroke="#cbe85a" stroke-width="34" stroke-linecap="round" stroke-linejoin="round">
     <polyline points="300,96 400,160 300,224"/>
     <polyline points="388,96 488,160 388,224"/>
   </g>
-  <text x="528" y="222" font-family="ui-sans-serif, Inter, Arial, sans-serif" font-size="200" font-weight="800" letter-spacing="-8" text-anchor="start" fill="#f2f2ec">getwey</text>
+  <text x="540" y="222" font-family="ui-sans-serif, Inter, Arial, sans-serif" font-size="200" font-weight="800" letter-spacing="-8" text-anchor="start" fill="#f2f2ec">getwey</text>
 </svg>
