@@ -7,6 +7,7 @@
  * lib/gateway.ts directly; client components mutate through here.
  */
 import type {
+  BudgetStatus,
   ConfigReply,
   EndpointPayload,
   HeadroomStatusReply,
@@ -52,7 +53,16 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<Api
 
 export const adminApi = {
   providers: () => api<{ providers: ProviderSnapshot[] }>("GET", "/admin/providers"),
-  quota: () => api<{ quota: QuotaSnapshot[] }>("GET", "/admin/quota"),
+  quota: () => api<{ quota: QuotaSnapshot[]; budget: BudgetStatus | null }>("GET", "/admin/quota"),
+  setBudget: (body: {
+    unit: "usd" | "tokens";
+    limit: number;
+    window: "5h" | "daily" | "weekly" | "monthly";
+    reset_at?: string;
+    timezone?: string;
+    alert_at?: number;
+  }) => api<ConfigReply>("PUT", "/admin/budget", body),
+  clearBudget: () => api<ConfigReply>("DELETE", "/admin/budget"),
 
   addProvider: (p: {
     id: string;
