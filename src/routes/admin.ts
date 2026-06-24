@@ -44,9 +44,12 @@ import {
   addServerKey,
   editServerKey,
   removeServerKey,
+  setBudget,
+  clearBudget,
   type Config,
   type Provider,
   type EndpointSettings,
+  type Budget,
 } from "../config.js";
 import { pingProvider } from "../upstream/client.js";
 import { handle, GatewayError } from "../core/handler.js";
@@ -142,7 +145,21 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
 
   // per-provider quota: consumed, limit, and ms until the next scheduled reset.
   app.get("/admin/quota", requireAdmin, (_req, reply) => {
-    reply.send({ quota: deps.state.quota.snapshot(deps.state.config.listProviders()) });
+    reply.send({
+      quota: deps.state.quota.snapshot(deps.state.config.listProviders()),
+      budget: deps.state.budget.status(),
+    });
+  });
+
+  // set/replace the gateway-wide budget. Body = Budget; invalid shape -> 400.
+  app.put("/admin/budget", requireAdmin, (req, reply) => {
+    const b = (req.body ?? {}) as Budget;
+    applyMutation(reply, (c) => setBudget(c, b));
+  });
+
+  // remove the gateway-wide budget (feature off).
+  app.delete("/admin/budget", requireAdmin, (_req, reply) => {
+    applyMutation(reply, clearBudget);
   });
 
   // current config, secrets masked

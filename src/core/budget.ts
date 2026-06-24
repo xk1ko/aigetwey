@@ -35,6 +35,11 @@ export class BudgetTracker {
     private readonly cacheMs = 5000,
   ) {}
 
+  /** Flush the cached status — call after a config reload that may have changed the budget spec. */
+  clearCache(): void {
+    this.cached = undefined;
+  }
+
   status(): BudgetStatus | null {
     const t = this.now();
     if (this.cached && t - this.cached.at < this.cacheMs) return this.cached.status;

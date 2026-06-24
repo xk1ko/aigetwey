@@ -20,20 +20,24 @@ import {
 } from "../config.js";
 import { KeyPool } from "./keypool.js";
 import { QuotaTracker } from "./quota.js";
+import { BudgetTracker } from "./budget.js";
 
 export class GatewayState {
   private _config: GatewayConfig;
   private _pool: KeyPool;
   private readonly _quota: QuotaTracker;
+  private readonly _budget: BudgetTracker;
 
   constructor(
     private readonly configPath: string,
     initial: GatewayConfig,
     quota?: QuotaTracker,
+    budgetDb?: { summary(since: number): { total: { tokens_in: number; tokens_out: number; cost: number } } },
   ) {
     this._config = initial;
     this._pool = new KeyPool();
     this._quota = quota ?? new QuotaTracker();
+    this._budget = new BudgetTracker(() => this._config.raw.budget, budgetDb ?? { summary: () => ({ total: { tokens_in: 0, tokens_out: 0, cost: 0 } }) });
   }
 
   get config(): GatewayConfig {
@@ -46,6 +50,10 @@ export class GatewayState {
 
   get quota(): QuotaTracker {
     return this._quota;
+  }
+
+  get budget(): BudgetTracker {
+    return this._budget;
   }
 
   /**
@@ -61,5 +69,6 @@ export class GatewayState {
     writeConfigFile(this.configPath, next.raw);
     this._config = next;
     this._pool = new KeyPool();
+    this._budget.clearCache();
   }
 }

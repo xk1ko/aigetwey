@@ -27,6 +27,7 @@ export function registerV1Routes(app: FastifyInstance, state: GatewayState, db?:
     config: state.config,
     pool: state.pool,
     quota: state.quota,
+    budget: state.budget,
     db,
     log: (msg) => app.log.info(msg),
   });
