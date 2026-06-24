@@ -193,7 +193,14 @@ function spawnGateway(): ChildProcess {
     cwd: root,
     stdio: "inherit",
     detached: true, // own process group → killTree reaps tsx→node grandchildren
-    env: { ...process.env, AIGETWEY_ADMIN_PASSWORD: adminPassword, AIGETWEY_PORT: String(GATEWAY_PORT) },
+    env: {
+      ...process.env,
+      AIGETWEY_ADMIN_PASSWORD: adminPassword,
+      AIGETWEY_PORT: String(GATEWAY_PORT),
+      // single-URL mode: the gateway reverse-proxies the dashboard, so the whole
+      // app lives on the gateway port.
+      AIGETWEY_DASHBOARD_PORT: String(DASHBOARD_PORT),
+    },
   });
 }
 
@@ -341,27 +348,27 @@ async function main(): Promise<void> {
     process.exit(code ?? 1);
   });
 
-  const dashUrl = `http://localhost:${DASHBOARD_PORT}`;
-  // give Next a moment to bind, then open the console
-  await new Promise((r) => setTimeout(r, 2500));
-  console.log(`\n  gateway   http://127.0.0.1:${GATEWAY_PORT}`);
-  console.log(`  dashboard ${dashUrl}`);
+  // one URL for everything — the gateway reverse-proxies the dashboard. Wait for
+  // the dashboard to answer THROUGH the proxy before opening the browser.
+  const appUrl = `http://127.0.0.1:${GATEWAY_PORT}`;
+  await waitForGateway(`${appUrl}/login`, 30000);
+  console.log(`\n  aigetwey   ${appUrl}   (dashboard + API, one URL)`);
   if (generatedPw) {
     console.log(`\n  admin password (generated): ${adminPassword}`);
     console.log("  set AIGETWEY_ADMIN_PASSWORD to keep it stable across runs.\n");
   }
   if (mode === "tray") {
     ensureTrayRuntime({ silent: true });
-    const started = initTray({ dashboardUrl: dashUrl, port: DASHBOARD_PORT, onQuit: shutdown });
+    const started = initTray({ dashboardUrl: appUrl, port: GATEWAY_PORT, onQuit: shutdown });
     console.log(
       started
         ? "\n  running in the system tray — right-click the icon for Open Dashboard / Quit.\n"
         : "\n  (tray unavailable on this session — running in the background; Ctrl-C or kill to stop.)\n",
     );
   } else if (wantBrowser) {
-    openBrowser(dashUrl);
+    openBrowser(appUrl);
   } else {
-    console.log("  (terminal mode — open the dashboard URL above when you want it)\n");
+    console.log(`  (terminal mode — open ${appUrl} when you want the dashboard)\n`);
   }
 }
 

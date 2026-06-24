@@ -56,6 +56,10 @@ dashboard.
 - Floating icon-rail navigation, light/dark themes, toasts.
 
 #### Packaging
+- **Single URL** — the gateway reverse-proxies the dashboard, so the console, the
+  API (`/v1`, `/messages`), and `/admin` all live on one address
+  (`http://127.0.0.1:18080`). Client API traffic stays direct on Fastify; only
+  the dashboard is proxied.
 - Single-command launcher (`aigetwey`) that brings up gateway + dashboard and
   reaps stale dev servers. Interactive launch menu (Web UI / Terminal / Hide to
   Tray / Exit) on a TTY, plus flags: `-p/--port`, `-n/--no-browser`, `-y/--yes`,

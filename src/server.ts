@@ -66,6 +66,26 @@ async function main(): Promise<void> {
 
   registerRoutes(app, state, db, auth);
 
+  // Single-URL mode: when the launcher runs the dashboard on an internal port,
+  // reverse-proxy everything the gateway doesn't own (the UI, /api/gw, /_next…)
+  // to it. The API routes above (/v1, /admin, /health) are more specific than the
+  // proxy's catch-all, so client traffic stays direct on Fastify — only the
+  // low-traffic dashboard is proxied. One address serves both.
+  const dashUpstream = process.env.AIGETWEY_DASHBOARD_PORT;
+  if (dashUpstream) {
+    await app.register(import("@fastify/http-proxy"), {
+      upstream: `http://127.0.0.1:${dashUpstream}`,
+      prefix: "/",
+      // forward the whole HTTP surface the dashboard needs (pages + its API).
+      httpMethods: ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"],
+      // keep the ORIGINAL Host so Next builds redirects (e.g. → /login) against
+      // the gateway's address, not the internal dashboard port.
+      replyOptions: {
+        rewriteRequestHeaders: (req, headers) => ({ ...headers, host: req.headers.host ?? headers.host }),
+      },
+    });
+  }
+
   const close = () => {
     db.close();
     process.exit(0);

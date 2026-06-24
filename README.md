@@ -90,8 +90,10 @@ npm install --prefix dashboard
 ```
 
 An admin password is generated if `AIGETWEY_ADMIN_PASSWORD` isn't set (printed on
-startup). Set it to keep it stable across runs. Ports: gateway `18080`, dashboard
-`3000`.
+startup). Set it to keep it stable across runs. **One URL serves everything** —
+`http://127.0.0.1:18080`: the dashboard, the API (`/v1`, `/messages`), and the
+admin endpoints. The gateway reverse-proxies the dashboard, so clients and the
+console share a single address.
 
 ### Configuration
 
@@ -232,8 +234,9 @@ npm install --prefix dashboard
 ```
 
 Admin password dibuat otomatis kalau `AIGETWEY_ADMIN_PASSWORD` belum di-set
-(dicetak saat start). Set agar stabil antar run. Port: gateway `18080`, dashboard
-`3000`.
+(dicetak saat start). Set agar stabil antar run. **Satu URL untuk semuanya** —
+`http://127.0.0.1:18080`: dashboard, API (`/v1`, `/messages`), dan admin. Gateway
+mem-proxy dashboard, jadi client & console pakai satu alamat.
 
 ### Konfigurasi
 
