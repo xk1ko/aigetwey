@@ -150,3 +150,30 @@ describe("handle — non-stream pipeline", () => {
     expect(rows[0]!.cost).toBeCloseTo(18);
   });
 });
+
+describe("budget hard-stop", () => {
+  const exhaustedBudget = { status: () => ({ exhausted: true, reset_in_ms: 1234 }) };
+  const okBudget = { status: () => ({ exhausted: false, reset_in_ms: 1234 }) };
+
+  it("returns 402 when the budget is exhausted", async () => {
+    const deps = { ...depsWith(), budget: exhaustedBudget };
+    await expect(
+      handle(deps, "openai", { model: "smart", messages: [{ role: "user", content: "hi" }] }),
+    ).rejects.toMatchObject({ status: 402, payload: { error: "budget exceeded", reset_in_ms: 1234 } });
+  });
+
+  it("passes through when under budget", async () => {
+    const upstreamJson = {
+      id: "chatcmpl-1",
+      model: "gpt-4o",
+      created: 1,
+      choices: [{ index: 0, message: { role: "assistant", content: "hi" }, finish_reason: "stop" }],
+      usage: { prompt_tokens: 5, completion_tokens: 2, total_tokens: 7 },
+    };
+    requestMock.mockResolvedValue(fakeResponse(200, upstreamJson));
+
+    const deps = { ...depsWith(), budget: okBudget };
+    const res = await handle(deps, "openai", { model: "smart", messages: [{ role: "user", content: "hi" }] });
+    expect(res.status).toBe(200);
+  });
+});

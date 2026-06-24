@@ -130,8 +130,8 @@ beforeAll(async () => {
   });
 
   const dir = mkdtempSync(join(tmpdir(), "aig-e2e-"));
-  const state = new GatewayState(join(dir, "config.yaml"), config);
   const db = new UsageDB(":memory:");
+  const state = new GatewayState(join(dir, "config.yaml"), config, undefined, db);
   gateway = Fastify({ logger: false, bodyLimit: 32 * 1024 * 1024 });
   registerRoutes(gateway, state, db, AuthStore.memory("admin-pw"));
   await gateway.listen({ host: "127.0.0.1", port: 0 });
@@ -295,5 +295,56 @@ describe("E2E — admin surface over real HTTP", () => {
     // server key too
     const srvReveal = await fetch(gwUrl("/admin/endpoint/keys/0/reveal"), { headers: admin });
     expect(((await srvReveal.json()) as { key: string }).key).toBe("gw-key");
+  });
+});
+
+describe("E2E — budget admin endpoints", () => {
+  const admin = { authorization: "Bearer admin-pw", "content-type": "application/json" };
+
+  it("GET /admin/quota includes null budget when none is set", async () => {
+    const res = await fetch(gwUrl("/admin/quota"), { headers: admin });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { quota: unknown; budget: unknown };
+    expect(body).toHaveProperty("quota");
+    expect(body.budget).toBeNull();
+  });
+
+  it("PUT /admin/budget sets a budget, GET /admin/quota returns it", async () => {
+    const budget = { unit: "usd", limit: 50, window: "monthly", alert_at: 0.9 };
+    const put = await fetch(gwUrl("/admin/budget"), {
+      method: "PUT",
+      headers: admin,
+      body: JSON.stringify(budget),
+    });
+    expect(put.status).toBe(200);
+    const putBody = (await put.json()) as { ok: boolean };
+    expect(putBody.ok).toBe(true);
+
+    const quota = await fetch(gwUrl("/admin/quota"), { headers: admin });
+    const qBody = (await quota.json()) as { budget: { unit: string; limit: number; exhausted: boolean } };
+    expect(qBody.budget).not.toBeNull();
+    expect(qBody.budget!.unit).toBe("usd");
+    expect(qBody.budget!.limit).toBe(50);
+    expect(qBody.budget!.exhausted).toBe(false);
+  });
+
+  it("DELETE /admin/budget clears the budget", async () => {
+    const del = await fetch(gwUrl("/admin/budget"), { method: "DELETE", headers: { authorization: "Bearer admin-pw" } });
+    expect(del.status).toBe(200);
+    const delBody = (await del.json()) as { ok: boolean };
+    expect(delBody.ok).toBe(true);
+
+    const quota = await fetch(gwUrl("/admin/quota"), { headers: admin });
+    const qBody = (await quota.json()) as { budget: unknown };
+    expect(qBody.budget).toBeNull();
+  });
+
+  it("PUT /admin/budget with invalid body returns 400", async () => {
+    const res = await fetch(gwUrl("/admin/budget"), {
+      method: "PUT",
+      headers: admin,
+      body: JSON.stringify({ unit: "bananas", limit: -1 }),
+    });
+    expect(res.status).toBe(400);
   });
 });

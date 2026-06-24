@@ -59,7 +59,7 @@ async function main(): Promise<void> {
   });
 
   // holder enables runtime config edits (hot-reload) from the dashboard.
-  const state = new GatewayState(configPath, config, quota);
+  const state = new GatewayState(configPath, config, quota, db);
   // admin password lives in a hash store (seeded from the env on first run,
   // changeable at runtime from the dashboard).
   const auth = AuthStore.open(dataDir, process.env.AIGETWEY_ADMIN_PASSWORD);
