@@ -173,6 +173,9 @@ html.light .rail-icon-active:hover {
   top: 50%;
   transform: translateY(-50%);
   z-index: 30;
+  /* explicit width — fixed shrinks to content (42px icon) otherwise; 76px keeps
+     the original island proportion the old 108px grid track gave it. */
+  width: 76px;
   /* no overflow clip — hover tooltips (::after) extend past the rail to the right;
      overflow:auto would scroll/clip them and spawn a stray scrollbar. */
   background: var(--color-sidebar);
