@@ -51,6 +51,7 @@ export interface HandleDeps {
   pool: KeyPool;
   db?: UsageDB;
   quota?: QuotaTracker;
+  budget?: { status(): { exhausted: boolean; reset_in_ms: number } | null };
   log?: (msg: string) => void;
   now?: () => number;
 }
@@ -117,6 +118,13 @@ export async function handle(
   const routes = config.resolve(canonical.model);
   if (routes.length === 0) {
     throw new GatewayError(404, { error: `unknown model "${canonical.model}"` });
+  }
+
+  // Global budget hard-stop: refuse before doing any upstream work when the
+  // gateway-wide budget for this window is spent. Cached in the tracker (~5s).
+  const budgetStatus = deps.budget?.status();
+  if (budgetStatus?.exhausted) {
+    throw new GatewayError(402, { error: "budget exceeded", reset_in_ms: budgetStatus.reset_in_ms });
   }
 
   // Pipeline order matters: RTK compresses tool_result in the INPUT first, then
