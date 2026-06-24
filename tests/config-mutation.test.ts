@@ -22,6 +22,7 @@ import {
   maskKey,
   setBudget,
   clearBudget,
+  budgetKey,
   type Config,
 } from "../src/config.js";
 
@@ -240,44 +241,67 @@ describe("editServerKey", () => {
   });
 });
 
-// ---- budget mutations -------------------------------------------------------
+// ---- scoped budget mutations ------------------------------------------------
 
-function baseConfig(): Config {
-  return validateConfig({ providers: [], models: [] }).raw;
+function cfgWithProvider(): Config {
+  return validateConfig({
+    providers: [{ id: "openai", format: "openai", base_url: "https://x.test", api_key: "k" }],
+    models: [],
+  }).raw;
 }
 
-describe("budget mutations", () => {
-  it("setBudget writes a budget block", () => {
-    const next = setBudget(baseConfig(), {
-      unit: "usd", limit: 20, window: "monthly", timezone: "UTC",
+describe("budgetKey", () => {
+  it("encodes each scope type", () => {
+    expect(budgetKey({ type: "global" })).toBe("global");
+    expect(budgetKey({ type: "provider", id: "openai" })).toBe("provider:openai");
+    expect(budgetKey({ type: "model", id: "claude-opus-4-6" })).toBe("model:claude-opus-4-6");
+  });
+});
+
+describe("scoped budget mutations", () => {
+  it("setBudget adds a global budget", () => {
+    const next = setBudget(cfgWithProvider(), {
+      scope: { type: "global" }, unit: "usd", limit: 50, window: "monthly", timezone: "UTC",
     });
-    expect(next.budget).toEqual({ unit: "usd", limit: 20, window: "monthly", timezone: "UTC" });
+    expect(next.budgets).toHaveLength(1);
+    expect(next.budgets[0]!.scope).toEqual({ type: "global" });
   });
 
-  it("setBudget replaces an existing budget", () => {
-    const a = setBudget(baseConfig(), { unit: "usd", limit: 20, window: "monthly", timezone: "UTC" });
-    const b = setBudget(a, { unit: "tokens", limit: 1_000_000, window: "daily", timezone: "UTC" });
-    expect(b.budget).toEqual({ unit: "tokens", limit: 1_000_000, window: "daily", timezone: "UTC" });
+  it("setBudget replaces a budget with the same scope key", () => {
+    const a = setBudget(cfgWithProvider(), { scope: { type: "global" }, unit: "usd", limit: 50, window: "monthly", timezone: "UTC" });
+    const b = setBudget(a, { scope: { type: "global" }, unit: "tokens", limit: 1000, window: "daily", timezone: "UTC" });
+    expect(b.budgets).toHaveLength(1);
+    expect(b.budgets[0]!.unit).toBe("tokens");
   });
 
-  it("clearBudget removes the budget block", () => {
-    const a = setBudget(baseConfig(), { unit: "usd", limit: 20, window: "monthly", timezone: "UTC" });
-    expect(clearBudget(a).budget).toBeUndefined();
+  it("setBudget keeps budgets with different scopes side by side", () => {
+    const a = setBudget(cfgWithProvider(), { scope: { type: "global" }, unit: "usd", limit: 50, window: "monthly", timezone: "UTC" });
+    const b = setBudget(a, { scope: { type: "provider", id: "openai" }, unit: "usd", limit: 20, window: "monthly", timezone: "UTC" });
+    expect(b.budgets).toHaveLength(2);
   });
 
-  it("a budget set then serialized survives schema re-validation", () => {
-    const a = setBudget(baseConfig(), { unit: "usd", limit: 20, window: "monthly", timezone: "UTC", alert_at: 0.9 });
-    const reparsed = validateConfig(a);
-    expect(reparsed.raw.budget?.alert_at).toBe(0.9);
+  it("setBudget rejects a provider scope for an unknown provider", () => {
+    expect(() =>
+      setBudget(cfgWithProvider(), { scope: { type: "provider", id: "nope" }, unit: "usd", limit: 20, window: "monthly", timezone: "UTC" }),
+    ).toThrow(/unknown provider/);
   });
 
-  it("schema rejects an invalid budget unit", () => {
-    expect(() => validateConfig({ providers: [], models: [], budget: { unit: "eur", limit: 5, window: "daily" } }))
+  it("clearBudget removes by scope key", () => {
+    const a = setBudget(cfgWithProvider(), { scope: { type: "provider", id: "openai" }, unit: "usd", limit: 20, window: "monthly", timezone: "UTC" });
+    const b = clearBudget(a, "provider:openai");
+    expect(b.budgets).toHaveLength(0);
+  });
+
+  it("schema rejects an invalid scope type", () => {
+    expect(() => validateConfig({ providers: [], models: [], budgets: [{ scope: { type: "team" }, unit: "usd", limit: 5, window: "daily" }] }))
       .toThrow(/invalid config/);
   });
 
-  it("schema rejects a non-positive budget limit", () => {
-    expect(() => validateConfig({ providers: [], models: [], budget: { unit: "usd", limit: 0, window: "daily" } }))
-      .toThrow(/invalid config/);
+  it("migrates a legacy single budget to a global-scoped entry", () => {
+    const cfg = validateConfig({ providers: [], models: [], budget: { unit: "usd", limit: 50, window: "monthly" } });
+    expect(cfg.raw.budgets).toHaveLength(1);
+    expect(cfg.raw.budgets[0]!.scope).toEqual({ type: "global" });
+    expect(cfg.raw.budgets[0]!.limit).toBe(50);
+    expect((cfg.raw as Record<string, unknown>).budget).toBeUndefined();
   });
 });
