@@ -147,19 +147,21 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
   app.get("/admin/quota", requireAdmin, (_req, reply) => {
     reply.send({
       quota: deps.state.quota.snapshot(deps.state.config.listProviders()),
-      budget: deps.state.budget.status(),
+      budgets: deps.state.budget.statuses(),
     });
   });
 
-  // set/replace the gateway-wide budget. Body = Budget; invalid shape -> 400.
-  app.put("/admin/budget", requireAdmin, (req, reply) => {
+  // add or replace a budget (keyed by scope). Body = Budget; invalid shape or an
+  // unknown provider scope -> 400 via zod / setBudget through state.reload().
+  app.put("/admin/budgets", requireAdmin, (req, reply) => {
     const b = (req.body ?? {}) as Budget;
     applyMutation(reply, (c) => setBudget(c, b));
   });
 
-  // remove the gateway-wide budget (feature off).
-  app.delete("/admin/budget", requireAdmin, (_req, reply) => {
-    applyMutation(reply, clearBudget);
+  // remove a budget by scope key: global | provider:<id> | model:<id>.
+  app.delete("/admin/budgets/:key", requireAdmin, (req, reply) => {
+    const key = decodeURIComponent((req.params as { key: string }).key);
+    applyMutation(reply, (c) => clearBudget(c, key));
   });
 
   // current config, secrets masked

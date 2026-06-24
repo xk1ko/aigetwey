@@ -51,7 +51,10 @@ export interface HandleDeps {
   pool: KeyPool;
   db?: UsageDB;
   quota?: QuotaTracker;
-  budget?: { status(): { exhausted: boolean; reset_in_ms: number } | null };
+  budget?: {
+    globalStatus(): { exhausted: boolean; reset_in_ms: number } | null;
+    blocks(providerId: string, model: string): { exhausted: true; reset_in_ms: number } | null;
+  };
   log?: (msg: string) => void;
   now?: () => number;
 }
@@ -115,16 +118,25 @@ export async function handle(
   const thinkingIntent: ThinkingConfig | null =
     override ?? captureThinking(canonical as Record<string, unknown>);
 
-  const routes = config.resolve(canonical.model);
+  let routes = config.resolve(canonical.model);
   if (routes.length === 0) {
     throw new GatewayError(404, { error: `unknown model "${canonical.model}"` });
   }
 
-  // Global budget hard-stop: refuse before doing any upstream work when the
-  // gateway-wide budget for this window is spent. Cached in the tracker (~5s).
-  const budgetStatus = deps.budget?.status();
-  if (budgetStatus?.exhausted) {
-    throw new GatewayError(402, { error: "budget exceeded", reset_in_ms: budgetStatus.reset_in_ms });
+  // Budget hard-stop. Global overrun fails fast. Provider/model budgets bar the
+  // matching routes (like the token-quota skip); if every candidate is barred,
+  // there's nothing to serve → 402.
+  if (deps.budget) {
+    const g = deps.budget.globalStatus();
+    if (g?.exhausted) {
+      throw new GatewayError(402, { error: "budget exceeded", reset_in_ms: g.reset_in_ms });
+    }
+    const eligible = routes.filter((r) => !deps.budget!.blocks(r.provider.id, r.model));
+    if (eligible.length === 0) {
+      const b = deps.budget.blocks(routes[0]!.provider.id, routes[0]!.model);
+      throw new GatewayError(402, { error: "budget exceeded", reset_in_ms: b?.reset_in_ms ?? 0 });
+    }
+    routes = eligible;
   }
 
   // Pipeline order matters: RTK compresses tool_result in the INPUT first, then
