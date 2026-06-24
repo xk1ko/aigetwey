@@ -133,8 +133,8 @@ export async function handle(
     }
     const eligible = routes.filter((r) => !deps.budget!.blocks(r.provider.id, r.model));
     if (eligible.length === 0) {
-      const b = deps.budget.blocks(routes[0]!.provider.id, routes[0]!.model)!;
-      throw new GatewayError(402, { error: "budget exceeded", reset_in_ms: b.reset_in_ms });
+      const b = deps.budget.blocks(routes[0]!.provider.id, routes[0]!.model);
+      throw new GatewayError(402, { error: "budget exceeded", reset_in_ms: b?.reset_in_ms ?? 0 });
     }
     routes = eligible;
   }

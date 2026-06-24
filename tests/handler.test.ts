@@ -162,6 +162,17 @@ describe("scoped budget hard-stop", () => {
     ).rejects.toMatchObject({ status: 402, payload: { error: "budget exceeded", reset_in_ms: 1234 } });
   });
 
+  it("402 when all routes are blocked by scoped budgets", async () => {
+    const allBlocked = {
+      globalStatus: () => null,
+      blocks: () => ({ exhausted: true as const, reset_in_ms: 777 }),
+    };
+    const deps = { ...depsWith(), budget: allBlocked };
+    await expect(
+      handle(deps, "openai", { model: "smart", messages: [{ role: "user", content: "hi" }] }),
+    ).rejects.toMatchObject({ status: 402, payload: { error: "budget exceeded", reset_in_ms: 777 } });
+  });
+
   it("passes through when no budget blocks", async () => {
     const upstreamJson = {
       id: "chatcmpl-1",
