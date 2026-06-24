@@ -10,9 +10,10 @@ data/
 *.sqlite-journal
 *.log
 
-# Build caches / tooling junk (the optimized dashboard/.next IS shipped, its
-# cache is not).
-dashboard/.next/cache/
+# Build output + caches — the dashboard is (re)built on first run by the
+# launcher's ensureSetup(), so we don't ship dashboard/.next (Next's nested
+# .gitignore excludes it anyway).
+dashboard/.next/
 .claude/
 .omop/
 .gstack/
