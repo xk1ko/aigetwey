@@ -90,6 +90,40 @@ describe("UsageDB.series", () => {
   });
 });
 
+describe("UsageDB.totals scoped sums", () => {
+  function seed(): UsageDB {
+    const db = new UsageDB(":memory:");
+    db.record({ alias: "a", provider: "openai", model: "gpt-4o", tokens_in: 100, tokens_out: 50, cached_tokens: 0, cost: 1, status: 200, latency_ms: 10, stream: 0, ts: 1000 });
+    db.record({ alias: "b", provider: "anthropic", model: "claude-opus-4-6", tokens_in: 200, tokens_out: 100, cached_tokens: 0, cost: 4, status: 200, latency_ms: 10, stream: 0, ts: 2000 });
+    db.record({ alias: "c", provider: "openai", model: "gpt-4o", tokens_in: 10, tokens_out: 5, cached_tokens: 0, cost: 0.2, status: 200, latency_ms: 10, stream: 0, ts: 3000 });
+    return db;
+  }
+
+  it("global: sums everything since the window start", () => {
+    const t = seed().totals(0);
+    expect(t.tokens_in).toBe(310);
+    expect(t.tokens_out).toBe(155);
+    expect(t.cost).toBeCloseTo(5.2);
+  });
+
+  it("provider filter", () => {
+    const t = seed().totals(0, { provider: "openai" });
+    expect(t.tokens_in).toBe(110);
+    expect(t.cost).toBeCloseTo(1.2);
+  });
+
+  it("model filter", () => {
+    const t = seed().totals(0, { model: "claude-opus-4-6" });
+    expect(t.tokens_out).toBe(100);
+    expect(t.cost).toBeCloseTo(4);
+  });
+
+  it("respects sinceMs", () => {
+    const t = seed().totals(2500, { provider: "openai" });
+    expect(t.tokens_in).toBe(10); // only the ts=3000 row
+  });
+});
+
 describe("UsageDB.log", () => {
   it("records a debug log row without throwing", () => {
     const d = db();
