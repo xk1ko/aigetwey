@@ -296,3 +296,7 @@ npm run build           # compile ke dist/
 ## License
 
 [MIT](./LICENSE) © xk1ko
+
+## Contributing
+
+Issues and ideas welcome: <https://github.com/xk1ko/aigetwey/issues>
