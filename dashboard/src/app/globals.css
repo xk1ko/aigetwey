@@ -160,9 +160,10 @@ html.light .rail-icon-active:hover {
 
 /* console shell — floating icon-island rail + main column with sticky top bar */
 .console-grid {
-  display: grid;
-  grid-template-columns: 108px 1fr;
+  /* rail is position:fixed (out of flow), so reserve its lane with padding
+     instead of a grid track — a track would let the main column collapse into it. */
   min-height: 100vh;
+  padding-left: 108px;
 }
 .console-rail {
   /* fixed + viewport-centered so the island stays put on long, scrollable pages
