@@ -170,7 +170,7 @@ export async function handle(
       thinkingIntent,
       isExhausted: deps.quota ? (p) => deps.quota!.isExhausted(p) : undefined,
       onAttempt: (a) =>
-        deps.log?.(`[fallback] ${a.provider} ${a.status ?? "-"} -> ${a.outcome}${a.detail ? ` (${a.detail})` : ""}`),
+        deps.log?.(`[fallback] ${a.provider}/${a.model} ${a.status ?? "-"} -> ${a.outcome}${a.detail ? ` (${a.detail})` : ""}`),
     });
   } catch (e) {
     const err = e as UpstreamError;

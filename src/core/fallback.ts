@@ -20,6 +20,7 @@ import {
 
 export interface AttemptLog {
   provider: string;
+  model: string;
   status?: number;
   outcome: "success" | "retry" | "fallback" | "fatal" | "skip";
   detail?: string;
@@ -58,7 +59,7 @@ export async function executeWithFallback(
     // skip a provider whose token budget is spent for this window — like a key
     // cooling down, but for the whole provider. Falls through to the next route.
     if (opts.isExhausted?.(provider)) {
-      log({ provider: provider.id, outcome: "skip", detail: "quota exhausted" });
+      log({ provider: provider.id, model: route.model, outcome: "skip", detail: "quota exhausted" });
       continue;
     }
 
@@ -68,7 +69,7 @@ export async function executeWithFallback(
       const key = pool.pick(provider);
       if (key === null) {
         // every key for this provider is cooling down
-        log({ provider: provider.id, outcome: "skip", detail: "all keys cooling down" });
+        log({ provider: provider.id, model: route.model, outcome: "skip", detail: "all keys cooling down" });
         break;
       }
 
@@ -81,7 +82,7 @@ export async function executeWithFallback(
         });
         pool.success(provider, key);
         opts.onServed?.(route, key);
-        log({ provider: provider.id, status: 200, outcome: "success" });
+        log({ provider: provider.id, model: route.model, status: 200, outcome: "success" });
         return { route, result };
       } catch (e) {
         const err = e as UpstreamError;
@@ -89,7 +90,7 @@ export async function executeWithFallback(
 
         if (!err.retryable) {
           // the request itself is bad — falling back won't help
-          log({ provider: provider.id, status: err.status, outcome: "fatal" });
+          log({ provider: provider.id, model: route.model, status: err.status, outcome: "fatal" });
           throw err;
         }
 
@@ -97,6 +98,7 @@ export async function executeWithFallback(
         const moreKeysHere = i < attempts - 1 && pool.hasAvailable(provider);
         log({
           provider: provider.id,
+          model: route.model,
           status: err.status,
           outcome: moreKeysHere ? "retry" : "fallback",
         });
