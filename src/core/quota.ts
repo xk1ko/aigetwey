@@ -38,6 +38,8 @@ export interface QuotaSnapshot {
   /** 0..1 fraction of the limit used, if a limit is set */
   pct?: number;
   exhausted: boolean;
+  /** true when a limit is set and pct >= the quota's alert_at (default 0.8) */
+  alert: boolean;
 }
 
 // ---- timezone-aware calendar math -----------------------------------------
@@ -113,7 +115,9 @@ function parseHHMM(reset_at: string | undefined): { h: number; m: number } {
  *   - weekly:  next `reset_at` weekday (default monday) at 00:00 in tz.
  *   - monthly: next 1st of month at 00:00 in tz.
  */
-export function nextResetAt(quota: Quota, windowStart: number, now: number): number {
+export type WindowSpec = Pick<Quota, "window" | "reset_at" | "timezone">;
+
+export function nextResetAt(quota: WindowSpec, windowStart: number, now: number): number {
   const tz = quota.timezone || "UTC";
   if (quota.window === "5h") return windowStart + 5 * HOUR_MS;
 
@@ -138,6 +142,40 @@ export function nextResetAt(quota: Quota, windowStart: number, now: number): num
 
   // monthly: first of next month at 00:00
   return zonedWallToEpoch(p.year, p.month + 1, 1, 0, 0, tz);
+}
+
+/**
+ * Epoch ms of the START of the window containing `now`.
+ *   - 5h:      fixed 5-hour grid floor (stateless; no per-provider anchor).
+ *   - daily:   today's reset_at in tz, or yesterday's if that's still ahead.
+ *   - weekly:  the most recent occurrence of the target weekday at 00:00 in tz.
+ *   - monthly: the 1st of the current month at 00:00 in tz.
+ */
+export function currentWindowStart(spec: WindowSpec, now: number): number {
+  const tz = spec.timezone || "UTC";
+  if (spec.window === "5h") return Math.floor(now / (5 * HOUR_MS)) * (5 * HOUR_MS);
+
+  const p = zonedParts(now, tz);
+
+  if (spec.window === "daily") {
+    const { h, m } = parseHHMM(spec.reset_at);
+    let start = zonedWallToEpoch(p.year, p.month, p.day, h, m, tz);
+    if (start > now) start = zonedWallToEpoch(p.year, p.month, p.day - 1, h, m, tz);
+    return start;
+  }
+
+  if (spec.window === "weekly") {
+    const target = WEEKDAYS.indexOf((spec.reset_at ?? "monday").toLowerCase());
+    const targetIdx = target === -1 ? 1 : target;
+    const curIdx = WEEKDAYS.indexOf(p.weekday);
+    const daysBehind = (curIdx - targetIdx + 7) % 7;
+    let start = zonedWallToEpoch(p.year, p.month, p.day - daysBehind, 0, 0, tz);
+    if (start > now) start = zonedWallToEpoch(p.year, p.month, p.day - daysBehind - 7, 0, 0, tz);
+    return start;
+  }
+
+  // monthly
+  return zonedWallToEpoch(p.year, p.month, 1, 0, 0, tz);
 }
 
 export class QuotaTracker {
@@ -207,6 +245,7 @@ export class QuotaTracker {
           reset_in_ms: Math.max(0, reset - t),
           pct: limit ? Math.min(1, state.consumed / limit) : undefined,
           exhausted: limit ? state.consumed >= limit : false,
+          alert: limit ? state.consumed / limit >= (provider.quota.alert_at ?? 0.8) : false,
         },
       ];
     });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { QuotaTracker, nextResetAt } from "../src/core/quota.js";
+import { QuotaTracker, nextResetAt, currentWindowStart } from "../src/core/quota.js";
 import { validateConfig, type Provider, type Quota } from "../src/config.js";
 
 function providerWithQuota(quota: Quota): Provider {
@@ -128,5 +128,48 @@ describe("QuotaTracker — persistence via a store", () => {
     q.consume(p, 20);
     expect(q.isExhausted(p)).toBe(true);
     expect(saved.at(-1)).toMatchObject({ provider_id: "p", consumed: 110 });
+  });
+});
+
+describe("currentWindowStart", () => {
+  it("monthly: start is the 1st of the current month (UTC)", () => {
+    const now = Date.UTC(2026, 5, 24, 15, 30); // 2026-06-24 15:30 UTC
+    const start = currentWindowStart({ window: "monthly", timezone: "UTC" }, now);
+    expect(start).toBe(Date.UTC(2026, 5, 1, 0, 0));
+  });
+
+  it("daily: start is today's reset_at, or yesterday's if that is still ahead", () => {
+    const now = Date.UTC(2026, 5, 24, 2, 0); // 02:00 UTC, before a 09:00 reset
+    const start = currentWindowStart({ window: "daily", reset_at: "09:00", timezone: "UTC" }, now);
+    expect(start).toBe(Date.UTC(2026, 5, 23, 9, 0)); // yesterday 09:00
+  });
+
+  it("5h: start is the floor of now to a 5-hour grid", () => {
+    const FIVE_H = 5 * 3600_000;
+    const now = 123 * FIVE_H + 42_000;
+    expect(currentWindowStart({ window: "5h", timezone: "UTC" }, now)).toBe(123 * FIVE_H);
+  });
+});
+
+describe("snapshot alert flag", () => {
+  const provider = (alert_at?: number): Provider =>
+    ({ id: "p", format: "openai", base_url: "https://x.test", api_keys: ["k"],
+       free: false, auto_models: false, models: [], cooldown_base_ms: 1000, max_retries: 2,
+       quota: { window: "daily", timezone: "UTC", limit_tokens: 1000, alert_at } } as unknown as Provider);
+
+  it("flags alert once consumption crosses alert_at", () => {
+    let t = 1_000_000;
+    const tr = new QuotaTracker(() => t);
+    tr.consume(provider(0.8), 850);
+    const snap = tr.snapshot([provider(0.8)])[0]!;
+    expect(snap.alert).toBe(true);
+  });
+
+  it("uses the 0.8 default when alert_at is unset", () => {
+    const tr = new QuotaTracker(() => 1_000_000);
+    tr.consume(provider(), 700);
+    expect(tr.snapshot([provider()])[0]!.alert).toBe(false); // 0.7 < 0.8
+    tr.consume(provider(), 150);
+    expect(tr.snapshot([provider()])[0]!.alert).toBe(true);  // 0.85 >= 0.8
   });
 });
