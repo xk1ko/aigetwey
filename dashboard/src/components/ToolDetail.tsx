@@ -139,6 +139,28 @@ export function ToolDetail({ id }: { id: string }) {
   const env = tool.env(base, realKey);
   const block = env.map((e) => `export ${e.name}="${e.value}"`).join("\n");
 
+  // opencode reads models from ~/.config/opencode/opencode.json, not shell env.
+  // Show the exact JSON the auto-apply would MERGE — so the models are visible and
+  // it's clear nothing else gets replaced (other providers + your other keys stay).
+  const ocModels = picked.length ? picked : cli?.models ?? [];
+  const opencodeJson =
+    tool.id === "opencode"
+      ? JSON.stringify(
+          {
+            provider: {
+              aigetwey: {
+                npm: "@ai-sdk/openai-compatible",
+                options: { baseURL: `${base}/v1`, apiKey: realKey || "aigetwey" },
+                models: Object.fromEntries(ocModels.map((m) => [m, { name: m }])),
+              },
+            },
+            model: `aigetwey/${active || ocModels[0] || ""}`,
+          },
+          null,
+          2,
+        )
+      : null;
+
   return (
     <div>
       <button onClick={() => router.push("/tools")} className="mb-4 inline-flex items-center gap-1 text-[12px] text-text-muted hover:text-text">
@@ -301,6 +323,22 @@ export function ToolDetail({ id }: { id: string }) {
             </p>
           )}
         </RichCard>
+
+        {opencodeJson && (
+          <RichCard
+            className="lg:col-span-2"
+            header={<CardTitle title="Manual config" sub="merge into ~/.config/opencode/opencode.json — every model listed" />}
+          >
+            {ocModels.length === 0 ? (
+              <p className="text-[12.5px] text-text-muted">Add models above to see them listed here.</p>
+            ) : (
+              <CopyBlock text={opencodeJson} />
+            )}
+            <p className="mt-3 text-[12px] text-text-subtle">
+              Apply does the same merge for you — it keeps any other providers and existing models, only adding these.
+            </p>
+          </RichCard>
+        )}
 
         {!tool.autoConfig && (
         <RichCard
