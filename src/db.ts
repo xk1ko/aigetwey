@@ -38,6 +38,12 @@ export interface LogRow {
   response_summary: string;
 }
 
+export interface UsageTotals {
+  tokens_in: number;
+  tokens_out: number;
+  cost: number;
+}
+
 export interface UsageSummary {
   total: { requests: number; tokens_in: number; tokens_out: number; cost: number };
   by_provider: Array<{ provider: string; requests: number; tokens_in: number; tokens_out: number; cost: number }>;
@@ -193,6 +199,32 @@ export class UsageDB {
         cost: num(r.cost),
       })),
     };
+  }
+
+  /**
+   * Summed token + cost totals over rows with ts >= sinceMs, optionally filtered
+   * to one provider and/or one model. Backs the scoped budget tracker — the usage
+   * table stays the single source of truth (no parallel counter).
+   */
+  totals(sinceMs: number, filter?: { provider?: string; model?: string }): UsageTotals {
+    const clauses = ["ts >= ?"];
+    const params: Array<number | string> = [sinceMs];
+    if (filter?.provider) {
+      clauses.push("provider = ?");
+      params.push(filter.provider);
+    }
+    if (filter?.model) {
+      clauses.push("model = ?");
+      params.push(filter.model);
+    }
+    const row = this.db
+      .prepare(
+        `SELECT COALESCE(SUM(tokens_in),0) tokens_in, COALESCE(SUM(tokens_out),0) tokens_out,
+                COALESCE(SUM(cost),0) cost
+         FROM usage WHERE ${clauses.join(" AND ")}`,
+      )
+      .get(...params) as SqlRow;
+    return { tokens_in: num(row.tokens_in), tokens_out: num(row.tokens_out), cost: num(row.cost) };
   }
 
   /**
