@@ -92,7 +92,7 @@ export function QuotaView() {
                 </button>
                 <button
                   type="button"
-                  onClick={async () => { await adminApi.clearBudget(); refresh(); }}
+                  onClick={async () => { const r = await adminApi.clearBudget(); if (!r.ok) setError(r.error ?? "could not clear budget"); refresh(); }}
                   className="text-[12px] text-text-muted hover:text-danger"
                 >
                   Clear

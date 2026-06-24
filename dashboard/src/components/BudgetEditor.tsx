@@ -35,13 +35,16 @@ export function BudgetEditor({
       return;
     }
     setSaving(true);
-    const r = await adminApi.setBudget({ unit, limit: limitNum, window, alert_at: alertPct / 100 });
-    setSaving(false);
-    if (!r.ok) {
-      setError(r.error ?? "could not save budget");
-      return;
+    try {
+      const r = await adminApi.setBudget({ unit, limit: limitNum, window, alert_at: alertPct / 100 });
+      if (!r.ok) {
+        setError(r.error ?? "could not save budget");
+        return;
+      }
+      onSaved();
+    } finally {
+      setSaving(false);
     }
-    onSaved();
   }
 
   return (
