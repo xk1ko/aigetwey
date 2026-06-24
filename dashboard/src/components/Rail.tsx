@@ -58,7 +58,14 @@ export function Rail() {
   return (
     <>
       <Link href="/" className="rail-brand" aria-label="aigetwey">
-        a
+        {/* "a»" mark — ink on the lime tile (CSS provides the tile) */}
+        <svg viewBox="0 0 512 512" width="26" height="26" aria-hidden>
+          <text x="120" y="338" fontFamily="ui-sans-serif, Arial, sans-serif" fontSize="260" fontWeight="800" textAnchor="middle" fill="#14140f">a</text>
+          <g fill="none" stroke="#14140f" strokeWidth="34" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="276,182 352,256 276,330" />
+            <polyline points="346,182 422,256 346,330" />
+          </g>
+        </svg>
       </Link>
 
       <nav className="flex flex-col items-center gap-3">

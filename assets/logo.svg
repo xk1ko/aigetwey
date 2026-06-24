@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="116" fill="#0f0f0e"/>
+  <text x="120" y="338" font-family="ui-sans-serif, Inter, Arial, sans-serif" font-size="260" font-weight="800" text-anchor="middle" fill="#cbe85a">a</text>
+  <g fill="none" stroke="#cbe85a" stroke-width="32" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="270,180 350,256 270,332"/>
+    <polyline points="338,180 418,256 338,332"/>
+  </g>
+</svg>

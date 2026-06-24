@@ -56,10 +56,12 @@ dashboard.
 - Floating icon-rail navigation, light/dark themes, toasts.
 
 #### Packaging
-- Single-command launcher (`aigetwey`) that brings up gateway + dashboard,
-  reaps stale dev servers, and opens the console.
+- Single-command launcher (`aigetwey`) that brings up gateway + dashboard and
+  reaps stale dev servers. Interactive launch menu (Web UI / Terminal / Exit)
+  on a TTY, plus flags: `-p/--port`, `-n/--no-browser`, `-y/--yes`, `-h/--help`.
 - Installable as a global npm package; first run self-bootstraps (seeds config,
   installs dashboard deps, builds the dashboard).
+- Brand: `a»` mark (favicon + sidebar) and an `ai»getwey` wordmark.
 
 [Unreleased]: https://github.com/xk1ko/aigetwey/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/xk1ko/aigetwey/releases/tag/v1.0.0

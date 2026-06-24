@@ -17,11 +17,46 @@ import { randomBytes } from "node:crypto";
 import { existsSync, copyFileSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createInterface } from "node:readline";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const dashboardDir = join(root, "dashboard");
 
-const GATEWAY_PORT = Number(process.env.AIGETWEY_PORT ?? 18080);
+// ── CLI flags (9router-style): -p/--port, -n/--no-browser, -y/--yes, -h/--help ──
+interface CliOpts {
+  port?: number;
+  noBrowser: boolean;
+  yes: boolean;
+  help: boolean;
+}
+function parseArgs(argv: string[]): CliOpts {
+  const o: CliOpts = { noBrowser: false, yes: false, help: false };
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === "-p" || a === "--port") o.port = Number(argv[++i]);
+    else if (a === "-n" || a === "--no-browser") o.noBrowser = true;
+    else if (a === "-y" || a === "--yes") o.yes = true;
+    else if (a === "-h" || a === "--help") o.help = true;
+  }
+  return o;
+}
+const opts = parseArgs(process.argv.slice(2));
+
+const HELP = `
+  aigetwey — personal AI gateway + dashboard
+
+  Usage: aigetwey [options]
+
+  Options:
+    -p, --port <n>    gateway port (default 18080; dashboard stays on 3000)
+    -n, --no-browser  start without opening the browser (terminal logs only)
+    -y, --yes         skip the interactive menu (just run; honors --no-browser)
+    -h, --help        show this help
+
+  With a TTY and no --yes, a menu lets you pick: Web UI / Terminal / Exit.
+`;
+
+const GATEWAY_PORT = opts.port ?? Number(process.env.AIGETWEY_PORT ?? 18080);
 const DASHBOARD_PORT = Number(process.env.DASHBOARD_PORT ?? 3000);
 
 // reuse env secrets if present, otherwise generate (admin) / random (session).
@@ -201,7 +236,40 @@ function ensureSetup(): void {
   }
 }
 
+function prompt(q: string): Promise<string> {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((res) => rl.question(q, (a) => { rl.close(); res(a); }));
+}
+
+/**
+ * 9router-style launch menu. With a TTY (and no --yes), let the operator pick
+ * how to run; otherwise honor the flags. "web" opens the browser, "terminal"
+ * runs with live logs only, "exit" quits before starting anything.
+ */
+async function chooseMode(): Promise<"web" | "terminal" | "exit"> {
+  if (opts.yes || !process.stdin.isTTY) return opts.noBrowser ? "terminal" : "web";
+  console.log(
+    "\n  aigetwey\n\n" +
+      "  [1] Web UI     start + open the dashboard in your browser\n" +
+      "  [2] Terminal   start with live logs only (no browser)\n" +
+      "  [3] Exit\n",
+  );
+  const c = (await prompt("  choose [1]: ")).trim().toLowerCase();
+  if (c === "3" || c === "exit" || c === "q") return "exit";
+  if (c === "2" || c === "terminal") return "terminal";
+  return "web"; // default on Enter
+}
+
 async function main(): Promise<void> {
+  if (opts.help) {
+    console.log(HELP);
+    return;
+  }
+
+  const mode = await chooseMode();
+  if (mode === "exit") return;
+  const wantBrowser = mode === "web";
+
   console.log("\n  aigetwey — starting gateway + dashboard\n");
 
   ensureSetup();
@@ -250,7 +318,8 @@ async function main(): Promise<void> {
     console.log(`\n  admin password (generated): ${adminPassword}`);
     console.log("  set AIGETWEY_ADMIN_PASSWORD to keep it stable across runs.\n");
   }
-  openBrowser(dashUrl);
+  if (wantBrowser) openBrowser(dashUrl);
+  else console.log("  (terminal mode — open the dashboard URL above when you want it)\n");
 }
 
 main().catch((e) => {

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./assets/wordmark.svg" width="420" alt="aigetwey">
+</p>
+
 # aigetwey
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)

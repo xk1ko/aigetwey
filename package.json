@@ -35,6 +35,7 @@
     "dist",
     "src",
     "dashboard",
+    "assets",
     "config.example.yaml",
     "tsconfig.json",
     "run.sh",
