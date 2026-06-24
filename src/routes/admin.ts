@@ -643,9 +643,9 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
   });
 
   // ---- version: current build + best-effort npm "update available" check ----
-  // Matches aigetwey's Sidebar npm version poll. The package is private/unpublished,
-  // so the registry call 404s and `latest` stays null — we never show a false
-  // "update available". If it is ever published, a newer semver flips the flag.
+  // Poll npm for the latest published version; a newer semver flips an
+  // "update available" flag in the dashboard. Best-effort — failures leave
+  // `latest` null and never show a false positive.
   app.get("/admin/version", requireAdmin, async (_req, reply) => {
     const current = readVersion();
     let latest: string | null = null;

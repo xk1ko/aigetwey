@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] — 2026-06-24
+
+### Fixed
+- `--help` no longer says the dashboard runs on a separate port — the gateway
+  serves the dashboard + API on one URL.
+- package.json author uses the GitHub noreply email (keeps the real address
+  private), and the version-poll comment reflects the now-published package.
+
 ## [1.0.0] — 2026-06-24
 
 First public release. A personal AI gateway that routes, translates, and tracks
@@ -71,5 +79,6 @@ dashboard.
   installs dashboard deps, builds the dashboard).
 - Brand: `a»` mark (favicon + sidebar) and an `ai»getwey` wordmark.
 
-[Unreleased]: https://github.com/xk1ko/aigetwey/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/xk1ko/aigetwey/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/xk1ko/aigetwey/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/xk1ko/aigetwey/releases/tag/v1.0.0

@@ -53,7 +53,7 @@ const HELP = `
   Usage: aigetwey [options]
 
   Options:
-    -p, --port <n>    gateway port (default 18080; dashboard stays on 3000)
+    -p, --port <n>    port for the gateway + dashboard, one URL (default 18080)
     -n, --no-browser  start without opening the browser (terminal logs only)
     -y, --yes         skip the interactive menu (just run; honors --no-browser)
     -t, --tray        run in the system tray (background, no terminal needed)

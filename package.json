@@ -1,6 +1,6 @@
 {
   "name": "aigetwey",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "Personal AI gateway — route, translate and track requests across Anthropic / OpenAI / Gemini-compatible providers, with a built-in dashboard.",
   "keywords": [
