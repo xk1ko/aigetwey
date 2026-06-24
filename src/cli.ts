@@ -76,13 +76,19 @@ function openBrowser(url: string): void {
   spawn(cmd, [url], { stdio: "ignore", detached: true, shell: process.platform === "win32" }).unref();
 }
 
-async function waitForGateway(url: string, timeoutMs = 20000): Promise<boolean> {
+async function waitForGateway(
+  url: string,
+  timeoutMs = 20000,
+  ready: (status: number) => boolean = (s) => s > 0,
+): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
       const res = await fetch(url, { method: "GET" });
-      // any HTTP answer (even 401/503) means the port is up
-      if (res.status > 0) return true;
+      // default: any HTTP answer (even 401/503) means the port is up. A caller
+      // can demand more — e.g. a non-5xx, to wait past a proxy's boot-time 502/500
+      // while the upstream it fronts is still coming up.
+      if (ready(res.status)) return true;
     } catch {
       // not up yet
     }
@@ -349,9 +355,12 @@ async function main(): Promise<void> {
   });
 
   // one URL for everything — the gateway reverse-proxies the dashboard. Wait for
-  // the dashboard to answer THROUGH the proxy before opening the browser.
+  // the dashboard to be READY before opening the browser. Probe it directly on
+  // its own port (not through the proxy) and require a non-5xx answer: a proxy
+  // hit during boot returns 500 (ECONNREFUSED upstream), which a bare "port up"
+  // check would mistake for ready and open the browser into a wall of 500s.
   const appUrl = `http://127.0.0.1:${GATEWAY_PORT}`;
-  await waitForGateway(`${appUrl}/login`, 30000);
+  await waitForGateway(`http://127.0.0.1:${DASHBOARD_PORT}/login`, 30000, (s) => s > 0 && s < 500);
   console.log(`\n  aigetwey   ${appUrl}   (dashboard + API, one URL)`);
   if (generatedPw) {
     console.log(`\n  admin password (generated): ${adminPassword}`);
