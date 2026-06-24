@@ -173,8 +173,8 @@ html.light .rail-icon-active:hover {
   top: 50%;
   transform: translateY(-50%);
   z-index: 30;
-  max-height: calc(100dvh - 40px);
-  overflow-y: auto;
+  /* no overflow clip — hover tooltips (::after) extend past the rail to the right;
+     overflow:auto would scroll/clip them and spawn a stray scrollbar. */
   background: var(--color-sidebar);
   border: 1px solid var(--color-border-subtle);
   border-radius: 24px;
