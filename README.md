@@ -13,6 +13,10 @@ tools (Claude Code, opencode, Cursor, Cline, Codex), translates between formats,
 routes with fallback across providers, and tracks token usage and cost. Ships
 with a built-in dashboard.
 
+<p align="center">
+  <img src="./assets/screenshot.png" width="860" alt="aigetwey dashboard — Endpoint & Key">
+</p>
+
 **🌐 Language / Bahasa:** [English](#english) · [Bahasa Indonesia](#bahasa-indonesia)
 
 See [CHANGELOG.md](./CHANGELOG.md) for release history.
