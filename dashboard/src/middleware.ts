@@ -30,8 +30,10 @@ export function middleware(req: NextRequest): NextResponse {
 }
 
 export const config = {
-  // run on everything except next internals and static assets
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // run on everything except next internals and static assets. icon.svg is the
+  // App Router favicon — it must stay public, else the auth gate redirects it to
+  // /login and the browser tab shows no icon.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg).*)"],
   // session verification uses node:crypto, unsupported on the Edge runtime
   runtime: "nodejs",
 };
