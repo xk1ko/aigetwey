@@ -162,6 +162,27 @@ export function ToolDetail({ id }: { id: string }) {
         )
       : null;
 
+  // Claude Code reads its config from ~/.claude/settings.json — show the exact
+  // env block the auto-apply writes (merged into the existing settings).
+  const claudeJson =
+    tool.id === "claude-code"
+      ? JSON.stringify(
+          {
+            hasCompletedOnboarding: true,
+            env: {
+              ANTHROPIC_BASE_URL: base,
+              API_TIMEOUT_MS: "600000",
+              ...(realKey ? { ANTHROPIC_AUTH_TOKEN: realKey } : {}),
+              ...(slots.opus ? { ANTHROPIC_DEFAULT_OPUS_MODEL: slots.opus } : {}),
+              ...(slots.sonnet ? { ANTHROPIC_DEFAULT_SONNET_MODEL: slots.sonnet } : {}),
+              ...(slots.haiku ? { ANTHROPIC_DEFAULT_HAIKU_MODEL: slots.haiku } : {}),
+            },
+          },
+          null,
+          2,
+        )
+      : null;
+
   return (
     <div>
       <button onClick={() => router.push("/tools")} className="mb-4 inline-flex items-center gap-1 text-[12px] text-text-muted hover:text-text">
@@ -337,6 +358,18 @@ export function ToolDetail({ id }: { id: string }) {
             )}
             <p className="mt-3 text-[12px] text-text-subtle">
               Apply does the same merge for you — it keeps any other providers and existing models, only adding these.
+            </p>
+          </RichCard>
+        )}
+
+        {claudeJson && (
+          <RichCard
+            className="lg:col-span-2"
+            header={<CardTitle title="Manual config" sub="merge the env block into ~/.claude/settings.json" />}
+          >
+            <CopyBlock text={claudeJson} />
+            <p className="mt-3 text-[12px] text-text-subtle">
+              Apply does the same merge for you — it keeps the rest of your settings, only writing these env keys.
             </p>
           </RichCard>
         )}

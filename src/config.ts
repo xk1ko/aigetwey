@@ -55,6 +55,9 @@ const ProviderSchema = z
     models: z.array(ProviderModelSchema).default([]),
     headers: z.record(z.string()).optional(),
     quota: QuotaSchema.optional(),
+    // when true the provider is skipped in routing (kept in config, like a key's
+    // disabled state but for the whole provider).
+    disabled: z.boolean().optional(),
     disabled_keys: z.array(z.number().int().nonnegative()).optional(),
     strategy: z.enum(["fallback", "round-robin"]).optional(),
     sticky: z.number().int().positive().optional(),
@@ -189,7 +192,7 @@ export class GatewayConfig {
     if (route) {
       const built = route.target.flatMap((providerId, i) => {
         const provider = this.providers.get(providerId);
-        if (!provider) return [];
+        if (!provider || provider.disabled) return [];
         return [
           {
             alias: name,
@@ -213,7 +216,7 @@ export class GatewayConfig {
       const providerId = name.slice(0, slash);
       const model = name.slice(slash + 1);
       const provider = this.providers.get(providerId);
-      if (provider && model) {
+      if (provider && !provider.disabled && model) {
         const entry = provider.models.find((m) => m.id === model);
         return [
           {
@@ -231,6 +234,7 @@ export class GatewayConfig {
     // any provider that lists this exact model id, as a fallback chain. The
     // upstream model name stays the requested id (it's what the catalog holds).
     const byCatalog = [...this.providers.values()].flatMap((provider) => {
+      if (provider.disabled) return [];
       const entry = provider.models.find((m) => m.id === name);
       if (!entry) return [];
       return [{ alias: name, provider, model: name, price_in: entry.price_in, price_out: entry.price_out }];
@@ -538,6 +542,16 @@ export function toggleProviderKey(config: Config, id: string, index: number, ena
   if (enabled) disabled.delete(index);
   else disabled.add(index);
   p.disabled_keys = disabled.size > 0 ? [...disabled].sort((a, b) => a - b) : undefined;
+  return next;
+}
+
+/** Enable/disable a whole provider — disabled providers are skipped in routing. */
+export function setProviderDisabled(config: Config, id: string, disabled: boolean): Config {
+  const next = cloneConfig(config);
+  const p = next.providers.find((x) => x.id === id);
+  if (!p) throw new Error(`provider "${id}" not found`);
+  if (disabled) p.disabled = true;
+  else delete p.disabled;
   return next;
 }
 

@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { adminApi } from "@/lib/client";
-import { RichCard, CardTitle } from "@/components/RichCard";
+import { CardTitle } from "@/components/RichCard";
+import { Icon } from "@/components/Icon";
 import { Empty } from "@/components/ui";
 import type { PricingPayload, PricingModel } from "@/lib/gateway";
 
@@ -78,17 +79,38 @@ export function PricingEditor() {
 
   const providers = data?.providers.filter((p) => p.models.length > 0) ?? [];
 
+  const overrideCount = providers.reduce(
+    (n, p) => n + p.models.filter((m) => m.price_in != null || m.price_out != null).length,
+    0,
+  );
+
   return (
-    <RichCard header={<CardTitle title="Pricing" sub="$/1M tokens — override the auto rate per model" />}>
+    <details className="group overflow-hidden rounded-brand-lg border border-border bg-surface shadow-soft">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+        <CardTitle title="Pricing" sub="$/1M tokens — override the auto rate per model" />
+        <span className="flex items-center gap-2">
+          {overrideCount > 0 && <span className="text-[11px] text-text-subtle">{overrideCount} override{overrideCount > 1 ? "s" : ""}</span>}
+          <Icon name="expand_more" size={18} className="text-text-subtle transition-transform group-open:rotate-180" />
+        </span>
+      </summary>
+      <div className="border-t border-border-subtle p-4">
       {error && <p className="mb-2 text-[12px] text-danger">{error}</p>}
       {providers.length === 0 ? (
         <Empty>No models yet. Add models to a provider to price them.</Empty>
       ) : (
-        <div className="space-y-5">
-          {providers.map((p) => (
-            <div key={p.id}>
-              <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-text-subtle">{p.id}</div>
-              <div className="overflow-hidden rounded-brand border border-border-subtle">
+        <div className="space-y-2">
+          {providers.map((p) => {
+            const pOverrides = p.models.filter((m) => m.price_in != null || m.price_out != null).length;
+            return (
+            <details key={p.id} className="group/p overflow-hidden rounded-brand border border-border-subtle">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-2 bg-bg-alt px-3 py-2 [&::-webkit-details-marker]:hidden">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-text-subtle">{p.id}</span>
+                <span className="flex items-center gap-2 text-[11px] text-text-subtle">
+                  <span>{p.models.length} model{p.models.length > 1 ? "s" : ""}{pOverrides > 0 ? ` · ${pOverrides} override` : ""}</span>
+                  <Icon name="expand_more" size={16} className="transition-transform group-open/p:rotate-180" />
+                </span>
+              </summary>
+              <div className="">
                 {p.models.map((m) => {
                   const k = keyOf(p.id, m.id);
                   const overridden = m.price_in != null || m.price_out != null;
@@ -138,10 +160,12 @@ export function PricingEditor() {
                   );
                 })}
               </div>
-            </div>
-          ))}
+            </details>
+            );
+          })}
         </div>
       )}
-    </RichCard>
+      </div>
+    </details>
   );
 }

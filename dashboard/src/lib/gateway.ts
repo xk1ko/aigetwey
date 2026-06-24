@@ -161,6 +161,7 @@ export interface MaskedProvider {
   cooldown_base_ms: number;
   max_retries: number;
   disabled_keys?: number[];
+  disabled?: boolean;
   strategy?: "fallback" | "round-robin";
   sticky?: number;
 }

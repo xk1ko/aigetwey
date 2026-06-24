@@ -128,6 +128,21 @@ export function ProviderDetail({ id }: { id: string }) {
         <FormatBadge format={provider.format} />
         {provider.free && <Badge tone="info">free</Badge>}
         {provider.service_account && <Badge tone="info">service-account</Badge>}
+        {provider.disabled && <Badge tone="warn">disabled</Badge>}
+
+        {/* enable/disable the whole provider — skipped in routing when off */}
+        <label className="ml-auto flex items-center gap-2 text-[12px] text-text-muted">
+          {provider.disabled ? "Disabled" : "Enabled"}
+          <button
+            type="button"
+            onClick={() => void adminApi.setProviderDisabled(id, !provider.disabled).then(() => reload())}
+            className={`relative h-5 w-9 rounded-full transition-colors ${provider.disabled ? "bg-border-subtle" : "bg-accent"}`}
+            aria-label="Toggle provider enabled"
+            title={provider.disabled ? "Provider is disabled — enable it" : "Provider is enabled — disable it"}
+          >
+            <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${provider.disabled ? "left-0.5" : "left-[18px]"}`} />
+          </button>
+        </label>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">

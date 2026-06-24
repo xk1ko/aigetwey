@@ -111,6 +111,8 @@ export const adminApi = {
     api<ConfigReply>("PUT", `/admin/providers/${encodeURIComponent(id)}/keys/${index}/toggle`, { enabled }),
   setProviderStrategy: (id: string, strategy: "fallback" | "round-robin" | null, sticky?: number) =>
     api<ConfigReply>("PUT", `/admin/providers/${encodeURIComponent(id)}/strategy`, { strategy, sticky }),
+  setProviderDisabled: (id: string, disabled: boolean) =>
+    api<ConfigReply>("PUT", `/admin/providers/${encodeURIComponent(id)}/disabled`, { disabled }),
 
   setRoute: (
     alias: string,

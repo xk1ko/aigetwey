@@ -29,6 +29,7 @@ import {
   reorderProviderKey,
   toggleProviderKey,
   setProviderStrategy,
+  setProviderDisabled,
   addProviderModel,
   removeProviderModel,
   addProviderModels,
@@ -291,6 +292,12 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     const { id } = req.params as { id: string };
     const b = req.body as { strategy?: "fallback" | "round-robin" | null; sticky?: number };
     applyMutation(reply, (c) => setProviderStrategy(c, id, b?.strategy ?? null, b?.sticky));
+  });
+
+  app.put("/admin/providers/:id/disabled", requireAdmin, (req, reply) => {
+    const { id } = req.params as { id: string };
+    const b = req.body as { disabled?: boolean };
+    applyMutation(reply, (c) => setProviderDisabled(c, id, b?.disabled === true));
   });
 
   // reveal ONE raw provider key (the "show key" button). Index mirrors how the

@@ -36,6 +36,25 @@ See [CHANGELOG.md](./CHANGELOG.md) for release history.
 - **Dashboard** — providers, combos, usage, quota, CLI tools, a live server
   console, and a settings page with a per-model pricing editor.
 
+### Token savers
+
+Toggle these per-endpoint in the dashboard. The first three are **built into the
+gateway** — nothing extra to install, they ship with the npm package. Headroom is
+the only one that needs an **external** tool.
+
+| Saver | What it does | Install |
+| --- | --- | --- |
+| **RTK** | Compresses bulky `tool_result` blocks in the request (git/grep/ls/logs). | built-in |
+| **Caveman** | Terse-output system prompt — cuts output prose tokens. | built-in |
+| **Ponytail** | Biases the model toward minimal code (YAGNI, reuse, deletion). | built-in |
+| **Headroom** | Pipes context through an external `/v1/compress` proxy. | **external** — see below |
+
+The token-saver concept is modeled on [9router](https://github.com/decolua/9router).
+**Headroom** is a separate Python tool (not bundled — the gateway only detects and
+calls it): it needs Python ≥ 3.10 and the `headroom-ai` package, then runs as
+`headroom proxy` (default `http://localhost:8787`). With it absent, the Headroom
+toggle stays off and everything else works unchanged.
+
 ### Install
 
 **Global (npm):**
@@ -165,6 +184,15 @@ npm run build           # compile to dist/
   mundur reset, dan pelacakan pemakaian/biaya berbasis SQLite.
 - **Dashboard** — providers, combos, usage, kuota, CLI tools, server console
   live, dan halaman settings dengan editor harga per-model.
+
+### Penghemat token
+
+**RTK**, **Caveman**, **Ponytail** = **built-in** (ikut paket npm, tak perlu
+install apa pun). Hanya **Headroom** yang **eksternal**: tool Python terpisah
+(tidak di-bundle — gateway cuma mendeteksi & memanggilnya), butuh Python ≥ 3.10 +
+paket `headroom-ai`, jalankan `headroom proxy` (default `http://localhost:8787`).
+Tanpa Headroom, toggle-nya mati dan sisanya tetap jalan. Konsep penghemat token
+mengacu ke [9router](https://github.com/decolua/9router).
 
 ### Instalasi
 

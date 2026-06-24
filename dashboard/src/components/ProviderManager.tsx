@@ -97,6 +97,7 @@ export function ProviderManager() {
                 </div>
                 <div className="mt-2 truncate text-[12px] text-text-subtle">{p.base_url}</div>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {p.disabled && <Badge tone="warn">disabled</Badge>}
                   {p.free && <Badge tone="info">free</Badge>}
                   {p.service_account && <Badge tone="info">service-account</Badge>}
                   <Badge tone="neutral">
