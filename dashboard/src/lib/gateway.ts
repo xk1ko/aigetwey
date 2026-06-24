@@ -67,7 +67,7 @@ export async function checkGatewayAuth(password: string): Promise<boolean> {
 
 export const gateway = {
   providers: () => call<{ providers: ProviderSnapshot[] }>("GET", "/admin/providers"),
-  quota: () => call<{ quota: QuotaSnapshot[]; budget: BudgetStatus | null }>("GET", "/admin/quota"),
+  quota: () => call<{ quota: QuotaSnapshot[]; budgets: BudgetStatus[] }>("GET", "/admin/quota"),
   models: () => call<ModelsPayload>("GET", "/admin/models"),
   logs: (limit = 100) => call<{ logs: UsageLog[] }>("GET", `/admin/logs?limit=${limit}`),
   usage: (since = 0) => call<UsageSummary>("GET", `/admin/usage?since=${since}`),
@@ -244,7 +244,15 @@ export interface QuotaSnapshot {
   alert: boolean;
 }
 
+export type BudgetScope =
+  | { type: "global" }
+  | { type: "provider"; id: string }
+  | { type: "model"; id: string };
+
 export interface BudgetStatus {
+  scope: BudgetScope;
+  key: string;
+  label: string;
   unit: "usd" | "tokens";
   limit: number;
   spent: number;
