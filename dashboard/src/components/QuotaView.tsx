@@ -6,8 +6,9 @@ import { Badge } from "@/components/Badge";
 import { RichCard, CardTitle } from "@/components/RichCard";
 import { CooldownTimer } from "@/components/CooldownTimer";
 import { fmt, Empty } from "@/components/ui";
-import { BudgetModal } from "@/components/BudgetModal";
+import { BudgetForm } from "@/components/BudgetForm";
 import { Button } from "@/components/Button";
+import { Icon } from "@/components/Icon";
 import type { QuotaSnapshot, BudgetStatus } from "@/lib/gateway";
 
 /**
@@ -21,7 +22,7 @@ import type { QuotaSnapshot, BudgetStatus } from "@/lib/gateway";
 export function QuotaView() {
   const [quota, setQuota] = useState<QuotaSnapshot[] | null>(null);
   const [budgets, setBudgets] = useState<BudgetStatus[]>([]);
-  const [modal, setModal] = useState<{ open: boolean; initial: BudgetStatus | null }>({ open: false, initial: null });
+  const [form, setForm] = useState<{ open: boolean; initial: BudgetStatus | null }>({ open: false, initial: null });
   const [error, setError] = useState("");
 
   const refresh = () =>
@@ -48,10 +49,24 @@ export function QuotaView() {
       <div className="mb-6">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-[15px] font-semibold text-text">Budgets</h2>
-          <Button onClick={() => setModal({ open: true, initial: null })}>+ Add budget</Button>
+          {!form.open && (
+            <Button onClick={() => setForm({ open: true, initial: null })}>
+              <Icon name="add" size={16} /> Add budget
+            </Button>
+          )}
         </div>
+
+        {form.open && (
+          <BudgetForm
+            key={form.initial?.key ?? "new"}
+            initial={form.initial}
+            onSaved={() => { setForm({ open: false, initial: null }); refresh(); }}
+            onCancel={() => setForm({ open: false, initial: null })}
+          />
+        )}
+
         {budgets.length === 0 ? (
-          <Empty>No budgets yet. Add one to cap spend globally, per provider, or per model.</Empty>
+          !form.open && <Empty>No budgets yet. Add one to cap spend globally, per provider, or per model.</Empty>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {budgets.map((b) => (
@@ -84,15 +99,17 @@ export function QuotaView() {
                     </span>
                     <CooldownTimer ms={b.reset_in_ms} tone="muted" icon="restart_alt" keepZero />
                   </div>
-                  <div className="flex items-center gap-3">
-                    <button type="button" onClick={() => setModal({ open: true, initial: b })} className="text-[12px] text-accent hover:underline">Edit</button>
-                    <button
-                      type="button"
+                  <div className="flex items-center gap-2 border-t border-border-subtle pt-2.5">
+                    <Button variant="ghost" className="px-2.5 py-1 text-[12px]" onClick={() => setForm({ open: true, initial: b })}>
+                      <Icon name="edit" size={14} /> Edit
+                    </Button>
+                    <Button
+                      variant="danger"
+                      className="px-2.5 py-1 text-[12px]"
                       onClick={async () => { const r = await adminApi.clearBudget(b.key); if (!r.ok) setError(r.error ?? "could not remove budget"); refresh(); }}
-                      className="text-[12px] text-text-muted hover:text-danger"
                     >
-                      Remove
-                    </button>
+                      <Icon name="delete" size={14} /> Remove
+                    </Button>
                   </div>
                 </div>
               </RichCard>
@@ -100,14 +117,6 @@ export function QuotaView() {
           </div>
         )}
       </div>
-
-      {modal.open && (
-        <BudgetModal
-          initial={modal.initial}
-          onSaved={() => { setModal({ open: false, initial: null }); refresh(); }}
-          onCancel={() => setModal({ open: false, initial: null })}
-        />
-      )}
 
       {/* ── Per-provider quota grid ── */}
       {quota.length === 0 ? (
