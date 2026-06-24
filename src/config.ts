@@ -121,11 +121,19 @@ const ServerSchema = z
   .default({ host: "127.0.0.1", port: 18080, api_keys: [] });
 
 /**
- * Gateway-wide spend budget. unit picks what `limit` means — USD cost or total
- * tokens across every provider. Soft-alert at alert_at (default 0.8), hard-stop
- * at 100%. Window math reuses the quota calendar engine. Opt-in: omit to disable.
+ * A spend budget scoped to the whole gateway, one provider, or one upstream
+ * model. unit picks what `limit` means — USD cost or total tokens. Soft-alert at
+ * alert_at (default 0.8), hard-stop at 100%. Window math reuses the quota
+ * calendar engine. Opt-in: omit / empty list to disable.
  */
+const BudgetScopeSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("global") }),
+  z.object({ type: z.literal("provider"), id: z.string().min(1) }),
+  z.object({ type: z.literal("model"), id: z.string().min(1) }),
+]);
+
 const BudgetSchema = z.object({
+  scope: BudgetScopeSchema,
   unit: z.enum(["usd", "tokens"]),
   limit: z.number().positive(),
   window: z.enum(["5h", "daily", "weekly", "monthly"]),
@@ -140,7 +148,7 @@ const ConfigSchema = z.object({
   providers: z.array(ProviderSchema).default([]),
   // the routing layer. Each entry is a "combo": an alias + a provider chain.
   models: z.array(ModelRouteSchema).default([]),
-  budget: BudgetSchema.optional(),
+  budgets: z.array(BudgetSchema).default([]),
 });
 
 export type Quota = z.infer<typeof QuotaSchema>;
@@ -148,6 +156,7 @@ export type ProviderModel = z.infer<typeof ProviderModelSchema>;
 export type Provider = z.infer<typeof ProviderSchema>;
 export type ModelRoute = z.infer<typeof ModelRouteSchema>;
 export type EndpointSettings = z.infer<typeof EndpointSchema>;
+export type BudgetScope = z.infer<typeof BudgetScopeSchema>;
 export type Budget = z.infer<typeof BudgetSchema>;
 export type Config = z.infer<typeof ConfigSchema>;
 
@@ -277,6 +286,16 @@ export class GatewayConfig {
 
 /** Validate an already-parsed config object. Throws with readable issues. */
 export function validateConfig(parsed: unknown): GatewayConfig {
+  // migrate the legacy single `budget` (pre-scoped) into a global-scoped entry
+  // before zod runs — zod would otherwise strip the unknown `budget` key.
+  if (parsed && typeof parsed === "object") {
+    const raw = parsed as Record<string, unknown>;
+    if (raw.budget && !raw.budgets) {
+      const legacy = raw.budget as Record<string, unknown>;
+      raw.budgets = [{ scope: { type: "global" }, ...legacy }];
+    }
+    delete raw.budget;
+  }
   const result = ConfigSchema.safeParse(parsed ?? {});
   if (!result.success) {
     const issues = result.error.issues
@@ -757,19 +776,35 @@ export function setHeadroom(
   return next;
 }
 
-// ---- global budget ---------------------------------------------------------
+// ---- scoped budgets --------------------------------------------------------
 
-/** Set (or replace) the gateway-wide spend budget. */
+/** Stable identity key for a budget's scope. */
+export function budgetKey(scope: BudgetScope): string {
+  return scope.type === "global" ? "global" : `${scope.type}:${scope.id}`;
+}
+
+/** Add a budget, or replace the existing one with the same scope key. */
 export function setBudget(config: Config, budget: Budget): Config {
+  if (budget.scope.type === "provider") {
+    const { id } = budget.scope;
+    if (!config.providers.some((p) => p.id === id)) {
+      throw new Error(`unknown provider "${id}" for budget scope`);
+    }
+  }
   const next = cloneConfig(config);
-  next.budget = budget;
+  const key = budgetKey(budget.scope);
+  const idx = next.budgets.findIndex((b) => budgetKey(b.scope) === key);
+  if (idx === -1) next.budgets.push(budget);
+  else next.budgets[idx] = budget;
   return next;
 }
 
-/** Remove the gateway-wide budget (turns the feature off). */
-export function clearBudget(config: Config): Config {
+/** Remove a budget by its scope key (global | provider:<id> | model:<id>). */
+export function clearBudget(config: Config, key: string): Config {
   const next = cloneConfig(config);
-  delete next.budget;
+  const idx = next.budgets.findIndex((b) => budgetKey(b.scope) === key);
+  if (idx === -1) throw new Error(`no budget with scope "${key}"`);
+  next.budgets.splice(idx, 1);
   return next;
 }
 
