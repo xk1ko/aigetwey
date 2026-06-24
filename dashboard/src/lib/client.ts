@@ -12,6 +12,7 @@ import type {
   HeadroomStatusReply,
   InjectLevel,
   PingResult,
+  PricingPayload,
   ProviderSnapshot,
   QuotaSnapshot,
   WireFormat,
@@ -84,6 +85,9 @@ export const adminApi = {
   removeModel: (id: string, model: string) =>
     api<ConfigReply>("DELETE", `/admin/providers/${encodeURIComponent(id)}/models?model=${encodeURIComponent(model)}`),
   clearModels: (id: string) => api<ConfigReply>("DELETE", `/admin/providers/${encodeURIComponent(id)}/models`),
+  pricing: () => api<PricingPayload>("GET", "/admin/pricing"),
+  setModelPrice: (id: string, model: string, price: { price_in?: number | null; price_out?: number | null }) =>
+    api<ConfigReply>("PUT", `/admin/providers/${encodeURIComponent(id)}/models/price`, { model, ...price }),
   testProvider: (id: string) => api<PingResult>("POST", `/admin/providers/${encodeURIComponent(id)}/test`),
   testKey: (id: string, index: number) =>
     api<PingResult>("POST", `/admin/providers/${encodeURIComponent(id)}/keys/${index}/test`),

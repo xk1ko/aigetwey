@@ -593,6 +593,34 @@ export function removeProviderModel(config: Config, id: string, model: string): 
   return next;
 }
 
+/**
+ * Override a model's price (per 1M tokens). null clears the override so cost falls
+ * back to the auto pricing table; undefined leaves that side untouched.
+ */
+export function setProviderModelPrice(
+  config: Config,
+  id: string,
+  model: string,
+  price: { price_in?: number | null; price_out?: number | null },
+): Config {
+  const next = cloneConfig(config);
+  const p = next.providers.find((x) => x.id === id);
+  if (!p) throw new Error(`provider "${id}" not found`);
+  const m = p.models.find((x) => x.id === model);
+  if (!m) throw new Error(`provider "${id}" does not serve model "${model}"`);
+  if (price.price_in === null) delete m.price_in;
+  else if (price.price_in !== undefined) {
+    if (price.price_in < 0) throw new Error("price_in must be >= 0");
+    m.price_in = price.price_in;
+  }
+  if (price.price_out === null) delete m.price_out;
+  else if (price.price_out !== undefined) {
+    if (price.price_out < 0) throw new Error("price_out must be >= 0");
+    m.price_out = price.price_out;
+  }
+  return next;
+}
+
 /** Add several model ids at once, skipping any the provider already serves. */
 export function addProviderModels(config: Config, id: string, ids: string[]): Config {
   const next = cloneConfig(config);

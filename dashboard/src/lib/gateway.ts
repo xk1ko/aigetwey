@@ -190,6 +190,17 @@ export interface PingResult {
   error?: string;
 }
 
+export interface PricingModel {
+  id: string;
+  price_in: number | null;
+  price_out: number | null;
+  default_in: number | null;
+  default_out: number | null;
+}
+export interface PricingPayload {
+  providers: Array<{ id: string; models: PricingModel[] }>;
+}
+
 export interface ModelsPayload {
   providers: Array<{
     id: string;

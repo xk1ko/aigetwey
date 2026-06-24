@@ -33,6 +33,7 @@ import {
   removeProviderModel,
   addProviderModels,
   clearProviderModels,
+  setProviderModelPrice,
   setRoute,
   removeRoute,
   setRtk,
@@ -50,6 +51,7 @@ import { pingProvider } from "../upstream/client.js";
 import { handle, GatewayError } from "../core/handler.js";
 import { fetchModels } from "../providers/free.js";
 import { consoleBuffer } from "../core/console-buffer.js";
+import { getPricingForModel } from "../providers/pricing.js";
 import { getHeadroomStatus, isLoopbackHeadroomUrl, DEFAULT_HEADROOM_URL } from "../headroom/detect.js";
 import { startHeadroomProxy, stopHeadroomProxy, getManagedPid, getHeadroomLogTail } from "../headroom/process.js";
 
@@ -412,6 +414,34 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     }));
     const routes = deps.state.config.listRoutes();
     reply.send({ providers, routes });
+  });
+
+  // pricing overview: every provider/model with its config override (if any) and
+  // the auto-resolved default from the pricing table. Drives the Settings editor.
+  app.get("/admin/pricing", requireAdmin, (_req, reply) => {
+    const providers = deps.state.config.listProviders().map((p) => ({
+      id: p.id,
+      models: p.models.map((m) => {
+        const def = getPricingForModel(p.id, m.id);
+        return {
+          id: m.id,
+          price_in: m.price_in ?? null,
+          price_out: m.price_out ?? null,
+          default_in: def?.input ?? null,
+          default_out: def?.output ?? null,
+        };
+      }),
+    }));
+    reply.send({ providers });
+  });
+
+  // set/clear a model's price override (per 1M tokens). model travels in the body
+  // (can hold slashes); null clears the override → cost falls back to the table.
+  app.put("/admin/providers/:id/models/price", requireAdmin, (req, reply) => {
+    const { id } = req.params as { id: string };
+    const b = req.body as { model?: string; price_in?: number | null; price_out?: number | null };
+    if (!b?.model) return reply.code(400).send({ error: "model required" });
+    applyMutation(reply, (c) => setProviderModelPrice(c, id, b.model!, { price_in: b.price_in, price_out: b.price_out }));
   });
 
   // ---- combos: client alias -> ordered provider chain + strategy ----
