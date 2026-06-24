@@ -272,6 +272,27 @@ export const PATTERN_CAPABILITIES: Array<{ pattern: string; caps: Partial<Caps> 
  * @param {string} model
  * @returns {object} full capabilities object
  */
+/**
+ * models.dev-style modalities for a model ref, derived from its capabilities.
+ * Ref may be a `provider/model` (vendor prefix tolerated) or a bare combo alias.
+ * Mirrors what opencode/9router store per model in opencode.json.
+ */
+export function modalitiesForModel(ref: string): { input: string[]; output: string[] } {
+  const slash = ref.indexOf("/");
+  const provider = slash > 0 ? ref.slice(0, slash) : null;
+  const model = slash > 0 ? ref.slice(slash + 1) : ref;
+  const c = getCapabilitiesForModel(provider, model);
+  const input = ["text"];
+  if (c.vision) input.push("image");
+  if (c.pdf) input.push("pdf");
+  if (c.audioInput) input.push("audio");
+  if (c.videoInput) input.push("video");
+  const output = ["text"];
+  if (c.imageOutput) output.push("image");
+  if (c.audioOutput) output.push("audio");
+  return { input, output };
+}
+
 export function getCapabilitiesForModel(provider: string | null, model: string): Caps {
   if (!model) return { ...DEFAULT_CAPABILITIES };
 

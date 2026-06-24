@@ -5,6 +5,7 @@ import { promisify } from "util";
 import fs from "fs/promises";
 import path from "path";
 import os from "os";
+import { modalitiesForModel } from "@/lib/capabilities";
 
 /**
  * Local CLI-tool detection + auto-config. These run in the Next.js server (which,
@@ -171,7 +172,7 @@ async function opencodeApply(body: { base?: string; key?: string; models?: strin
   };
   existing.options = { ...((existing.options as Json) ?? {}), baseURL, apiKey: body.key || "aigetwey" };
   const modelMap = (existing.models as Json) ?? {};
-  for (const m of models) modelMap[m] = { name: m };
+  for (const m of models) modelMap[m] = { name: m, modalities: modalitiesForModel(m) };
   existing.models = modelMap;
   provider[OC_PROVIDER] = existing;
   cfg.provider = provider;

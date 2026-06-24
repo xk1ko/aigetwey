@@ -10,6 +10,7 @@ import { Icon } from "@/components/Icon";
 import { Empty } from "@/components/ui";
 import { adminApi, cliConfig, type CliStatus } from "@/lib/client";
 import { toolById } from "@/lib/cliTools";
+import { modalitiesForModel } from "@/lib/capabilities";
 import type { EndpointPayload, MaskedConfig } from "@/lib/gateway";
 
 /** Step-by-step setup for one CLI tool, with copy-ready env (real key inlined). */
@@ -151,7 +152,7 @@ export function ToolDetail({ id }: { id: string }) {
               aigetwey: {
                 npm: "@ai-sdk/openai-compatible",
                 options: { baseURL: `${base}/v1`, apiKey: realKey || "aigetwey" },
-                models: Object.fromEntries(ocModels.map((m) => [m, { name: m }])),
+                models: Object.fromEntries(ocModels.map((m) => [m, { name: m, modalities: modalitiesForModel(m) }])),
               },
             },
             model: `aigetwey/${active || ocModels[0] || ""}`,
