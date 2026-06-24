@@ -32,12 +32,12 @@ export class GatewayState {
     private readonly configPath: string,
     initial: GatewayConfig,
     quota?: QuotaTracker,
-    budgetDb?: { summary(since: number): { total: { tokens_in: number; tokens_out: number; cost: number } } },
+    budgetDb?: { totals(since: number, filter?: { provider?: string; model?: string }): { tokens_in: number; tokens_out: number; cost: number } },
   ) {
     this._config = initial;
     this._pool = new KeyPool();
     this._quota = quota ?? new QuotaTracker();
-    this._budget = new BudgetTracker(() => this._config.raw.budget, budgetDb ?? { summary: () => ({ total: { tokens_in: 0, tokens_out: 0, cost: 0 } }) });
+    this._budget = new BudgetTracker(() => this._config.raw.budgets, budgetDb ?? { totals: () => ({ tokens_in: 0, tokens_out: 0, cost: 0 }) });
   }
 
   get config(): GatewayConfig {

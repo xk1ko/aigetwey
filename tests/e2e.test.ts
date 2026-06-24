@@ -298,52 +298,37 @@ describe("E2E — admin surface over real HTTP", () => {
   });
 });
 
-describe("E2E — budget admin endpoints", () => {
+describe("E2E — scoped budget admin endpoints", () => {
   const admin = { authorization: "Bearer admin-pw", "content-type": "application/json" };
 
-  it("GET /admin/quota includes null budget when none is set", async () => {
-    const res = await fetch(gwUrl("/admin/quota"), { headers: admin });
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as { quota: unknown; budget: unknown };
-    expect(body).toHaveProperty("quota");
-    expect(body.budget).toBeNull();
-  });
+  it("PUT adds a global budget, GET returns it, DELETE clears it", async () => {
+    let res = await fetch(gwUrl("/admin/quota"), { headers: admin });
+    expect((await res.json() as { budgets: unknown[] }).budgets).toEqual([]);
 
-  it("PUT /admin/budget sets a budget, GET /admin/quota returns it", async () => {
-    const budget = { unit: "usd", limit: 50, window: "monthly", alert_at: 0.9 };
-    const put = await fetch(gwUrl("/admin/budget"), {
+    res = await fetch(gwUrl("/admin/budgets"), {
       method: "PUT",
       headers: admin,
-      body: JSON.stringify(budget),
+      body: JSON.stringify({ scope: { type: "global" }, unit: "usd", limit: 50, window: "monthly" }),
     });
-    expect(put.status).toBe(200);
-    const putBody = (await put.json()) as { ok: boolean };
-    expect(putBody.ok).toBe(true);
+    expect(res.status).toBe(200);
 
-    const quota = await fetch(gwUrl("/admin/quota"), { headers: admin });
-    const qBody = (await quota.json()) as { budget: { unit: string; limit: number; exhausted: boolean } };
-    expect(qBody.budget).not.toBeNull();
-    expect(qBody.budget!.unit).toBe("usd");
-    expect(qBody.budget!.limit).toBe(50);
-    expect(qBody.budget!.exhausted).toBe(false);
+    res = await fetch(gwUrl("/admin/quota"), { headers: admin });
+    const body1 = (await res.json()) as { budgets: { key: string }[] };
+    expect(body1.budgets).toHaveLength(1);
+    expect(body1.budgets[0].key).toBe("global");
+
+    res = await fetch(gwUrl("/admin/budgets/global"), { method: "DELETE", headers: { authorization: "Bearer admin-pw" } });
+    expect(res.status).toBe(200);
+
+    res = await fetch(gwUrl("/admin/quota"), { headers: admin });
+    expect((await res.json() as { budgets: unknown[] }).budgets).toEqual([]);
   });
 
-  it("DELETE /admin/budget clears the budget", async () => {
-    const del = await fetch(gwUrl("/admin/budget"), { method: "DELETE", headers: { authorization: "Bearer admin-pw" } });
-    expect(del.status).toBe(200);
-    const delBody = (await del.json()) as { ok: boolean };
-    expect(delBody.ok).toBe(true);
-
-    const quota = await fetch(gwUrl("/admin/quota"), { headers: admin });
-    const qBody = (await quota.json()) as { budget: unknown };
-    expect(qBody.budget).toBeNull();
-  });
-
-  it("PUT /admin/budget with invalid body returns 400", async () => {
-    const res = await fetch(gwUrl("/admin/budget"), {
+  it("rejects a budget for an unknown provider scope with 400", async () => {
+    const res = await fetch(gwUrl("/admin/budgets"), {
       method: "PUT",
       headers: admin,
-      body: JSON.stringify({ unit: "bananas", limit: -1 }),
+      body: JSON.stringify({ scope: { type: "provider", id: "ghost" }, unit: "usd", limit: 10, window: "daily" }),
     });
     expect(res.status).toBe(400);
   });
