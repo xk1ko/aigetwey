@@ -17,3 +17,4 @@ dashboard/.env.local
 .claude/
 .omop/
 *.log
+docs/superpowers/
