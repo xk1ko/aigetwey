@@ -151,18 +151,18 @@ describe("handle — non-stream pipeline", () => {
   });
 });
 
-describe("budget hard-stop", () => {
-  const exhaustedBudget = { status: () => ({ exhausted: true, reset_in_ms: 1234 }) };
-  const okBudget = { status: () => ({ exhausted: false, reset_in_ms: 1234 }) };
+describe("scoped budget hard-stop", () => {
+  const globalExhausted = { globalStatus: () => ({ exhausted: true, reset_in_ms: 1234 }), blocks: () => null };
+  const noBudget = { globalStatus: () => null, blocks: () => null };
 
-  it("returns 402 when the budget is exhausted", async () => {
-    const deps = { ...depsWith(), budget: exhaustedBudget };
+  it("402 when the global budget is exhausted", async () => {
+    const deps = { ...depsWith(), budget: globalExhausted };
     await expect(
       handle(deps, "openai", { model: "smart", messages: [{ role: "user", content: "hi" }] }),
     ).rejects.toMatchObject({ status: 402, payload: { error: "budget exceeded", reset_in_ms: 1234 } });
   });
 
-  it("passes through when under budget", async () => {
+  it("passes through when no budget blocks", async () => {
     const upstreamJson = {
       id: "chatcmpl-1",
       model: "gpt-4o",
@@ -172,7 +172,7 @@ describe("budget hard-stop", () => {
     };
     requestMock.mockResolvedValue(fakeResponse(200, upstreamJson));
 
-    const deps = { ...depsWith(), budget: okBudget };
+    const deps = { ...depsWith(), budget: noBudget };
     const res = await handle(deps, "openai", { model: "smart", messages: [{ role: "user", content: "hi" }] });
     expect(res.status).toBe(200);
   });
