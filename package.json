@@ -1,15 +1,47 @@
 {
   "name": "aigetwey",
-  "version": "0.1.0",
-  "private": true,
+  "version": "1.0.0",
   "type": "module",
-  "description": "Personal AI gateway — route, translate and track requests across Anthropic / OpenAI / Gemini-compatible providers",
+  "description": "Personal AI gateway — route, translate and track requests across Anthropic / OpenAI / Gemini-compatible providers, with a built-in dashboard.",
+  "keywords": [
+    "ai",
+    "gateway",
+    "llm",
+    "proxy",
+    "anthropic",
+    "openai",
+    "gemini",
+    "router",
+    "claude",
+    "dashboard"
+  ],
+  "license": "MIT",
+  "author": "xk1ko <221650117+xk1ko@users.noreply.github.com>",
+  "homepage": "https://github.com/xk1ko/aigetwey#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xk1ko/aigetwey.git"
+  },
+  "bugs": {
+    "url": "https://github.com/xk1ko/aigetwey/issues"
+  },
   "engines": {
     "node": ">=22"
   },
   "bin": {
     "aigetwey": "./dist/cli.js"
   },
+  "files": [
+    "dist",
+    "src",
+    "dashboard",
+    "config.example.yaml",
+    "tsconfig.json",
+    "run.sh",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
@@ -17,7 +49,11 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build && npm --prefix dashboard run build"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "fastify": "^5.2.0",

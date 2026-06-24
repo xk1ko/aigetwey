@@ -1,0 +1,20 @@
+# Secrets & local state — never publish these (config.yaml holds real API keys).
+config.yaml
+config.yaml.bak
+config.yaml.tmp
+.env
+.env.local
+dashboard/.env.local
+data/
+*.sqlite
+*.sqlite-journal
+*.log
+
+# Build caches / tooling junk (the optimized dashboard/.next IS shipped, its
+# cache is not).
+dashboard/.next/cache/
+.claude/
+.omop/
+.gstack/
+tests/
+*.test.ts

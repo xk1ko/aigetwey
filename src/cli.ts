@@ -14,7 +14,7 @@
  */
 import { spawn, execSync, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, copyFileSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -173,8 +173,38 @@ function spawnDashboard(): ChildProcess {
   });
 }
 
+/**
+ * One-time bootstrap so a fresh `npm i -g aigetwey` runs with a single command.
+ * Seeds a working config from the example, installs the dashboard's own deps
+ * (npm doesn't install nested package node_modules for us), and builds the
+ * dashboard if the published .next is absent. Each step is skipped once done, so
+ * normal runs pay nothing.
+ */
+function ensureSetup(): void {
+  if (!existsSync(join(root, "config.yaml")) && existsSync(join(root, "config.example.yaml"))) {
+    copyFileSync(join(root, "config.example.yaml"), join(root, "config.yaml"));
+    console.log("  seeded config.yaml from the example — edit it to add providers.");
+  }
+  if (!existsSync(join(root, "node_modules"))) {
+    console.log("  installing gateway dependencies (first run)…");
+    execSync("npm install --omit=dev", { cwd: root, stdio: "inherit" });
+  }
+  if (existsSync(join(dashboardDir, "package.json"))) {
+    if (!existsSync(join(dashboardDir, "node_modules"))) {
+      console.log("  installing dashboard dependencies (first run)…");
+      execSync("npm install", { cwd: dashboardDir, stdio: "inherit" });
+    }
+    if (!existsSync(join(dashboardDir, ".next", "BUILD_ID"))) {
+      console.log("  building dashboard (first run)…");
+      execSync("npm run build", { cwd: dashboardDir, stdio: "inherit" });
+    }
+  }
+}
+
 async function main(): Promise<void> {
   console.log("\n  aigetwey — starting gateway + dashboard\n");
+
+  ensureSetup();
 
   await ensurePortFree(GATEWAY_PORT, "AIGETWEY_PORT");
 
