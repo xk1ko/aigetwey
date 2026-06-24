@@ -1,26 +1,25 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { adminPassword, makeToken, SESSION_COOKIE } from "@/lib/session";
+import { sealSession, SESSION_COOKIE } from "@/lib/session";
 import { checkGatewayAuth } from "@/lib/gateway";
 
 /**
- * Login: verify the submitted password against ADMIN_PASSWORD AND confirm the
- * gateway accepts it, then set the signed session cookie. The password is never
- * stored client-side — only the signed marker token.
+ * Login: the gateway is the source of truth for the admin password (a hash
+ * store, changeable at runtime). We verify the submitted password directly
+ * against the gateway, then store it encrypted in the session cookie so later
+ * proxied calls can present it as the Bearer.
  */
 export async function POST(req: Request): Promise<NextResponse> {
   const { password } = (await req.json().catch(() => ({}))) as { password?: string };
-
-  if (!password || password !== adminPassword()) {
-    return NextResponse.json({ error: "wrong password" }, { status: 401 });
+  if (!password) {
+    return NextResponse.json({ error: "password required" }, { status: 400 });
   }
-  // confirm the gateway is reachable and agrees on the password
-  if (!(await checkGatewayAuth())) {
-    return NextResponse.json({ error: "gateway rejected the password or is unreachable" }, { status: 502 });
+  if (!(await checkGatewayAuth(password))) {
+    return NextResponse.json({ error: "wrong password (or gateway unreachable)" }, { status: 401 });
   }
 
   const jar = await cookies();
-  jar.set(SESSION_COOKIE, makeToken(), {
+  jar.set(SESSION_COOKIE, sealSession(password), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

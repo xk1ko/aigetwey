@@ -174,6 +174,12 @@ async function appApi<T>(method: string, url: string, body?: unknown): Promise<A
   return { ok: true, status: res.status, data };
 }
 
+/** Admin account actions that hit the dashboard's OWN routes (not the gw proxy). */
+export const account = {
+  changePassword: (current: string, next: string) =>
+    appApi<{ ok: boolean }>("POST", "/api/password", { current, next }),
+};
+
 export const cliConfig = {
   status: (tool: string) => appApi<CliStatus>("GET", `/api/cli-detect/${encodeURIComponent(tool)}`),
   apply: (tool: string, body: { base: string; key?: string; models?: string[] | Record<string, string>; active?: string }) =>

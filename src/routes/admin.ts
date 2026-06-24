@@ -15,7 +15,7 @@ import { resolve } from "node:path";
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import type { GatewayState } from "../core/state.js";
 import type { UsageDB } from "../db.js";
-import { checkAdminAuth } from "../middleware/auth.js";
+import { checkAdminAuth, type AdminVerifier } from "../middleware/auth.js";
 import {
   maskKey,
   serializeConfig,
@@ -58,7 +58,7 @@ import { startHeadroomProxy, stopHeadroomProxy, getManagedPid, getHeadroomLogTai
 export interface AdminDeps {
   state: GatewayState;
   db?: UsageDB;
-  password: string | undefined;
+  auth: AdminVerifier & { change(current: string, next: string): { ok: boolean; error?: string } };
 }
 
 /** Deep-clone the raw config and mask every secret for display. */
@@ -89,7 +89,7 @@ function maskedConfig(config: Config): Config {
 export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void {
   const requireAdmin = {
     preHandler: (req: FastifyRequest, reply: FastifyReply, done: (e?: Error) => void) => {
-      const res = checkAdminAuth(req, deps.password);
+      const res = checkAdminAuth(req, deps.auth);
       if (!res.ok) {
         reply.code(res.status ?? 401).send({ error: res.error });
         return;
@@ -97,6 +97,18 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
       done();
     },
   };
+
+  // change the admin password: verify the current one, then persist the new hash.
+  // The dashboard re-issues its session cookie with the new password on success.
+  app.put("/admin/password", requireAdmin, (req, reply) => {
+    const body = (req.body ?? {}) as { current?: unknown; next?: unknown };
+    if (typeof body.current !== "string" || typeof body.next !== "string") {
+      return reply.code(400).send({ error: "current and next are required" });
+    }
+    const r = deps.auth.change(body.current, body.next);
+    if (!r.ok) return reply.code(400).send({ error: r.error });
+    return reply.send({ ok: true });
+  });
 
   app.get("/admin/usage", requireAdmin, (req, reply) => {
     if (!deps.db) return reply.code(503).send({ error: "usage tracking disabled" });

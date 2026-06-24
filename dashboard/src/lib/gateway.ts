@@ -1,5 +1,5 @@
 import "server-only";
-import { adminPassword } from "./session";
+import { currentPassword } from "./session";
 
 /**
  * Server-side proxy to the gateway admin API. Runs only in Next.js server
@@ -27,7 +27,7 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<Ga
     res = await fetch(gatewayUrl() + path, {
       method,
       headers: {
-        authorization: `Bearer ${adminPassword()}`,
+        authorization: `Bearer ${await currentPassword()}`,
         ...(body !== undefined ? { "content-type": "application/json" } : {}),
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -51,10 +51,18 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<Ga
   return { ok: true, status: res.status, data };
 }
 
-/** Verify the admin password against the gateway (used at login). */
-export async function checkGatewayAuth(): Promise<boolean> {
-  const r = await call("GET", "/admin/providers");
-  return r.ok;
+/** Verify a specific admin password against the gateway (used at login, before a
+ * session cookie exists). */
+export async function checkGatewayAuth(password: string): Promise<boolean> {
+  try {
+    const res = await fetch(gatewayUrl() + "/admin/providers", {
+      headers: { authorization: `Bearer ${password}` },
+      cache: "no-store",
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 export const gateway = {
@@ -67,6 +75,8 @@ export const gateway = {
     call<{ series: UsageSeriesPoint[] }>("GET", `/admin/usage/series?since=${since}&bucket=${bucket}`),
   config: () => call<MaskedConfig>("GET", "/admin/config"),
   putConfig: (text: string) => call<{ ok: boolean; config: MaskedConfig }>("PUT", "/admin/config", { text }),
+  changePassword: (current: string, next: string) =>
+    call<{ ok: boolean }>("PUT", "/admin/password", { current, next }),
 
   // ---- provider mutations (reply carries the fresh masked config) ----
   addProvider: (p: {

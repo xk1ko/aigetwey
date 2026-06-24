@@ -7,6 +7,7 @@ import { RichCard, CardTitle } from "@/components/RichCard";
 import { Icon } from "@/components/Icon";
 import { Empty } from "@/components/ui";
 import { PricingEditor } from "@/components/PricingEditor";
+import { PasswordEditor } from "@/components/PasswordEditor";
 import { stringify } from "yaml";
 import type { MaskedConfig } from "@/lib/gateway";
 
@@ -113,13 +114,15 @@ export function ConfigEditor() {
                 </Badge>
               </Row>
               <Row label="Admin password">
-                <span className="text-text-subtle">set via AIGETWEY_ADMIN_PASSWORD (run.sh)</span>
+                <span className="text-text-subtle">seeded from AIGETWEY_ADMIN_PASSWORD — change it below</span>
               </Row>
             </div>
           ) : (
             <Empty>Loading…</Empty>
           )}
         </RichCard>
+
+        <PasswordEditor />
 
         <PricingEditor />
 

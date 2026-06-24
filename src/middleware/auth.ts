@@ -50,19 +50,27 @@ export function checkAuth(req: FastifyRequest, validKeys: string[]): AuthResult 
   return { ok: true };
 }
 
+/** Verifies a presented admin password (against the persisted hash store). */
+export interface AdminVerifier {
+  enabled: boolean;
+  verify(password: string): boolean;
+}
+
 /**
- * Admin auth for /admin/* — a single password from AIGETWEY_ADMIN_PASSWORD as a
- * Bearer token (the dashboard proxies it server-side; never reaches the browser).
+ * Admin auth for /admin/* — the password is presented as a Bearer token (the
+ * dashboard proxies it server-side; never reaches the browser) and checked
+ * against the hash store (seeded from AIGETWEY_ADMIN_PASSWORD, changeable at
+ * runtime).
  *
- * If the env var is unset, admin routes LOCK (503) rather than open — admin
+ * If no password is set, admin routes LOCK (503) rather than open — admin
  * surfaces provider keys, so failing open would leak secrets.
  */
-export function checkAdminAuth(req: FastifyRequest, password: string | undefined): AuthResult {
-  if (!password) {
+export function checkAdminAuth(req: FastifyRequest, auth: AdminVerifier | undefined): AuthResult {
+  if (!auth || !auth.enabled) {
     return { ok: false, status: 503, error: "admin disabled (set AIGETWEY_ADMIN_PASSWORD)" };
   }
   const key = extractKey(req);
   if (!key) return { ok: false, status: 401, error: "missing admin password" };
-  if (!isValidKey(key, [password])) return { ok: false, status: 401, error: "invalid admin password" };
+  if (!auth.verify(key)) return { ok: false, status: 401, error: "invalid admin password" };
   return { ok: true };
 }

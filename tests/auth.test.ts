@@ -52,17 +52,22 @@ describe("checkAuth", () => {
 });
 
 describe("checkAdminAuth", () => {
+  const verifier = (pw: string) => ({ enabled: true, verify: (k: string) => k === pw });
   it("503s when no admin password is set (locked, not open)", () => {
     const r = checkAdminAuth(reqWith({ authorization: "Bearer x" }), undefined);
     expect(r.ok).toBe(false);
     expect(r.status).toBe(503);
   });
+  it("503s when the store is disabled", () => {
+    const r = checkAdminAuth(reqWith({ authorization: "Bearer x" }), { enabled: false, verify: () => false });
+    expect(r.status).toBe(503);
+  });
   it("401s on a wrong password", () => {
-    const r = checkAdminAuth(reqWith({ authorization: "Bearer wrong" }), "pw");
+    const r = checkAdminAuth(reqWith({ authorization: "Bearer wrong" }), verifier("pw"));
     expect(r.ok).toBe(false);
     expect(r.status).toBe(401);
   });
   it("passes the correct password", () => {
-    expect(checkAdminAuth(reqWith({ authorization: "Bearer pw" }), "pw").ok).toBe(true);
+    expect(checkAdminAuth(reqWith({ authorization: "Bearer pw" }), verifier("pw")).ok).toBe(true);
   });
 });

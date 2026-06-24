@@ -8,6 +8,7 @@ import { validateConfig } from "../src/config.js";
 import { registerRoutes } from "../src/routes/index.js";
 import { GatewayState } from "../src/core/state.js";
 import { UsageDB } from "../src/db.js";
+import { AuthStore } from "../src/core/authStore.js";
 
 /**
  * End-to-end through the REAL gateway pipeline: a Fastify instance with the
@@ -132,7 +133,7 @@ beforeAll(async () => {
   const state = new GatewayState(join(dir, "config.yaml"), config);
   const db = new UsageDB(":memory:");
   gateway = Fastify({ logger: false, bodyLimit: 32 * 1024 * 1024 });
-  registerRoutes(gateway, state, db, "admin-pw");
+  registerRoutes(gateway, state, db, AuthStore.memory("admin-pw"));
   await gateway.listen({ host: "127.0.0.1", port: 0 });
   gwPort = (gateway.server.address() as { port: number }).port;
 });

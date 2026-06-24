@@ -5,6 +5,7 @@ import { registerRoutes } from "./routes/index.js";
 import { GatewayState } from "./core/state.js";
 import { UsageDB } from "./db.js";
 import { QuotaTracker } from "./core/quota.js";
+import { AuthStore } from "./core/authStore.js";
 import { consoleBuffer } from "./core/console-buffer.js";
 
 async function main(): Promise<void> {
@@ -59,9 +60,11 @@ async function main(): Promise<void> {
 
   // holder enables runtime config edits (hot-reload) from the dashboard.
   const state = new GatewayState(configPath, config, quota);
-  const adminPassword = process.env.AIGETWEY_ADMIN_PASSWORD;
+  // admin password lives in a hash store (seeded from the env on first run,
+  // changeable at runtime from the dashboard).
+  const auth = AuthStore.open(dataDir, process.env.AIGETWEY_ADMIN_PASSWORD);
 
-  registerRoutes(app, state, db, adminPassword);
+  registerRoutes(app, state, db, auth);
 
   const close = () => {
     db.close();

@@ -1,0 +1,86 @@
+/**
+ * Admin password store — the single source of truth for the admin password,
+ * persisted as a scrypt hash (no plaintext, no native deps). Seeded once from
+ * AIGETWEY_ADMIN_PASSWORD (default 123456 via the launcher); after that it is
+ * changed at runtime from the dashboard and the env var is only a fallback seed.
+ *
+ * File: <dataDir>/auth.json — { algo, salt, hash } (all hex). Absent → seeded.
+ */
+import { scryptSync, randomBytes, timingSafeEqual } from "node:crypto";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+
+interface AuthRecord {
+  algo: "scrypt";
+  salt: string;
+  hash: string;
+}
+
+function hashPassword(password: string, salt: Buffer): Buffer {
+  // 64-byte derived key; scrypt's default cost is fine for a local admin gate.
+  return scryptSync(password, salt, 64);
+}
+
+function makeRecord(password: string): AuthRecord {
+  const salt = randomBytes(16);
+  return { algo: "scrypt", salt: salt.toString("hex"), hash: hashPassword(password, salt).toString("hex") };
+}
+
+export class AuthStore {
+  private record: AuthRecord | null = null;
+
+  constructor(private file: string) {}
+
+  /** Load the stored hash, seeding it from `seed` (the env password) on first run. */
+  static open(dataDir: string, seed: string | undefined): AuthStore {
+    const store = new AuthStore(join(dataDir, "auth.json"));
+    if (existsSync(store.file)) {
+      try {
+        store.record = JSON.parse(readFileSync(store.file, "utf8")) as AuthRecord;
+      } catch {
+        store.record = null;
+      }
+    }
+    // seed from the env password when there's nothing stored yet.
+    if (!store.record && seed) store.persist(makeRecord(seed));
+    return store;
+  }
+
+  /** In-memory store seeded from a password — for tests (file under tmpdir). */
+  static memory(seed: string): AuthStore {
+    const store = new AuthStore(join(tmpdir(), `aigetwey-auth-${randomBytes(4).toString("hex")}.json`));
+    store.record = makeRecord(seed);
+    return store;
+  }
+
+  /** True once a password is set (stored or seeded). */
+  get enabled(): boolean {
+    return this.record !== null;
+  }
+
+  private persist(rec: AuthRecord): void {
+    mkdirSync(dirname(this.file), { recursive: true });
+    writeFileSync(this.file, JSON.stringify(rec));
+    this.record = rec;
+  }
+
+  /** Constant-time check of a presented password against the stored hash. */
+  verify(password: string): boolean {
+    if (!this.record) return false;
+    const salt = Buffer.from(this.record.salt, "hex");
+    const expected = Buffer.from(this.record.hash, "hex");
+    const got = hashPassword(password, salt);
+    return got.length === expected.length && timingSafeEqual(got, expected);
+  }
+
+  /** Change the password after verifying the current one. */
+  change(current: string, next: string): { ok: boolean; error?: string } {
+    if (!this.verify(current)) return { ok: false, error: "current password is incorrect" };
+    if (typeof next !== "string" || next.length < 4) {
+      return { ok: false, error: "new password must be at least 4 characters" };
+    }
+    this.persist(makeRecord(next));
+    return { ok: true };
+  }
+}

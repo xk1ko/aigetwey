@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { adminPassword } from "@/lib/session";
+import { currentPassword } from "@/lib/session";
 
 /**
  * Catch-all proxy to the gateway admin API. Client components call
@@ -27,7 +27,7 @@ async function proxy(req: NextRequest, path: string[]): Promise<NextResponse | R
   if (sub === "admin/console/stream") {
     try {
       const res = await fetch(target, {
-        headers: { authorization: `Bearer ${adminPassword()}` },
+        headers: { authorization: `Bearer ${await currentPassword()}` },
         cache: "no-store",
       });
       if (!res.body) return NextResponse.json({ error: "no stream" }, { status: 502 });
@@ -56,7 +56,7 @@ async function proxy(req: NextRequest, path: string[]): Promise<NextResponse | R
     res = await fetch(target, {
       method: req.method,
       headers: {
-        authorization: `Bearer ${adminPassword()}`,
+        authorization: `Bearer ${await currentPassword()}`,
         ...(body ? { "content-type": "application/json" } : {}),
       },
       body: body || undefined,

@@ -46,8 +46,13 @@ dashboard.
   opencode) by writing their config files, with a copy-ready manual fallback;
   opencode entries carry per-model `modalities` derived from the capabilities
   table.
-- **Settings** — structured cards: instance summary, per-model Pricing editor,
-  config Backup (export/import), and an Advanced raw-YAML editor.
+- **Settings** — structured cards: instance summary, an admin-password change
+  card, a per-model Pricing editor, config Backup (export/import), and an
+  Advanced raw-YAML editor.
+- **Admin password** — changeable at runtime from Settings. The gateway stores it
+  as a scrypt hash (`data/auth.json`), seeded from `AIGETWEY_ADMIN_PASSWORD`
+  (default `123456`); the dashboard carries the password in an encrypted, signed
+  session cookie.
 - Floating icon-rail navigation, light/dark themes, toasts.
 
 #### Packaging
