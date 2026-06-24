@@ -248,15 +248,37 @@ function HeadroomCard({
   const [url, setUrl] = useState(h.url);
   const [localBusy, setLocalBusy] = useState("");
   const [msg, setMsg] = useState("");
+  const [check, setCheck] = useState<{ ok: boolean; text: string } | null>(null);
   useEffect(() => setUrl(h.url), [h.url]);
 
   async function act(label: string, fn: () => Promise<{ ok: boolean; error?: string }>) {
     setLocalBusy(label);
     setMsg("");
+    setCheck(null);
     const r = await fn();
     setLocalBusy("");
     if (!r.ok) setMsg(r.error ?? "action failed");
     await refresh();
+  }
+
+  // Live re-probe: ask the gateway whether the proxy at the configured URL
+  // actually answers right now, and surface the result inline.
+  async function checkProxy() {
+    setLocalBusy("check");
+    setMsg("");
+    setCheck(null);
+    const r = await adminApi.headroomStatus();
+    setLocalBusy("");
+    await refresh();
+    if (!r.ok || !r.data) {
+      setCheck({ ok: false, text: r.error ?? "could not reach the gateway" });
+      return;
+    }
+    setCheck(
+      r.data.running
+        ? { ok: true, text: `proxy is up at ${r.data.url}` }
+        : { ok: false, text: `no proxy responding at ${r.data.url}` },
+    );
   }
 
   return (
@@ -312,6 +334,9 @@ function HeadroomCard({
           >
             <Icon name="stop" size={16} /> Stop
           </Button>
+          <Button variant="ghost" disabled={localBusy === "check"} onClick={checkProxy}>
+            <Icon name="sync" size={16} /> {localBusy === "check" ? "Checking…" : "Check"}
+          </Button>
           {hr && !hr.installed && (
             <span className="text-[11px] text-text-subtle">
               Headroom isn’t installed. Get it from{" "}
@@ -329,6 +354,11 @@ function HeadroomCard({
         </div>
 
         {msg && <p className="text-[12px] text-danger">{msg}</p>}
+        {check && (
+          <p className={`flex items-center gap-1 text-[12px] ${check.ok ? "text-success" : "text-danger"}`}>
+            <Icon name={check.ok ? "check_circle" : "error"} size={14} /> {check.text}
+          </p>
+        )}
       </div>
     </RichCard>
   );
