@@ -20,6 +20,9 @@ import {
   removeServerKey,
   renameProvider,
   maskKey,
+  setBudget,
+  clearBudget,
+  type Config,
 } from "../src/config.js";
 
 /** A base config: two providers, one routing alias. Re-validated each call. */
@@ -234,5 +237,47 @@ describe("editServerKey", () => {
 
   it("rejects an out-of-range index", () => {
     expect(() => editServerKey(base(), 9, { name: "x" })).toThrow(/no gateway key/);
+  });
+});
+
+// ---- budget mutations -------------------------------------------------------
+
+function baseConfig(): Config {
+  return validateConfig({ providers: [], models: [] }).raw;
+}
+
+describe("budget mutations", () => {
+  it("setBudget writes a budget block", () => {
+    const next = setBudget(baseConfig(), {
+      unit: "usd", limit: 20, window: "monthly", timezone: "UTC",
+    });
+    expect(next.budget).toEqual({ unit: "usd", limit: 20, window: "monthly", timezone: "UTC" });
+  });
+
+  it("setBudget replaces an existing budget", () => {
+    const a = setBudget(baseConfig(), { unit: "usd", limit: 20, window: "monthly", timezone: "UTC" });
+    const b = setBudget(a, { unit: "tokens", limit: 1_000_000, window: "daily", timezone: "UTC" });
+    expect(b.budget).toEqual({ unit: "tokens", limit: 1_000_000, window: "daily", timezone: "UTC" });
+  });
+
+  it("clearBudget removes the budget block", () => {
+    const a = setBudget(baseConfig(), { unit: "usd", limit: 20, window: "monthly", timezone: "UTC" });
+    expect(clearBudget(a).budget).toBeUndefined();
+  });
+
+  it("a budget set then serialized survives schema re-validation", () => {
+    const a = setBudget(baseConfig(), { unit: "usd", limit: 20, window: "monthly", timezone: "UTC", alert_at: 0.9 });
+    const reparsed = validateConfig(a);
+    expect(reparsed.raw.budget?.alert_at).toBe(0.9);
+  });
+
+  it("schema rejects an invalid budget unit", () => {
+    expect(() => validateConfig({ providers: [], models: [], budget: { unit: "eur", limit: 5, window: "daily" } }))
+      .toThrow(/invalid config/);
+  });
+
+  it("schema rejects a non-positive budget limit", () => {
+    expect(() => validateConfig({ providers: [], models: [], budget: { unit: "usd", limit: 0, window: "daily" } }))
+      .toThrow(/invalid config/);
   });
 });

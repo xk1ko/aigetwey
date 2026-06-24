@@ -26,6 +26,8 @@ const QuotaSchema = z.object({
   timezone: z.string().default("UTC"),
   // optional ceiling for a progress bar; quota tracking works without it.
   limit_tokens: z.number().int().positive().optional(),
+  // soft-alert threshold (0..1); UI flags the quota when pct >= this. Default 0.8.
+  alert_at: z.number().gt(0).lte(1).optional(),
 });
 
 const ProviderModelSchema = z.object({
@@ -118,12 +120,27 @@ const ServerSchema = z
   })
   .default({ host: "127.0.0.1", port: 18080, api_keys: [] });
 
+/**
+ * Gateway-wide spend budget. unit picks what `limit` means — USD cost or total
+ * tokens across every provider. Soft-alert at alert_at (default 0.8), hard-stop
+ * at 100%. Window math reuses the quota calendar engine. Opt-in: omit to disable.
+ */
+const BudgetSchema = z.object({
+  unit: z.enum(["usd", "tokens"]),
+  limit: z.number().positive(),
+  window: z.enum(["5h", "daily", "weekly", "monthly"]),
+  reset_at: z.string().optional(),
+  timezone: z.string().default("UTC"),
+  alert_at: z.number().gt(0).lte(1).optional(),
+});
+
 const ConfigSchema = z.object({
   server: ServerSchema,
   endpoint: EndpointSchema,
   providers: z.array(ProviderSchema).default([]),
   // the routing layer. Each entry is a "combo": an alias + a provider chain.
   models: z.array(ModelRouteSchema).default([]),
+  budget: BudgetSchema.optional(),
 });
 
 export type Quota = z.infer<typeof QuotaSchema>;
@@ -131,6 +148,7 @@ export type ProviderModel = z.infer<typeof ProviderModelSchema>;
 export type Provider = z.infer<typeof ProviderSchema>;
 export type ModelRoute = z.infer<typeof ModelRouteSchema>;
 export type EndpointSettings = z.infer<typeof EndpointSchema>;
+export type Budget = z.infer<typeof BudgetSchema>;
 export type Config = z.infer<typeof ConfigSchema>;
 
 export interface ResolvedRoute {
@@ -736,6 +754,22 @@ export function setHeadroom(
   if (patch.compress_user_messages !== undefined) {
     next.endpoint.headroom.compress_user_messages = patch.compress_user_messages;
   }
+  return next;
+}
+
+// ---- global budget ---------------------------------------------------------
+
+/** Set (or replace) the gateway-wide spend budget. */
+export function setBudget(config: Config, budget: Budget): Config {
+  const next = cloneConfig(config);
+  next.budget = budget;
+  return next;
+}
+
+/** Remove the gateway-wide budget (turns the feature off). */
+export function clearBudget(config: Config): Config {
+  const next = cloneConfig(config);
+  delete next.budget;
   return next;
 }
 

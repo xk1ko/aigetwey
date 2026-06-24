@@ -180,6 +180,19 @@ describe("unmaskSecrets", () => {
   });
 });
 
+describe("per-provider alert_at", () => {
+  it("accepts an optional alert_at on a provider quota", () => {
+    const cfg = validateConfig({
+      providers: [{
+        id: "p", format: "openai", base_url: "https://x.test", api_key: "k",
+        quota: { window: "daily", limit_tokens: 1000, alert_at: 0.75 },
+      }],
+      models: [],
+    });
+    expect(cfg.getProvider("p")!.quota!.alert_at).toBe(0.75);
+  });
+});
+
 describe("writeConfigFile — atomic write + backup", () => {
   it("writes YAML and backs up an existing file", () => {
     const dir = mkdtempSync(join(tmpdir(), "aigetwey-cfg-"));
