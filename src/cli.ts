@@ -18,6 +18,9 @@ import { existsSync, copyFileSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createInterface } from "node:readline";
+import { ensureTrayRuntime } from "./cli/tray/trayRuntime.js";
+import { initTray, killTray } from "./cli/tray/tray.js";
+import { enableAutoStart } from "./cli/tray/autostart.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const dashboardDir = join(root, "dashboard");
@@ -28,14 +31,16 @@ interface CliOpts {
   noBrowser: boolean;
   yes: boolean;
   help: boolean;
+  tray: boolean;
 }
 function parseArgs(argv: string[]): CliOpts {
-  const o: CliOpts = { noBrowser: false, yes: false, help: false };
+  const o: CliOpts = { noBrowser: false, yes: false, help: false, tray: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "-p" || a === "--port") o.port = Number(argv[++i]);
     else if (a === "-n" || a === "--no-browser") o.noBrowser = true;
     else if (a === "-y" || a === "--yes") o.yes = true;
+    else if (a === "-t" || a === "--tray") o.tray = true;
     else if (a === "-h" || a === "--help") o.help = true;
   }
   return o;
@@ -51,9 +56,10 @@ const HELP = `
     -p, --port <n>    gateway port (default 18080; dashboard stays on 3000)
     -n, --no-browser  start without opening the browser (terminal logs only)
     -y, --yes         skip the interactive menu (just run; honors --no-browser)
+    -t, --tray        run in the system tray (background, no terminal needed)
     -h, --help        show this help
 
-  With a TTY and no --yes, a menu lets you pick: Web UI / Terminal / Exit.
+  With a TTY and no --yes, a menu lets you pick: Web UI / Terminal / Hide to Tray / Exit.
 `;
 
 const GATEWAY_PORT = opts.port ?? Number(process.env.AIGETWEY_PORT ?? 18080);
@@ -107,6 +113,7 @@ function killTree(c: ChildProcess, sig: NodeJS.Signals = "SIGTERM"): void {
 }
 
 function shutdown(): void {
+  void killTray();
   for (const c of children) killTree(c);
 }
 
@@ -246,18 +253,38 @@ function prompt(q: string): Promise<string> {
  * how to run; otherwise honor the flags. "web" opens the browser, "terminal"
  * runs with live logs only, "exit" quits before starting anything.
  */
-async function chooseMode(): Promise<"web" | "terminal" | "exit"> {
+async function chooseMode(): Promise<"web" | "terminal" | "hide" | "exit"> {
   if (opts.yes || !process.stdin.isTTY) return opts.noBrowser ? "terminal" : "web";
   console.log(
     "\n  aigetwey\n\n" +
-      "  [1] Web UI     start + open the dashboard in your browser\n" +
-      "  [2] Terminal   start with live logs only (no browser)\n" +
-      "  [3] Exit\n",
+      "  [1] Web UI        start + open the dashboard in your browser\n" +
+      "  [2] Terminal      start with live logs only (no browser)\n" +
+      "  [3] Hide to Tray  run in the background with a tray icon\n" +
+      "  [4] Exit\n",
   );
   const c = (await prompt("  choose [1]: ")).trim().toLowerCase();
-  if (c === "3" || c === "exit" || c === "q") return "exit";
+  if (c === "4" || c === "exit" || c === "q") return "exit";
+  if (c === "3" || c === "hide" || c === "tray") return "hide";
   if (c === "2" || c === "terminal") return "terminal";
   return "web"; // default on Enter
+}
+
+/**
+ * "Hide to Tray": re-launch ourselves detached with --tray (which runs the stack
+ * + tray icon and survives the terminal closing), then exit so the background
+ * copy claims the ports. Also enables run-on-startup, matching 9router.
+ */
+function hideToTray(): void {
+  try { enableAutoStart(); } catch { /* optional */ }
+  console.log("\n  starting background process… (tray icon appears in a few seconds)");
+  const bg = spawn(process.execPath, [fileURLToPath(import.meta.url), "--tray"], {
+    detached: true,
+    stdio: "ignore",
+    env: { ...process.env, AIGETWEY_ADMIN_PASSWORD: adminPassword, SESSION_SECRET: sessionSecret },
+  });
+  bg.unref();
+  console.log(`  aigetwey now running in the background (pid ${bg.pid}).`);
+  console.log("  right-click the tray icon → Open Dashboard / Quit. You can close this terminal.\n");
 }
 
 async function main(): Promise<void> {
@@ -266,8 +293,13 @@ async function main(): Promise<void> {
     return;
   }
 
-  const mode = await chooseMode();
+  // background tray process: skip the menu, never open a browser, show the tray.
+  const mode = opts.tray ? "tray" : await chooseMode();
   if (mode === "exit") return;
+  if (mode === "hide") {
+    hideToTray();
+    return;
+  }
   const wantBrowser = mode === "web";
 
   console.log("\n  aigetwey — starting gateway + dashboard\n");
@@ -318,8 +350,19 @@ async function main(): Promise<void> {
     console.log(`\n  admin password (generated): ${adminPassword}`);
     console.log("  set AIGETWEY_ADMIN_PASSWORD to keep it stable across runs.\n");
   }
-  if (wantBrowser) openBrowser(dashUrl);
-  else console.log("  (terminal mode — open the dashboard URL above when you want it)\n");
+  if (mode === "tray") {
+    ensureTrayRuntime({ silent: true });
+    const started = initTray({ dashboardUrl: dashUrl, port: DASHBOARD_PORT, onQuit: shutdown });
+    console.log(
+      started
+        ? "\n  running in the system tray — right-click the icon for Open Dashboard / Quit.\n"
+        : "\n  (tray unavailable on this session — running in the background; Ctrl-C or kill to stop.)\n",
+    );
+  } else if (wantBrowser) {
+    openBrowser(dashUrl);
+  } else {
+    console.log("  (terminal mode — open the dashboard URL above when you want it)\n");
+  }
 }
 
 main().catch((e) => {

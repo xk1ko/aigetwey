@@ -57,8 +57,12 @@ dashboard.
 
 #### Packaging
 - Single-command launcher (`aigetwey`) that brings up gateway + dashboard and
-  reaps stale dev servers. Interactive launch menu (Web UI / Terminal / Exit)
-  on a TTY, plus flags: `-p/--port`, `-n/--no-browser`, `-y/--yes`, `-h/--help`.
+  reaps stale dev servers. Interactive launch menu (Web UI / Terminal / Hide to
+  Tray / Exit) on a TTY, plus flags: `-p/--port`, `-n/--no-browser`, `-y/--yes`,
+  `-t/--tray`, `-h/--help`.
+- **System tray** (macOS/Linux via lazy-installed `systray2`, kept out of the
+  tarball; Windows planned): Open Dashboard / Auto-start / Quit, with run-on-OS-
+  startup. "Hide to Tray" detaches the stack into the background.
 - Installable as a global npm package; first run self-bootstraps (seeds config,
   installs dashboard deps, builds the dashboard).
 - Brand: `a»` mark (favicon + sidebar) and an `ai»getwey` wordmark.

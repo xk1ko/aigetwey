@@ -68,6 +68,11 @@ The first run self-bootstraps: it seeds a `config.yaml`, installs the dashboard'
 dependencies, builds the dashboard, then starts the gateway + dashboard and opens
 your browser. Subsequent runs start instantly.
 
+On a terminal a menu lets you choose **Web UI**, **Terminal** (logs only),
+**Hide to Tray** (background with a tray icon: Open Dashboard / Auto-start / Quit,
+macOS + Linux), or **Exit**. Flags: `-p/--port`, `-n/--no-browser`, `-y/--yes`
+(skip the menu), `-t/--tray`, `-h/--help`.
+
 **From source:**
 
 ```bash
