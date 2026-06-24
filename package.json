@@ -29,7 +29,7 @@
     "node": ">=22"
   },
   "bin": {
-    "aigetwey": "./dist/cli.js"
+    "aigetwey": "dist/cli.js"
   },
   "files": [
     "dist",
