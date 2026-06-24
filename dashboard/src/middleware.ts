@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { verifyToken, SESSION_COOKIE } from "@/lib/session";
+import { openSession, SESSION_COOKIE } from "@/lib/session";
 
 /**
  * Gate every page and admin-proxy route behind a valid session. The login page
@@ -15,8 +15,11 @@ export function middleware(req: NextRequest): NextResponse {
     return NextResponse.next();
   }
 
+  // a session is valid only if its cookie decrypts to a password — this also
+  // rejects stale cookies from an older format (which would yield an empty
+  // Bearer and a confusing "missing admin password" from the gateway).
   const token = req.cookies.get(SESSION_COOKIE)?.value;
-  if (verifyToken(token)) return NextResponse.next();
+  if (openSession(token)) return NextResponse.next();
 
   if (pathname.startsWith("/api/")) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
