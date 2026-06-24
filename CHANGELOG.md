@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-06-24
+
+### Added
+- **Gateway-wide budget** — a single spend budget in USD **or** tokens (pick
+  one), with a soft alert (default 80%) and a hard stop that returns `402
+  budget exceeded` once the window is spent. Budget spend is derived from the
+  usage table (one source of truth, restart-safe), and the dashboard's Quota
+  page shows it as an editable card with a converse-unit estimate and a reset
+  countdown. Configure via `budget:` in config or `PUT /admin/budget`.
+- **Per-provider quota alert** — quotas now carry an optional `alert_at`
+  threshold and surface an "alert" badge on the Quota page before they exhaust.
+
 ## [1.0.1] — 2026-06-24
 
 ### Fixed
