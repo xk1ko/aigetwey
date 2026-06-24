@@ -173,6 +173,38 @@ describe("scoped budget hard-stop", () => {
     ).rejects.toMatchObject({ status: 402, payload: { error: "budget exceeded", reset_in_ms: 777 } });
   });
 
+  it("200 when only the first provider is blocked and fallback serves an unblocked route", async () => {
+    // Two OpenAI-format providers, alias "multi" targeting both.
+    const multiConfig = validateConfig({
+      providers: [
+        { id: "blocked-oa", format: "openai", base_url: "https://blocked.test/v1", api_key: "sk-b" },
+        { id: "good-oa", format: "openai", base_url: "https://good.test/v1", api_key: "sk-g" },
+      ],
+      models: [{ alias: "multi", target: ["blocked-oa", "good-oa"], model: "gpt-4o", price_in: 3, price_out: 15 }],
+    });
+    const upstreamJson = {
+      id: "chatcmpl-1",
+      model: "gpt-4o",
+      created: 1,
+      choices: [{ index: 0, message: { role: "assistant", content: "ok" }, finish_reason: "stop" }],
+      usage: { prompt_tokens: 5, completion_tokens: 2, total_tokens: 7 },
+    };
+    requestMock.mockResolvedValue(fakeResponse(200, upstreamJson));
+
+    const partialBlock = {
+      globalStatus: () => null,
+      blocks: (providerId: string, _model: string) =>
+        providerId === "blocked-oa" ? { exhausted: true as const, reset_in_ms: 500 } : null,
+    };
+    const deps: HandleDeps = { config: multiConfig, pool: new KeyPool(), budget: partialBlock };
+    const res = await handle(deps, "openai", { model: "multi", messages: [{ role: "user", content: "hi" }] });
+    expect(res.status).toBe(200);
+
+    // Verify the request went to the unblocked provider, not the blocked one.
+    const [url] = requestMock.mock.calls[0]!;
+    expect(url).toBe("https://good.test/v1/chat/completions");
+  });
+
   it("passes through when no budget blocks", async () => {
     const upstreamJson = {
       id: "chatcmpl-1",

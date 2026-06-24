@@ -24,7 +24,7 @@ export function BudgetModal({
   const [unit, setUnit] = useState<"usd" | "tokens">(initial?.unit ?? "usd");
   const [limit, setLimit] = useState(String(initial?.limit ?? ""));
   const [window, setWindow] = useState<(typeof WINDOWS)[number]>(initial?.window ?? "monthly");
-  const [alertAt, setAlertAt] = useState("80");
+  const [alertAt, setAlertAt] = useState(initial ? String(Math.round(initial.alert_at * 100)) : "80");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 

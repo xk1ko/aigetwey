@@ -67,6 +67,22 @@ describe("BudgetTracker (scoped)", () => {
     expect(noTokens.statuses()[0]!.est_converse).toBeNull();
   });
 
+  it("alert_at resolves to the spec value or defaults to 0.8", () => {
+    const custom = new BudgetTracker(
+      () => [B({ scope: { type: "global" }, limit: 100, unit: "usd", alert_at: 0.95 })],
+      fakeDb(() => ({ tokens_in: 0, tokens_out: 0, cost: 0 })),
+      () => 0,
+    );
+    expect(custom.statuses()[0]!.alert_at).toBe(0.95);
+
+    const defaulted = new BudgetTracker(
+      () => [B({ scope: { type: "global" }, limit: 100, unit: "usd" })],
+      fakeDb(() => ({ tokens_in: 0, tokens_out: 0, cost: 0 })),
+      () => 0,
+    );
+    expect(defaulted.statuses()[0]!.alert_at).toBe(0.8);
+  });
+
   it("caches the status list within cacheMs", () => {
     let calls = 0;
     const db = { totals: () => { calls++; return { tokens_in: 0, tokens_out: 0, cost: 1 }; } };

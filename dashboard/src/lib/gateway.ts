@@ -258,6 +258,7 @@ export interface BudgetStatus {
   spent: number;
   pct: number;
   alert: boolean;
+  alert_at: number;
   exhausted: boolean;
   est_converse: number | null;
   reset_in_ms: number;

@@ -19,6 +19,7 @@ export interface BudgetStatus {
   spent: number;
   pct: number;
   alert: boolean;
+  alert_at: number;
   exhausted: boolean;
   est_converse: number | null;
   reset_in_ms: number;
@@ -90,6 +91,7 @@ export class BudgetTracker {
     const spent = spec.unit === "usd" ? cost : tokens;
     const limit = spec.limit;
     const pct = limit > 0 ? Math.min(1, spent / limit) : 0;
+    const alertAt = spec.alert_at ?? 0.8;
     const est_converse = rate === undefined ? null : spec.unit === "usd" ? limit / rate : limit * rate;
     return {
       scope: spec.scope,
@@ -99,7 +101,8 @@ export class BudgetTracker {
       limit,
       spent,
       pct,
-      alert: pct >= (spec.alert_at ?? 0.8),
+      alert: pct >= alertAt,
+      alert_at: alertAt,
       exhausted: spent >= limit,
       est_converse,
       reset_in_ms: Math.max(0, nextResetAt(spec, windowStart, t) - t),
