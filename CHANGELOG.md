@@ -5,6 +5,16 @@ All notable changes to **aigetwey** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] — Unreleased
+
+### Changed
+- **Recurring budgets** — each budget window (`5h`/`24h`/`7day`/`30day`) now
+  resets on a cycle anchored to when the budget was created, not a shared epoch
+  grid. A per-key budget shared with another device becomes a self-resetting
+  allowance; the reset countdown reflects that key's own cycle. Budgets in an
+  existing `config.yaml` (no stored anchor) keep the previous epoch-grid reset
+  until next edited.
+
 ## [1.2.0] — 2026-06-25
 
 ### Added
