@@ -12,6 +12,7 @@ import type {
   EndpointPayload,
   HeadroomStatusReply,
   InjectLevel,
+  KeyUsageRow,
   ModelsPayload,
   PingResult,
   PricingPayload,
@@ -56,14 +57,13 @@ export const adminApi = {
   budgets: () => api<{ budgets: BudgetStatus[] }>("GET", "/admin/budgets"),
   models: () => api<ModelsPayload>("GET", "/admin/models"),
   keys: () => api<Array<{ fingerprint: string; name: string; masked: string }>>("GET", "/admin/keys"),
+  keysUsage: () => api<{ keys: KeyUsageRow[] }>("GET", "/admin/keys/usage"),
 
   setBudget: (body: {
     scope: { type: "global" } | { type: "provider"; id: string } | { type: "model"; id: string } | { type: "key"; id: string };
     unit: "usd" | "tokens";
     limit: number;
-    window: "5h" | "daily" | "weekly" | "monthly";
-    reset_at?: string;
-    timezone?: string;
+    window: "5h" | "24h" | "7day" | "30day";
     alert_at?: number;
     note?: string;
   }) => api<ConfigReply>("PUT", "/admin/budgets", body),
