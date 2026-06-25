@@ -117,7 +117,7 @@ beforeAll(async () => {
   const config = validateConfig({
     server: {
       api_keys: ["gw-key", "device-A-key"],
-      key_models: { "gw-key": ["smart"] },
+      key_models: { "gw-key": ["smart", "claude-ish", "fb"] },
       key_rpm: { "gw-key": 120 },
     },
     endpoint: { rtk: true },
@@ -292,7 +292,7 @@ describe("E2E — admin surface over real HTTP", () => {
     expect(cfg.server.key_rpm).toBeDefined();
     const maskedGwKey = cfg.server.api_keys[0]!;
     expect(maskedGwKey).not.toBe("gw-key");
-    expect(cfg.server.key_models![maskedGwKey]).toEqual(["smart"]);
+    expect(cfg.server.key_models![maskedGwKey]).toEqual(["smart", "claude-ish", "fb"]);
     expect(cfg.server.key_rpm![maskedGwKey]).toBe(120);
     // raw key must not appear as a map key
     expect(cfg.server.key_models!["gw-key"]).toBeUndefined();
