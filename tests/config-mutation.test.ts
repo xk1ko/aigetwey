@@ -263,33 +263,33 @@ describe("budgetKey", () => {
 describe("scoped budget mutations", () => {
   it("setBudget adds a global budget", () => {
     const next = setBudget(cfgWithProvider(), {
-      scope: { type: "global" }, unit: "usd", limit: 50, window: "monthly", timezone: "UTC",
+      scope: { type: "global" }, unit: "usd", limit: 50, window: "30day",
     });
     expect(next.budgets).toHaveLength(1);
     expect(next.budgets[0]!.scope).toEqual({ type: "global" });
   });
 
   it("setBudget replaces a budget with the same scope key", () => {
-    const a = setBudget(cfgWithProvider(), { scope: { type: "global" }, unit: "usd", limit: 50, window: "monthly", timezone: "UTC" });
-    const b = setBudget(a, { scope: { type: "global" }, unit: "tokens", limit: 1000, window: "daily", timezone: "UTC" });
+    const a = setBudget(cfgWithProvider(), { scope: { type: "global" }, unit: "usd", limit: 50, window: "30day" });
+    const b = setBudget(a, { scope: { type: "global" }, unit: "tokens", limit: 1000, window: "24h" });
     expect(b.budgets).toHaveLength(1);
     expect(b.budgets[0]!.unit).toBe("tokens");
   });
 
   it("setBudget keeps budgets with different scopes side by side", () => {
-    const a = setBudget(cfgWithProvider(), { scope: { type: "global" }, unit: "usd", limit: 50, window: "monthly", timezone: "UTC" });
-    const b = setBudget(a, { scope: { type: "provider", id: "openai" }, unit: "usd", limit: 20, window: "monthly", timezone: "UTC" });
+    const a = setBudget(cfgWithProvider(), { scope: { type: "global" }, unit: "usd", limit: 50, window: "30day" });
+    const b = setBudget(a, { scope: { type: "provider", id: "openai" }, unit: "usd", limit: 20, window: "30day" });
     expect(b.budgets).toHaveLength(2);
   });
 
   it("setBudget rejects a provider scope for an unknown provider", () => {
     expect(() =>
-      setBudget(cfgWithProvider(), { scope: { type: "provider", id: "nope" }, unit: "usd", limit: 20, window: "monthly", timezone: "UTC" }),
+      setBudget(cfgWithProvider(), { scope: { type: "provider", id: "nope" }, unit: "usd", limit: 20, window: "30day" }),
     ).toThrow(/unknown provider/);
   });
 
   it("clearBudget removes by scope key", () => {
-    const a = setBudget(cfgWithProvider(), { scope: { type: "provider", id: "openai" }, unit: "usd", limit: 20, window: "monthly", timezone: "UTC" });
+    const a = setBudget(cfgWithProvider(), { scope: { type: "provider", id: "openai" }, unit: "usd", limit: 20, window: "30day" });
     const b = clearBudget(a, "provider:openai");
     expect(b.budgets).toHaveLength(0);
   });
@@ -305,6 +305,28 @@ describe("scoped budget mutations", () => {
     expect(cfg.raw.budgets[0]!.scope).toEqual({ type: "global" });
     expect(cfg.raw.budgets[0]!.limit).toBe(50);
     expect((cfg.raw as Record<string, unknown>).budget).toBeUndefined();
+  });
+
+  it("setBudget stamps the anchor at creation time", () => {
+    const next = setBudget(
+      cfgWithProvider(),
+      { scope: { type: "global" }, unit: "usd", limit: 50, window: "30day" },
+      1234,
+    );
+    expect(next.budgets[0]!.anchor).toBe(1234);
+  });
+
+  it("setBudget keeps the anchor on replace when the window is unchanged", () => {
+    const a = setBudget(cfgWithProvider(), { scope: { type: "global" }, unit: "usd", limit: 50, window: "30day" }, 1000);
+    const b = setBudget(a, { scope: { type: "global" }, unit: "usd", limit: 80, window: "30day" }, 9999);
+    expect(b.budgets[0]!.anchor).toBe(1000);
+    expect(b.budgets[0]!.limit).toBe(80);
+  });
+
+  it("setBudget resets the anchor on replace when the window length changes", () => {
+    const a = setBudget(cfgWithProvider(), { scope: { type: "global" }, unit: "usd", limit: 50, window: "30day" }, 1000);
+    const b = setBudget(a, { scope: { type: "global" }, unit: "usd", limit: 50, window: "7day" }, 9999);
+    expect(b.budgets[0]!.anchor).toBe(9999);
   });
 });
 
@@ -323,12 +345,12 @@ describe("key-scoped budgets", () => {
   });
   it("setBudget accepts a key scope whose fingerprint matches a server key", () => {
     const fp = clientKeyFingerprint("device-A-key");
-    const next = setBudget(cfgWithKey(), { scope: { type: "key", id: fp }, unit: "usd", limit: 5, window: "monthly", timezone: "UTC" });
+    const next = setBudget(cfgWithKey(), { scope: { type: "key", id: fp }, unit: "usd", limit: 5, window: "30day" });
     expect(next.budgets[0]!.scope).toEqual({ type: "key", id: fp });
   });
   it("setBudget rejects a key scope for an unknown fingerprint", () => {
     expect(() =>
-      setBudget(cfgWithKey(), { scope: { type: "key", id: "deadbeef" }, unit: "usd", limit: 5, window: "monthly", timezone: "UTC" }),
+      setBudget(cfgWithKey(), { scope: { type: "key", id: "deadbeef" }, unit: "usd", limit: 5, window: "30day" }),
     ).toThrow(/unknown API key/);
   });
   it("schema rejects a key scope with an empty id", () => {
