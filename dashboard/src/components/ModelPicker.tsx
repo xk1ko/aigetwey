@@ -17,6 +17,7 @@ export interface ModelGroup {
 export function ModelPicker({
   title = "Add models",
   note = "Click to add, click again to remove.",
+  searchPlaceholder = "Search models…",
   groups,
   selected,
   onToggle,
@@ -24,6 +25,7 @@ export function ModelPicker({
 }: {
   title?: string;
   note?: string;
+  searchPlaceholder?: string;
   groups: ModelGroup[];
   selected: string[];
   onToggle: (value: string) => void;
@@ -60,7 +62,7 @@ export function ModelPicker({
               autoFocus
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Search models…"
+              placeholder={searchPlaceholder}
               className="w-full rounded-brand border border-border bg-bg py-2 pl-8 pr-3 text-[13px] text-text placeholder:text-text-subtle focus:border-accent focus:outline-none"
             />
           </div>
