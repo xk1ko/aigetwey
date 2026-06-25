@@ -117,8 +117,8 @@ const ServerSchema = z
 /**
  * A spend budget scoped to the whole gateway, one provider, or one upstream
  * model. unit picks what `limit` means — USD cost or total tokens. Soft-alert at
- * alert_at (default 0.8), hard-stop at 100%. Window math reuses the shared
- * calendar engine (window.ts). Opt-in: omit / empty list to disable.
+ * alert_at (default 0.8), hard-stop at 100%. Each window is a rolling tumbling
+ * bucket on the epoch grid (window.ts). Opt-in: omit / empty list to disable.
  */
 const BudgetScopeSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("global") }),
@@ -127,13 +127,21 @@ const BudgetScopeSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("key"), id: z.string().min(1) }),
 ]);
 
+// rolling windows replaced the old calendar windows; coerce any legacy value so
+// existing config.yaml budgets keep loading (daily→24h, weekly→7day, monthly→30day).
+const LEGACY_WINDOW: Record<string, string> = { daily: "24h", weekly: "7day", monthly: "30day" };
+const WindowSchema = z.preprocess(
+  (v) => (typeof v === "string" && v in LEGACY_WINDOW ? LEGACY_WINDOW[v] : v),
+  z.enum(["5h", "24h", "7day", "30day"]),
+);
+
 const BudgetSchema = z.object({
   scope: BudgetScopeSchema,
   unit: z.enum(["usd", "tokens"]),
   limit: z.number().positive(),
-  window: z.enum(["5h", "daily", "weekly", "monthly"]),
-  reset_at: z.string().optional(),
-  timezone: z.string().default("UTC"),
+  window: WindowSchema,
+  // epoch ms the recurring cycle is anchored to; stamped by setBudget on create.
+  anchor: z.number().int().nonnegative().optional(),
   alert_at: z.number().gt(0).lte(1).optional(),
   // optional free-text label so an operator remembers what a budget is for.
   note: z.string().max(200).optional(),
@@ -780,7 +788,7 @@ export function budgetKey(scope: BudgetScope): string {
 }
 
 /** Add a budget, or replace the existing one with the same scope key. */
-export function setBudget(config: Config, budget: Budget): Config {
+export function setBudget(config: Config, budget: Budget, now: number = Date.now()): Config {
   if (budget.scope.type === "provider") {
     const { id } = budget.scope;
     if (!config.providers.some((p) => p.id === id)) {
@@ -796,8 +804,14 @@ export function setBudget(config: Config, budget: Budget): Config {
   const next = cloneConfig(config);
   const key = budgetKey(budget.scope);
   const idx = next.budgets.findIndex((b) => budgetKey(b.scope) === key);
-  if (idx === -1) next.budgets.push(budget);
-  else next.budgets[idx] = budget;
+  if (idx === -1) {
+    next.budgets.push({ ...budget, anchor: budget.anchor ?? now });
+  } else {
+    const prev = next.budgets[idx]!;
+    // keep the running cycle on edit; start a fresh one only when the window changed.
+    const anchor = budget.anchor ?? (prev.window === budget.window ? prev.anchor ?? now : now);
+    next.budgets[idx] = { ...budget, anchor };
+  }
   return next;
 }
 
