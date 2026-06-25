@@ -811,7 +811,7 @@ export function setBudget(config: Config, budget: Budget): Config {
   return next;
 }
 
-/** Remove a budget by its scope key (global | provider:<id> | model:<id>). */
+/** Remove a budget by its scope key (global | provider:<id> | model:<id> | key:<fp>). */
 export function clearBudget(config: Config, key: string): Config {
   const next = cloneConfig(config);
   const idx = next.budgets.findIndex((b) => budgetKey(b.scope) === key);
