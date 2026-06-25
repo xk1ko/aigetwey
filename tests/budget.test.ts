@@ -7,8 +7,10 @@ function fakeDb(map: (filter?: { provider?: string; model?: string }) => { token
   return { totals: (_since: number, filter?: { provider?: string; model?: string }) => map(filter) };
 }
 
+const DAY = 24 * 3600_000;
+
 const B = (over: Partial<Budget> & { scope: Budget["scope"] }): Budget =>
-  ({ unit: "usd", limit: 10, window: "monthly", timezone: "UTC", ...over });
+  ({ unit: "usd", limit: 10, window: "30day", ...over });
 
 describe("BudgetTracker (scoped)", () => {
   it("returns [] when no budgets are configured", () => {
@@ -111,6 +113,28 @@ describe("BudgetTracker (scoped)", () => {
     expect(s.exhausted).toBe(true);
     expect(tracker.blocksKey(fp)!.exhausted).toBe(true);
     expect(tracker.blocksKey("ffff9999")).toBeNull();
+  });
+
+  it("reset_in_ms counts down within the anchored cycle", () => {
+    const anchor = 0;
+    const now = 3 * DAY; // 3 days into a 30day cycle anchored at 0
+    const t = new BudgetTracker(
+      () => [B({ scope: { type: "global" }, window: "30day", anchor })],
+      fakeDb(() => ({ tokens_in: 0, tokens_out: 0, cost: 0 })),
+      () => now,
+    );
+    expect(t.statuses()[0]!.reset_in_ms).toBe(30 * DAY - 3 * DAY);
+  });
+
+  it("legacy budget without an anchor uses the epoch grid", () => {
+    const dur = 30 * DAY;
+    const now = 5 * dur + 2 * DAY; // 2 days into an epoch-grid 30day bucket
+    const t = new BudgetTracker(
+      () => [B({ scope: { type: "global" }, window: "30day" })], // no anchor
+      fakeDb(() => ({ tokens_in: 0, tokens_out: 0, cost: 0 })),
+      () => now,
+    );
+    expect(t.statuses()[0]!.reset_in_ms).toBe(dur - 2 * DAY);
   });
 
   it("surfaces the optional note in the status", () => {
