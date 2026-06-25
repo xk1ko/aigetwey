@@ -13,6 +13,12 @@ import type { EndpointPayload, HeadroomStatusReply, InjectLevel, MaskedConfig } 
 
 const LEVELS: InjectLevel[] = ["off", "lite", "full", "ultra"];
 
+/** Segment-pill style — matches the Budgets page pills. */
+const pill = (active: boolean): string =>
+  `rounded-brand px-3 py-1.5 text-[13px] font-medium transition-colors ${
+    active ? "bg-accent/12 text-accent" : "bg-surface-2 text-text-muted hover:text-text"
+  }`;
+
 const DAY_MS = 86_400_000;
 const EXPIRY_MS: Record<"7day" | "30day" | "90day" | "1year", number> = {
   "7day": 7 * DAY_MS,
@@ -273,7 +279,7 @@ export function EndpointView() {
                                 key={opt}
                                 type="button"
                                 onClick={() => setScopeExpiry(opt)}
-                                className={`rounded-brand px-2 py-1 text-[12px] ${scopeExpiry === opt ? "bg-accent text-accent-ink" : "border border-border text-text-muted hover:text-text"}`}
+                                className={pill(scopeExpiry === opt)}
                               >
                                 {opt === "never" ? "no expiry" : opt === "keep" ? "keep" : opt}
                               </button>
@@ -296,7 +302,7 @@ export function EndpointView() {
                                   key={w}
                                   type="button"
                                   onClick={() => setScopeWindow(w)}
-                                  className={`rounded-brand px-2 py-1 text-[12px] ${scopeWindow === w ? "bg-accent text-accent-ink" : "border border-border text-text-muted hover:text-text"}`}
+                                  className={pill(scopeWindow === w)}
                                 >
                                   {w}
                                 </button>
