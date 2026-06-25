@@ -22,6 +22,7 @@ export interface UsageRow {
   model: string;
   tokens_in: number;
   tokens_out: number;
+  reasoning_tokens: number;
   cached_tokens: number;
   cost: number;
   status: number;
@@ -294,9 +295,29 @@ export class UsageDB {
   }
 }
 
-/** Compute USD cost from token counts and per-1M prices. */
-export function computeCost(tokensIn: number, tokensOut: number, priceIn?: number, priceOut?: number): number {
-  const ci = priceIn ? (tokensIn / 1_000_000) * priceIn : 0;
-  const co = priceOut ? (tokensOut / 1_000_000) * priceOut : 0;
-  return ci + co;
+/** Compute USD cost from token counts and per-1M prices. 9router-style: separate rates for input (non-cache), cache_read, output, reasoning. */
+export function computeCost(tokensIn: number, tokensOut: number, priceIn?: number, priceOut?: number, priceReasoning?: number, priceCachedRead?: number, cachedTokens?: number, reasoningTokens?: number): number {
+  let cost = 0;
+
+  // Non-cached input (input minus cache_read)
+  const nonCachedInput = Math.max(0, tokensIn - (cachedTokens ?? 0));
+  if (priceIn) cost += (nonCachedInput / 1_000_000) * priceIn;
+
+  // Cached read — uses separate rate or falls back to input rate
+  if (cachedTokens && priceCachedRead) {
+    cost += (cachedTokens / 1_000_000) * priceCachedRead;
+  } else if (cachedTokens && priceIn) {
+    cost += (cachedTokens / 1_000_000) * priceIn;
+  }
+
+  // Output completion
+  if (priceOut) cost += (tokensOut / 1_000_000) * priceOut;
+
+  // Reasoning tokens — uses dedicated rate or falls back to output rate
+  if (reasoningTokens) {
+    if (priceReasoning) cost += (reasoningTokens / 1_000_000) * priceReasoning;
+    else if (priceOut) cost += (reasoningTokens / 1_000_000) * priceOut;
+  }
+
+  return cost;
 }

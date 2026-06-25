@@ -25,8 +25,10 @@ interface AnthStreamState {
   toolIndexByBlock: Map<number, number>;
   nextToolIndex: number;
   promptTokens: number;
+  completionTokens: number;
   cachedTokens?: number;
   cacheCreationTokens?: number;
+  reasoningTokens?: number;
 }
 
 export async function* streamToCanonical(events: AsyncIterable<SSEEvent>): AsyncGenerator<CanonicalChunk> {
@@ -53,7 +55,7 @@ export async function* streamToCanonical(events: AsyncIterable<SSEEvent>): Async
     switch (type) {
       case "message_start": {
         const message = msg.message as
-          | { id?: string; model?: string; usage?: Record<string, number> }
+          | { id?: string; model?: string; usage?: Record<string, number>; storage_creation?: number }
           | undefined;
         state.id = message?.id ?? "";
         state.model = message?.model ?? "";
@@ -62,12 +64,16 @@ export async function* streamToCanonical(events: AsyncIterable<SSEEvent>): Async
           state.promptTokens = u.input_tokens ?? 0;
           state.cachedTokens = u.cache_read_input_tokens;
           state.cacheCreationTokens = u.cache_creation_input_tokens;
+          state.completionTokens = u.output_tokens ?? 0;
+          state.reasoningTokens = u.thinking_tokens ?? 0;
         }
         const startChunk = baseChunk(state, { role: "assistant", content: "" }, null);
         startChunk.usage = {
           prompt_tokens: state.promptTokens,
+          completion_tokens: state.completionTokens,
           cached_tokens: state.cachedTokens,
           cache_creation_tokens: state.cacheCreationTokens,
+          reasoning_tokens: state.reasoningTokens,
         };
         yield startChunk;
         break;
@@ -99,6 +105,7 @@ export async function* streamToCanonical(events: AsyncIterable<SSEEvent>): Async
         if (delta?.type === "text_delta") {
           yield baseChunk(state, { content: delta.text ?? "" }, null);
         } else if (delta?.type === "thinking_delta") {
+          state.reasoningTokens = (state.reasoningTokens ?? 0) + 1;
           yield baseChunk(state, { reasoning: delta.thinking ?? "" }, null);
         } else if (delta?.type === "input_json_delta") {
           const toolIndex = state.toolIndexByBlock.get(index);
@@ -115,7 +122,7 @@ export async function* streamToCanonical(events: AsyncIterable<SSEEvent>): Async
 
       case "message_delta": {
         const delta = msg.delta as { stop_reason?: string | null } | undefined;
-        const usage = msg.usage as { output_tokens?: number } | undefined;
+        const usage = msg.usage as { output_tokens?: number; thinking_tokens?: number } | undefined;
         const finish = mapStopReason(delta?.stop_reason);
         const chunk = baseChunk(state, {}, finish);
         chunk.usage = {
@@ -123,6 +130,7 @@ export async function* streamToCanonical(events: AsyncIterable<SSEEvent>): Async
           completion_tokens: usage?.output_tokens ?? 0,
           cached_tokens: state.cachedTokens,
           cache_creation_tokens: state.cacheCreationTokens,
+          reasoning_tokens: usage?.thinking_tokens ?? state.reasoningTokens ?? 0,
         };
         yield chunk;
         break;
