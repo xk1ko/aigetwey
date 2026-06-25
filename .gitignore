@@ -13,9 +13,4 @@ data/
 dashboard/.next/
 dashboard/node_modules/
 dashboard/.env.local
-.gstack/
-.claude/
 *.log
-
-# local dev helper (hot-reload gateway + dashboard) — not shipped
-dev.sh

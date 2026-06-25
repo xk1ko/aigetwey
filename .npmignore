@@ -14,7 +14,10 @@ data/
 # launcher's ensureSetup(), so we don't ship dashboard/.next (Next's nested
 # .gitignore excludes it anyway).
 dashboard/.next/
-.claude/
-.gstack/
 tests/
 *.test.ts
+.claude/
+.gstack/
+.omo/
+CLAUDE.md
+logo-previews/
