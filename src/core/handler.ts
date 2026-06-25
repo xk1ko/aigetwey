@@ -54,6 +54,7 @@ export interface HandleDeps {
     blocks(providerId: string, model: string): { exhausted: true; reset_in_ms: number } | null;
     blocksKey(fp: string): { exhausted: true; reset_in_ms: number } | null;
   };
+  clientKeyModels?: string[];
   clientKeyFp?: string;
   log?: (msg: string) => void;
   now?: () => number;
@@ -114,6 +115,13 @@ export async function handle(
   // that can't reason. Matches aigetwey's capture-before-translate flow.
   const { cleanModel, override } = parseSuffix(canonical.model);
   canonical.model = cleanModel;
+
+  // per-key allowlist: a key may be restricted to specific call-strings. Empty/
+  // absent → unrestricted. Match the literal clean model the client asked for.
+  if (deps.clientKeyModels && deps.clientKeyModels.length > 0 && !deps.clientKeyModels.includes(cleanModel)) {
+    throw new GatewayError(403, { error: "model not allowed for this key" });
+  }
+
   const thinkingIntent: ThinkingConfig | null =
     override ?? captureThinking(canonical as Record<string, unknown>);
 
