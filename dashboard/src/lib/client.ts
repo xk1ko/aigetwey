@@ -56,9 +56,10 @@ export const adminApi = {
   providers: () => api<{ providers: ProviderSnapshot[] }>("GET", "/admin/providers"),
   quota: () => api<{ quota: QuotaSnapshot[]; budgets: BudgetStatus[] }>("GET", "/admin/quota"),
   models: () => api<ModelsPayload>("GET", "/admin/models"),
+  keys: () => api<Array<{ fingerprint: string; name: string; masked: string }>>("GET", "/admin/keys"),
 
   setBudget: (body: {
-    scope: { type: "global" } | { type: "provider"; id: string } | { type: "model"; id: string };
+    scope: { type: "global" } | { type: "provider"; id: string } | { type: "model"; id: string } | { type: "key"; id: string };
     unit: "usd" | "tokens";
     limit: number;
     window: "5h" | "daily" | "weekly" | "monthly";
