@@ -9,6 +9,7 @@ import { Icon } from "@/components/Icon";
 import { KeyReveal } from "@/components/KeyReveal";
 import { Empty, fmt } from "@/components/ui";
 import { ModelPicker, type ModelGroup } from "@/components/ModelPicker";
+import { ConfirmModal } from "@/components/ConfirmModal";
 import type { EndpointPayload, HeadroomStatusReply, InjectLevel, MaskedConfig } from "@/lib/gateway";
 
 const LEVELS: InjectLevel[] = ["off", "lite", "full", "ultra"];
@@ -20,11 +21,10 @@ const pill = (active: boolean): string =>
   }`;
 
 const DAY_MS = 86_400_000;
-const EXPIRY_MS: Record<"7day" | "30day" | "90day" | "1year", number> = {
+const EXPIRY_MS: Record<"24h" | "7day" | "30day", number> = {
+  "24h": DAY_MS,
   "7day": 7 * DAY_MS,
   "30day": 30 * DAY_MS,
-  "90day": 90 * DAY_MS,
-  "1year": 365 * DAY_MS,
 };
 
 /** Generate a random gateway key client-side (aigetwey's one-click create). */
@@ -42,6 +42,7 @@ export function EndpointView() {
   const [newKey, setNewKey] = useState("");
   const [keyName, setKeyName] = useState("");
   const [created, setCreated] = useState<{ key: string; name: string } | null>(null);
+  const [pendingDelKey, setPendingDelKey] = useState<{ i: number; label: string } | null>(null);
   const [hr, setHr] = useState<HeadroomStatusReply | null>(null);
   const [editKey, setEditKey] = useState<number | null>(null);
   const [editKeyName, setEditKeyName] = useState("");
@@ -49,7 +50,8 @@ export function EndpointView() {
   const [scopeKey, setScopeKey] = useState<number | null>(null);
   const [scopeModels, setScopeModels] = useState<string[]>([]);
   const [scopeRpm, setScopeRpm] = useState("");
-  const [scopeExpiry, setScopeExpiry] = useState<"keep" | "never" | "7day" | "30day" | "90day" | "1year">("never");
+  const [scopeExpiry, setScopeExpiry] = useState<"keep" | "never" | "24h" | "7day" | "30day" | "custom">("never");
+  const [scopeCustomDays, setScopeCustomDays] = useState("");
   const [scopeLimit, setScopeLimit] = useState("");      // USD limit, "" = no cap
   const [scopeWindow, setScopeWindow] = useState<"5h" | "24h" | "7day" | "30day">("30day");
   const [keyBudgets, setKeyBudgets] = useState<Record<string, { limit: number; window: string }>>({});
@@ -209,6 +211,7 @@ export function EndpointView() {
                             setScopeModels(k.models ?? []);
                             setScopeRpm(k.rpm ? String(k.rpm) : "");
                             setScopeExpiry(k.expires ? "keep" : "never");
+                            setScopeCustomDays("");
                             const kb = keyBudgets[k.fingerprint];
                             setScopeLimit(kb ? String(kb.limit) : "");
                             setScopeWindow((kb?.window as "5h" | "24h" | "7day" | "30day") ?? "30day");
@@ -227,7 +230,7 @@ export function EndpointView() {
                         >
                           <Icon name="edit" size={15} />
                         </button>
-                        <button onClick={() => run(`rmkey${i}`, () => adminApi.removeServerKey(i))} className="text-text-subtle hover:text-danger" aria-label="Remove key">
+                        <button onClick={() => setPendingDelKey({ i, label: k.name || k.key })} className="text-text-subtle hover:text-danger" aria-label="Remove key">
                           <Icon name="delete" size={16} />
                         </button>
                       </div>
@@ -272,8 +275,8 @@ export function EndpointView() {
                           )}
                           <div className="flex flex-wrap gap-1">
                             {(k.expires
-                              ? (["keep", "never", "7day", "30day", "90day", "1year"] as const)
-                              : (["never", "7day", "30day", "90day", "1year"] as const)
+                              ? (["keep", "never", "24h", "7day", "30day", "custom"] as const)
+                              : (["never", "24h", "7day", "30day", "custom"] as const)
                             ).map((opt) => (
                               <button
                                 key={opt}
@@ -281,10 +284,22 @@ export function EndpointView() {
                                 onClick={() => setScopeExpiry(opt)}
                                 className={pill(scopeExpiry === opt)}
                               >
-                                {opt === "never" ? "no expiry" : opt === "keep" ? "keep" : opt}
+                                {opt === "never" ? "no expiry" : opt}
                               </button>
                             ))}
                           </div>
+                          {scopeExpiry === "custom" && (
+                            <div className="mt-1.5 flex items-center gap-1.5">
+                              <Input
+                                inputMode="numeric"
+                                value={scopeCustomDays}
+                                onChange={(e) => setScopeCustomDays(e.target.value.replace(/[^\d]/g, ""))}
+                                placeholder="days"
+                                className="w-24"
+                              />
+                              <span className="text-[11px] text-text-subtle">days from now</span>
+                            </div>
+                          )}
                         </div>
                         <div>
                           <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-text-subtle">Spend cap (USD)</div>
@@ -320,6 +335,7 @@ export function EndpointView() {
                                 const expires =
                                   scopeExpiry === "keep" ? undefined
                                   : scopeExpiry === "never" ? null
+                                  : scopeExpiry === "custom" ? (scopeCustomDays ? Date.now() + Number(scopeCustomDays) * DAY_MS : null)
                                   : Date.now() + EXPIRY_MS[scopeExpiry];
                                 const r = await adminApi.setServerKeyScope(i, {
                                   models: scopeModels,
@@ -355,7 +371,7 @@ export function EndpointView() {
                 <Input
                   value={newKey}
                   onChange={(e) => setNewKey(e.target.value)}
-                  placeholder="type a custom key, or roll the dice →"
+                  placeholder="custom key (optional) — leave blank to auto-generate"
                   className="pr-9 font-mono text-[12.5px]"
                 />
                 <button
@@ -368,11 +384,11 @@ export function EndpointView() {
                   <Icon name="casino" size={16} />
                 </button>
               </div>
-              <Button disabled={!newKey.trim() || busy === "genkey"} onClick={() => addKey(keyName, newKey.trim())}>
+              <Button disabled={busy === "genkey"} onClick={() => addKey(keyName, newKey.trim() || generateKey())}>
                 <Icon name="add" size={16} /> {busy === "genkey" ? "Adding…" : "Add key"}
               </Button>
             </div>
-            <p className="text-[11px] text-text-subtle">Name it, then type your own key or click the dice for a random one.</p>
+            <p className="text-[11px] text-text-subtle">Optionally name it, then click Add key — a key is generated and shown once. Configure its limits after.</p>
           </div>
         </RichCard>
 
@@ -413,6 +429,19 @@ export function EndpointView() {
       </div>
 
       {created && <KeyCreatedModal name={created.name} value={created.key} onClose={() => setCreated(null)} />}
+      {pendingDelKey && (
+        <ConfirmModal
+          title="Remove gateway key"
+          message={`Delete "${pendingDelKey.label}"? Any client using this key stops working immediately.`}
+          confirmLabel="Remove"
+          busy={busy === `rmkey${pendingDelKey.i}`}
+          onCancel={() => setPendingDelKey(null)}
+          onConfirm={() => {
+            const i = pendingDelKey.i;
+            void run(`rmkey${i}`, () => adminApi.removeServerKey(i)).then(() => setPendingDelKey(null));
+          }}
+        />
+      )}
       {pickerOpen && (
         <ModelPicker
           title="Allowed models"
