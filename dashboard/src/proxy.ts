@@ -5,11 +5,11 @@ import { openSession, SESSION_COOKIE } from "@/lib/session";
 /**
  * Gate every page and admin-proxy route behind a valid session. The login page
  * and the auth endpoints stay open; everything else redirects to /login (pages)
- * or 401s (api).
+ * or 401s (api). This is Next 16's `proxy` convention (formerly `middleware`).
  */
 const OPEN = ["/login", "/api/login", "/api/logout"];
 
-export function middleware(req: NextRequest): NextResponse {
+export function proxy(req: NextRequest): NextResponse {
   const { pathname } = req.nextUrl;
   if (OPEN.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
     return NextResponse.next();
@@ -34,6 +34,6 @@ export const config = {
   // App Router favicon — it must stay public, else the auth gate redirects it to
   // /login and the browser tab shows no icon.
   matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg).*)"],
-  // session verification uses node:crypto, unsupported on the Edge runtime
-  runtime: "nodejs",
+  // note: the proxy convention always runs on the Node.js runtime (no `runtime`
+  // key allowed), which is what our node:crypto session check needs anyway.
 };
