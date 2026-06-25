@@ -91,14 +91,14 @@ export function RoutingView() {
 
       {adding && (
         <RouteForm
-          providers={config.providers}
+          providers={config.providers.filter((p) => !p.disabled)}
           onDone={() => { setAdding(false); void reload(); }}
         />
       )}
 
       {editing && !adding && (
         <RouteForm
-          providers={config.providers}
+          providers={config.providers.filter((p) => !p.disabled)}
           initial={editing}
           onDone={() => { setEditing(null); void reload(); }}
           onCancel={() => setEditing(null)}

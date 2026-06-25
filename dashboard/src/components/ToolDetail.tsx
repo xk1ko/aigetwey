@@ -111,13 +111,15 @@ export function ToolDetail({ id }: { id: string }) {
         const cfg = (await cfgRes.json()) as MaskedConfig;
         const aliases = cfg.models.map((m) => m.alias);
         setCombos(aliases);
-        // everything callable: combo aliases + every provider/model ref.
-        const refs = cfg.providers.flatMap((p) => p.models.map((m) => `${p.id}/${m.id}`));
+        // disabled providers are skipped in routing, so hide their models here.
+        const liveProviders = cfg.providers.filter((p) => !p.disabled);
+        // everything callable: combo aliases + every (enabled) provider/model ref.
+        const refs = liveProviders.flatMap((p) => p.models.map((m) => `${p.id}/${m.id}`));
         setAllModels([...aliases, ...refs]);
         // grouped for the picker: Combos first, then one group per provider.
         const grps: ModelGroup[] = [];
         if (aliases.length) grps.push({ label: "Combos", items: aliases.map((a) => ({ value: a, label: a })) });
-        for (const p of cfg.providers) {
+        for (const p of liveProviders) {
           if (p.models.length) grps.push({ label: p.id, items: p.models.map((m) => ({ value: `${p.id}/${m.id}`, label: `${p.id}/${m.id}` })) });
         }
         setGroups(grps);

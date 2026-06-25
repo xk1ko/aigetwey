@@ -83,11 +83,15 @@ export function ProviderManager() {
               <Link
                 key={p.id}
                 href={`/providers/${encodeURIComponent(p.id)}`}
-                className="group rounded-brand-lg border border-border bg-surface p-4 shadow-soft transition-colors hover:border-text-subtle"
+                className={`group rounded-brand-lg border bg-surface p-4 shadow-soft transition-colors ${
+                  p.disabled
+                    ? "border-danger/35 opacity-60 hover:opacity-100 hover:border-danger/60"
+                    : "border-border hover:border-text-subtle"
+                }`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
-                    <Lamp state={healthy ? "live" : "down"} />
+                    <Lamp state={p.disabled ? "idle" : healthy ? "live" : "down"} />
                     <div className="min-w-0">
                       <span className="block truncate text-[14px] font-semibold text-text">{p.name || p.id}</span>
                       {p.name && <span className="block truncate text-[11px] text-text-subtle">{p.id}/</span>}
@@ -152,12 +156,12 @@ function ProviderToggle({ id, disabled, onDone }: { id: string; disabled: boolea
         setBusy(true);
         void adminApi.setProviderDisabled(id, !disabled).then(() => onDone()).finally(() => setBusy(false));
       }}
-      className="inline-flex items-center gap-1.5 text-[11px] text-text-muted"
+      className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${disabled ? "text-danger" : "text-text-muted"}`}
       aria-label={disabled ? "Enable provider" : "Disable provider"}
       title={disabled ? "Provider disabled — click to enable" : "Provider enabled — click to disable"}
     >
-      <span className={`relative h-4 w-7 rounded-full transition-colors ${disabled ? "bg-border-subtle" : "bg-accent"} ${busy ? "opacity-60" : ""}`}>
-        <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-transform ${disabled ? "left-0.5" : "left-[14px]"}`} />
+      <span className={`relative h-4 w-7 rounded-full transition-colors ${disabled ? "bg-danger" : "bg-accent"} ${busy ? "opacity-60" : ""}`}>
+        <span className={`absolute left-0.5 top-0.5 h-3 w-3 rounded-full bg-white transition-transform ${disabled ? "translate-x-0" : "translate-x-[14px]"}`} />
       </span>
       {disabled ? "disabled" : "enabled"}
     </button>
