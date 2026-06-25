@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isValidKey, extractKey, checkAuth, checkAdminAuth } from "../src/middleware/auth.js";
+import { isValidKey, extractKey, checkAuth, checkAdminAuth, clientKeyFingerprint, matchKey } from "../src/middleware/auth.js";
 import type { FastifyRequest } from "fastify";
 
 /** Minimal FastifyRequest stand-in carrying just the headers auth reads. */
@@ -48,6 +48,38 @@ describe("checkAuth", () => {
   it("passes a valid key via either header", () => {
     expect(checkAuth(reqWith({ authorization: "Bearer secret" }), ["secret"]).ok).toBe(true);
     expect(checkAuth(reqWith({ "x-api-key": "secret" }), ["secret"]).ok).toBe(true);
+  });
+});
+
+describe("clientKeyFingerprint", () => {
+  it("is 8 lowercase hex chars and stable for the same key", () => {
+    const fp = clientKeyFingerprint("sk-abc");
+    expect(fp).toMatch(/^[0-9a-f]{8}$/);
+    expect(clientKeyFingerprint("sk-abc")).toBe(fp);
+  });
+  it("differs for different keys", () => {
+    expect(clientKeyFingerprint("sk-a")).not.toBe(clientKeyFingerprint("sk-b"));
+  });
+});
+
+describe("matchKey", () => {
+  it("returns the matching key, or null", () => {
+    expect(matchKey("k2", ["k1", "k2", "k3"])).toBe("k2");
+    expect(matchKey("nope", ["k1", "k2"])).toBeNull();
+  });
+});
+
+describe("checkAuth keyFp", () => {
+  const req = (key: string) => ({ headers: { authorization: `Bearer ${key}` } }) as never;
+  it("surfaces the matched key's fingerprint", () => {
+    const r = checkAuth(req("k2"), ["k1", "k2"]);
+    expect(r.ok).toBe(true);
+    expect(r.keyFp).toBe(clientKeyFingerprint("k2"));
+  });
+  it("no keyFp when auth is disabled (empty keys)", () => {
+    const r = checkAuth(req("whatever"), []);
+    expect(r.ok).toBe(true);
+    expect(r.keyFp).toBeUndefined();
   });
 });
 
