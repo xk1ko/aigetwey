@@ -8,13 +8,12 @@ import { Badge, FormatBadge } from "@/components/Badge";
 import { CooldownTimer } from "@/components/CooldownTimer";
 import { Button, Input, Field } from "@/components/Button";
 import { Icon } from "@/components/Icon";
-import { fmt, Empty } from "@/components/ui";
-import type { MaskedConfig, PingResult, ProviderSnapshot, QuotaSnapshot, WireFormat } from "@/lib/gateway";
+import { Empty } from "@/components/ui";
+import type { MaskedConfig, PingResult, ProviderSnapshot, WireFormat } from "@/lib/gateway";
 
 interface Loaded {
   config: MaskedConfig;
   health: ProviderSnapshot[];
-  quota: QuotaSnapshot[];
 }
 
 export function ProviderManager() {
@@ -23,10 +22,9 @@ export function ProviderManager() {
   const [adding, setAdding] = useState(false);
 
   const reload = useCallback(async () => {
-    const [cfg, prov, q] = await Promise.all([
+    const [cfg, prov] = await Promise.all([
       fetch("/api/gw/admin/config"),
       adminApi.providers(),
-      adminApi.quota(),
     ]);
     if (!cfg.ok || !prov.ok) {
       setError("could not reach the gateway");
@@ -36,7 +34,6 @@ export function ProviderManager() {
     setData({
       config: (await cfg.json()) as MaskedConfig,
       health: prov.data?.providers ?? [],
-      quota: q.data?.quota ?? [],
     });
   }, []);
 
@@ -48,7 +45,6 @@ export function ProviderManager() {
   if (!data) return <Empty>Loading…</Empty>;
 
   const healthById = new Map(data.health.map((h) => [h.id, h]));
-  const quotaById = new Map(data.quota.map((q) => [q.provider, q]));
 
   return (
     <div>
@@ -78,7 +74,6 @@ export function ProviderManager() {
             const health = healthById.get(p.id);
             const healthy = health ? health.keys.some((k) => k.healthy) : true;
             const cooling = health?.keys.find((k) => !k.healthy && k.cooldown_ms > 0);
-            const q = quotaById.get(p.id);
             return (
               <Link
                 key={p.id}
@@ -110,26 +105,6 @@ export function ProviderManager() {
                   <Badge tone="neutral">{p.models.length} models</Badge>
                   {cooling && <CooldownTimer ms={cooling.cooldown_ms} />}
                 </div>
-                {q && (
-                  <div className="mt-3 border-t border-border-subtle pt-2.5">
-                    <div className="flex items-center justify-between text-[11px] text-text-subtle">
-                      <span>quota · {q.window}</span>
-                      <CooldownTimer ms={q.reset_in_ms} tone="muted" icon="restart_alt" keepZero />
-                    </div>
-                    {q.limit_tokens && (
-                      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-2">
-                        <div
-                          className={`h-full ${q.exhausted ? "bg-danger" : "bg-accent"}`}
-                          style={{ width: `${Math.round((q.pct ?? 0) * 100)}%` }}
-                        />
-                      </div>
-                    )}
-                    <div className="mt-1 tnum text-[11px] text-text-muted">
-                      {fmt.compact(q.consumed)}
-                      {q.limit_tokens ? ` / ${fmt.compact(q.limit_tokens)}` : ""} tokens
-                    </div>
-                  </div>
-                )}
               </Link>
             );
           })}

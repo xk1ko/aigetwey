@@ -18,20 +18,8 @@ export { clientKeyFingerprint } from "./middleware/auth.js";
 // Shape differs from a flat OpenAI gateway: routing lives in a top-level
 // `models[]` layer (alias -> provider chain), the endpoint block carries the
 // token-saver toggles, and providers may be free passthroughs or service-account
-// backed. The handler/keypool/quota phases read these fields; defining the full
+// backed. The handler/keypool phases read these fields; defining the full
 // shape up front avoids reshaping config across later phases.
-
-/** Token quota window for a provider — drives the dashboard reset countdown. */
-const QuotaSchema = z.object({
-  window: z.enum(["5h", "daily", "weekly", "monthly"]),
-  // daily: "HH:MM" local reset; weekly: weekday name ("monday"); others: ignored.
-  reset_at: z.string().optional(),
-  timezone: z.string().default("UTC"),
-  // optional ceiling for a progress bar; quota tracking works without it.
-  limit_tokens: z.number().int().positive().optional(),
-  // soft-alert threshold (0..1); UI flags the quota when pct >= this. Default 0.8.
-  alert_at: z.number().gt(0).lte(1).optional(),
-});
 
 const ProviderModelSchema = z.object({
   id: z.string().min(1),
@@ -59,7 +47,6 @@ const ProviderSchema = z
     service_account: z.string().optional(),
     models: z.array(ProviderModelSchema).default([]),
     headers: z.record(z.string()).optional(),
-    quota: QuotaSchema.optional(),
     // when true the provider is skipped in routing (kept in config, like a key's
     // disabled state but for the whole provider).
     disabled: z.boolean().optional(),
@@ -126,8 +113,8 @@ const ServerSchema = z
 /**
  * A spend budget scoped to the whole gateway, one provider, or one upstream
  * model. unit picks what `limit` means — USD cost or total tokens. Soft-alert at
- * alert_at (default 0.8), hard-stop at 100%. Window math reuses the quota
- * calendar engine. Opt-in: omit / empty list to disable.
+ * alert_at (default 0.8), hard-stop at 100%. Window math reuses the shared
+ * calendar engine (window.ts). Opt-in: omit / empty list to disable.
  */
 const BudgetScopeSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("global") }),
@@ -157,7 +144,6 @@ const ConfigSchema = z.object({
   budgets: z.array(BudgetSchema).default([]),
 });
 
-export type Quota = z.infer<typeof QuotaSchema>;
 export type ProviderModel = z.infer<typeof ProviderModelSchema>;
 export type Provider = z.infer<typeof ProviderSchema>;
 export type ModelRoute = z.infer<typeof ModelRouteSchema>;
