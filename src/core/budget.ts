@@ -8,7 +8,7 @@
  */
 import type { Budget, BudgetScope } from "../config.js";
 import { budgetKey } from "../config.js";
-import { currentWindowStart, nextResetAt } from "./quota.js";
+import { currentWindowStart, nextResetAt } from "./window.js";
 
 export interface BudgetStatus {
   scope: BudgetScope;

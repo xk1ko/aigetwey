@@ -10,12 +10,8 @@
  * State is in-memory, optionally persisted so counts survive a restart within
  * the same window. Calendar boundaries are computed in the provider's timezone.
  */
-import type { Provider, Quota } from "../config.js";
-
-const HOUR_MS = 3600_000;
-const DAY_MS = 24 * HOUR_MS;
-
-const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+import type { Provider } from "../config.js";
+import { nextResetAt, type WindowSpec } from "./window.js";
 
 /** Optional persistence hook so counts survive a restart within a window. */
 export interface QuotaStore {
@@ -30,7 +26,7 @@ interface QuotaState {
 
 export interface QuotaSnapshot {
   provider: string;
-  window: Quota["window"];
+  window: WindowSpec["window"];
   consumed: number;
   limit_tokens?: number;
   /** ms until the next scheduled reset */
@@ -40,142 +36,6 @@ export interface QuotaSnapshot {
   exhausted: boolean;
   /** true when a limit is set and pct >= the quota's alert_at (default 0.8) */
   alert: boolean;
-}
-
-// ---- timezone-aware calendar math -----------------------------------------
-
-/** Wall-clock offset (ms) of `tz` at instant `date`: tzWallAsUTC - actualUTC. */
-function tzOffsetMs(date: Date, tz: string): number {
-  const dtf = new Intl.DateTimeFormat("en-US", {
-    timeZone: tz,
-    hourCycle: "h23",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-  const parts = Object.fromEntries(dtf.formatToParts(date).map((p) => [p.type, p.value]));
-  const asUTC = Date.UTC(
-    Number(parts.year),
-    Number(parts.month) - 1,
-    Number(parts.day),
-    Number(parts.hour),
-    Number(parts.minute),
-    Number(parts.second),
-  );
-  return asUTC - date.getTime();
-}
-
-/** Convert a desired wall-clock time in `tz` to an epoch ms. DST-corrected once. */
-function zonedWallToEpoch(y: number, mo: number, d: number, h: number, mi: number, tz: string): number {
-  const guessUTC = Date.UTC(y, mo, d, h, mi);
-  const offset = tzOffsetMs(new Date(guessUTC), tz);
-  let epoch = guessUTC - offset;
-  // re-check once: the offset can differ across a DST boundary
-  const offset2 = tzOffsetMs(new Date(epoch), tz);
-  if (offset2 !== offset) epoch = guessUTC - offset2;
-  return epoch;
-}
-
-/** Wall-clock parts of `nowMs` in `tz`. */
-function zonedParts(nowMs: number, tz: string) {
-  const dtf = new Intl.DateTimeFormat("en-US", {
-    timeZone: tz,
-    hourCycle: "h23",
-    weekday: "long",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  const p = Object.fromEntries(dtf.formatToParts(nowMs).map((x) => [x.type, x.value]));
-  return {
-    year: Number(p.year),
-    month: Number(p.month) - 1,
-    day: Number(p.day),
-    hour: Number(p.hour),
-    minute: Number(p.minute),
-    weekday: String(p.weekday).toLowerCase(),
-  };
-}
-
-function parseHHMM(reset_at: string | undefined): { h: number; m: number } {
-  const m = /^(\d{1,2}):(\d{2})$/.exec(reset_at ?? "");
-  if (!m) return { h: 0, m: 0 };
-  return { h: Math.min(23, Number(m[1])), m: Math.min(59, Number(m[2])) };
-}
-
-/**
- * Next reset instant (epoch ms) strictly after `now` for a quota schedule.
- *   - 5h:      rolling — windowStart + 5h.
- *   - daily:   next `reset_at` (HH:MM, default 00:00) wall-clock in tz.
- *   - weekly:  next `reset_at` weekday (default monday) at 00:00 in tz.
- *   - monthly: next 1st of month at 00:00 in tz.
- */
-export type WindowSpec = Pick<Quota, "window" | "reset_at" | "timezone">;
-
-export function nextResetAt(quota: WindowSpec, windowStart: number, now: number): number {
-  const tz = quota.timezone || "UTC";
-  if (quota.window === "5h") return windowStart + 5 * HOUR_MS;
-
-  const p = zonedParts(now, tz);
-
-  if (quota.window === "daily") {
-    const { h, m } = parseHHMM(quota.reset_at);
-    let candidate = zonedWallToEpoch(p.year, p.month, p.day, h, m, tz);
-    if (candidate <= now) candidate = zonedWallToEpoch(p.year, p.month, p.day + 1, h, m, tz);
-    return candidate;
-  }
-
-  if (quota.window === "weekly") {
-    const target = WEEKDAYS.indexOf((quota.reset_at ?? "monday").toLowerCase());
-    const targetIdx = target === -1 ? 1 : target;
-    const curIdx = WEEKDAYS.indexOf(p.weekday);
-    let daysAhead = (targetIdx - curIdx + 7) % 7;
-    let candidate = zonedWallToEpoch(p.year, p.month, p.day + daysAhead, 0, 0, tz);
-    if (candidate <= now) candidate = zonedWallToEpoch(p.year, p.month, p.day + daysAhead + 7, 0, 0, tz);
-    return candidate;
-  }
-
-  // monthly: first of next month at 00:00
-  return zonedWallToEpoch(p.year, p.month + 1, 1, 0, 0, tz);
-}
-
-/**
- * Epoch ms of the START of the window containing `now`.
- *   - 5h:      fixed 5-hour grid floor (stateless; no per-provider anchor).
- *   - daily:   today's reset_at in tz, or yesterday's if that's still ahead.
- *   - weekly:  the most recent occurrence of the target weekday at 00:00 in tz.
- *   - monthly: the 1st of the current month at 00:00 in tz.
- */
-export function currentWindowStart(spec: WindowSpec, now: number): number {
-  const tz = spec.timezone || "UTC";
-  if (spec.window === "5h") return Math.floor(now / (5 * HOUR_MS)) * (5 * HOUR_MS);
-
-  const p = zonedParts(now, tz);
-
-  if (spec.window === "daily") {
-    const { h, m } = parseHHMM(spec.reset_at);
-    let start = zonedWallToEpoch(p.year, p.month, p.day, h, m, tz);
-    if (start > now) start = zonedWallToEpoch(p.year, p.month, p.day - 1, h, m, tz);
-    return start;
-  }
-
-  if (spec.window === "weekly") {
-    const target = WEEKDAYS.indexOf((spec.reset_at ?? "monday").toLowerCase());
-    const targetIdx = target === -1 ? 1 : target;
-    const curIdx = WEEKDAYS.indexOf(p.weekday);
-    const daysBehind = (curIdx - targetIdx + 7) % 7;
-    let start = zonedWallToEpoch(p.year, p.month, p.day - daysBehind, 0, 0, tz);
-    if (start > now) start = zonedWallToEpoch(p.year, p.month, p.day - daysBehind - 7, 0, 0, tz);
-    return start;
-  }
-
-  // monthly
-  return zonedWallToEpoch(p.year, p.month, 1, 0, 0, tz);
 }
 
 export class QuotaTracker {
