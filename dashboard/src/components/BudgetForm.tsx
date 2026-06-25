@@ -115,7 +115,7 @@ export function BudgetForm({
             <Icon name="close" size={18} />
           </button>
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-4">
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
           {SCOPES.map((s) => (
             <button
               key={s.id}
