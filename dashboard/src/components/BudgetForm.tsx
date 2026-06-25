@@ -60,6 +60,7 @@ export function BudgetForm({
   const [limit, setLimit] = useState(String(initial?.limit ?? ""));
   const [window, setWindow] = useState<(typeof WINDOWS)[number]>(initial?.window ?? "monthly");
   const [alertAt, setAlertAt] = useState(initial ? String(Math.round(initial.alert_at * 100)) : "80");
+  const [note, setNote] = useState(initial?.note ?? "");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -88,7 +89,7 @@ export function BudgetForm({
     setSaving(true);
     setError("");
     try {
-      const r = await adminApi.setBudget({ scope, unit, limit: limitNum, window, alert_at: alertPct / 100 });
+      const r = await adminApi.setBudget({ scope, unit, limit: limitNum, window, alert_at: alertPct / 100, note: note.trim() || undefined });
       if (!r.ok) return setError(r.error ?? "could not save budget");
       onSaved();
     } finally {
@@ -194,6 +195,9 @@ export function BudgetForm({
         </Group>
         <Field label="Alert at" hint="%">
           <Input value={alertAt} onChange={(e) => setAlertAt(e.target.value)} inputMode="numeric" placeholder="80" />
+        </Field>
+        <Field label="Note" hint="optional">
+          <Input value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="e.g. client X cap — don't forget" />
         </Field>
       </div>
 

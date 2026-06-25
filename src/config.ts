@@ -140,6 +140,8 @@ const BudgetSchema = z.object({
   reset_at: z.string().optional(),
   timezone: z.string().default("UTC"),
   alert_at: z.number().gt(0).lte(1).optional(),
+  // optional free-text label so an operator remembers what a budget is for.
+  note: z.string().max(200).optional(),
 });
 
 const ConfigSchema = z.object({

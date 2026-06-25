@@ -14,6 +14,7 @@ export interface BudgetStatus {
   scope: BudgetScope;
   key: string;
   label: string;
+  note?: string;
   unit: "usd" | "tokens";
   limit: number;
   spent: number;
@@ -97,6 +98,7 @@ export class BudgetTracker {
       scope: spec.scope,
       key: budgetKey(spec.scope),
       label: scopeLabel(spec.scope),
+      note: spec.note,
       unit: spec.unit,
       limit,
       spent,
