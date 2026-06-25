@@ -202,17 +202,31 @@ export function BudgetForm({
           <div className="flex items-center gap-3">
             <input
               type="range"
-              min={1}
+              min={0}
               max={100}
               step={1}
-              value={Number(alertAt) || 0}
+              value={Math.max(0, Math.min(100, Number(alertAt) || 0))}
               onChange={(e) => setAlertAt(e.target.value)}
-              className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-surface-2 accent-accent"
+              className="range-accent flex-1"
+              style={{
+                background: `linear-gradient(to right, var(--color-accent) ${Math.max(0, Math.min(100, Number(alertAt) || 0))}%, var(--color-surface-2) ${Math.max(0, Math.min(100, Number(alertAt) || 0))}%)`,
+              }}
               aria-label="Alert threshold percent"
             />
-            <span className="tnum w-12 flex-none rounded-brand bg-surface-2 py-1 text-center text-[13px] font-medium text-text">
-              {Number(alertAt) || 0}%
-            </span>
+            <div className="relative w-16 flex-none">
+              <Input
+                value={alertAt}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/[^\d]/g, "");
+                  if (v === "") return setAlertAt("");
+                  setAlertAt(String(Math.max(0, Math.min(100, Number(v)))));
+                }}
+                inputMode="numeric"
+                className="pr-5 text-center tnum"
+                aria-label="Alert threshold percent (type)"
+              />
+              <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[12px] text-text-subtle">%</span>
+            </div>
           </div>
           <p className="text-[11px] text-text-subtle">Warn once spend crosses this share of the limit.</p>
         </Group>

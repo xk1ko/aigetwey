@@ -338,3 +338,50 @@ button:disabled {
   from { opacity: 0; transform: translateX(20px); }
   to { opacity: 1; transform: translateX(0); }
 }
+
+/* Brand range slider — the consumed portion glows lime (filled via an inline
+ * gradient on the element, which the webkit track inherits; Firefox uses
+ * ::-moz-range-progress), with a lime thumb ringed to read on the dark surface. */
+input[type="range"].range-accent {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--color-surface-2);
+  outline: none;
+}
+input[type="range"].range-accent::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: var(--color-accent);
+  border: 2px solid var(--color-surface);
+  box-shadow: 0 0 0 1px var(--color-accent), 0 0 8px color-mix(in srgb, var(--color-accent) 55%, transparent);
+  cursor: pointer;
+  transition: box-shadow 0.15s ease;
+}
+input[type="range"].range-accent:hover::-webkit-slider-thumb,
+input[type="range"].range-accent:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 1px var(--color-accent), 0 0 12px color-mix(in srgb, var(--color-accent) 85%, transparent);
+}
+input[type="range"].range-accent::-moz-range-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--color-surface-2);
+}
+input[type="range"].range-accent::-moz-range-progress {
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--color-accent);
+}
+input[type="range"].range-accent::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-surface);
+  border-radius: 9999px;
+  background: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent), 0 0 8px color-mix(in srgb, var(--color-accent) 55%, transparent);
+  cursor: pointer;
+}
