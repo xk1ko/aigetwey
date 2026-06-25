@@ -15,7 +15,6 @@ dashboard/node_modules/
 dashboard/.env.local
 .gstack/
 .claude/
-.omop/
 *.log
 docs/superpowers/
 

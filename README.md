@@ -43,9 +43,6 @@ See [CHANGELOG.md](./CHANGELOG.md) for release history.
   `5h`/`24h`/`7day`/`30day` windows anchored to when each budget was created, with a
   live reset countdown and SQLite-backed usage/cost tracking. The Budgets page
   splits **Overall** caps from a **Keys** view that shows every key's spend.
-- **Pricing that stays current** — default per-model rates ship in the binary and
-  refresh from [models.dev](https://models.dev) with `npm run sync-pricing`
-  (first-party vendors only). Your config/dashboard overrides always win.
 - **Dashboard** — providers, combos, usage, budgets, CLI tools, a live server
   console, and a settings page with a per-model pricing editor.
 
@@ -214,9 +211,6 @@ npm run build           # compile to dist/
   rolling `5h`/`24h`/`7day`/`30day` yang di-anchor ke saat budget dibuat, dengan
   hitung mundur reset dan pelacakan pemakaian/biaya berbasis SQLite. Halaman Budgets
   memisah cap **Overall** dari tampilan **Keys** (pemakaian tiap key).
-- **Harga selalu update** — tarif default per-model ikut di binary dan bisa
-  di-refresh dari [models.dev](https://models.dev) lewat `npm run sync-pricing`
-  (vendor first-party saja). Override config/dashboard-mu selalu menang.
 - **Dashboard** — providers, combos, usage, budgets, CLI tools, server console
   live, dan halaman settings dengan editor harga per-model.
 
