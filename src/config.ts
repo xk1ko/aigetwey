@@ -844,6 +844,14 @@ export function removeServerKey(config: Config, index: number): Config {
   if (removed && next.server.key_names && removed in next.server.key_names) {
     delete next.server.key_names[removed];
   }
+  if (removed && next.server.key_models && removed in next.server.key_models) {
+    delete next.server.key_models[removed];
+    if (Object.keys(next.server.key_models).length === 0) next.server.key_models = undefined;
+  }
+  if (removed && next.server.key_rpm && removed in next.server.key_rpm) {
+    delete next.server.key_rpm[removed];
+    if (Object.keys(next.server.key_rpm).length === 0) next.server.key_rpm = undefined;
+  }
   return next;
 }
 
