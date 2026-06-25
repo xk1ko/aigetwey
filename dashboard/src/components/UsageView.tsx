@@ -6,14 +6,33 @@ import { Stat, fmt, Empty } from "@/components/ui";
 import { RichCard } from "@/components/RichCard";
 import type { UsageSummary } from "@/lib/gateway";
 
-type Window = { label: string; ms: number; bucketMs: number };
+type Window = { label: string; key: "today" | "24h" | "7d" | "30d" | "60d"; bucketMs: number };
 
-// window -> (lookback, chart bucket size). Buckets keep ~24-48 points per range.
+// window -> chart bucket size. Buckets keep ~24-60 points per range.
 const WINDOWS: Window[] = [
-  { label: "24h", ms: 24 * 3600_000, bucketMs: 3600_000 },
-  { label: "7d", ms: 7 * 86400_000, bucketMs: 6 * 3600_000 },
-  { label: "30d", ms: 30 * 86400_000, bucketMs: 86400_000 },
+  { label: "Today", key: "today", bucketMs: 3600_000 },
+  { label: "24h", key: "24h", bucketMs: 3600_000 },
+  { label: "7D", key: "7d", bucketMs: 6 * 3600_000 },
+  { label: "30D", key: "30d", bucketMs: 86400_000 },
+  { label: "60D", key: "60d", bucketMs: 2 * 86400_000 },
 ];
+
+/** Lookback start (ms epoch) for a window. "Today" is since local midnight; the
+ *  rest are rolling lookbacks from now. */
+function sinceFor(key: Window["key"]): number {
+  const now = Date.now();
+  switch (key) {
+    case "today": {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    }
+    case "24h": return now - 24 * 3600_000;
+    case "7d": return now - 7 * 86400_000;
+    case "30d": return now - 30 * 86400_000;
+    case "60d": return now - 60 * 86400_000;
+  }
+}
 
 export function UsageView() {
   const [win, setWin] = useState<Window>(WINDOWS[0]!);
@@ -25,7 +44,7 @@ export function UsageView() {
   const load = useCallback(async (w: Window) => {
     setLoading(true);
     setError("");
-    const since = Date.now() - w.ms;
+    const since = sinceFor(w.key);
     const [sumRes, serRes] = await Promise.all([
       fetch(`/api/gw/admin/usage?since=${since}`),
       fetch(`/api/gw/admin/usage/series?since=${since}&bucket=${w.bucketMs}`),
