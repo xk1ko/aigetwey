@@ -20,6 +20,18 @@ describe("getPricingForModel", () => {
   it("returns null for an unknown model", () => {
     expect(getPricingForModel(null, "totally-made-up-model-xyz")).toBeNull();
   });
+
+  it("resolves a vendor model from the auto-synced (models.dev) table", () => {
+    const p = getPricingForModel(null, "claude-sonnet-4-5-20250929");
+    expect(p?.input).toBe(3);
+    expect(p?.output).toBe(15);
+  });
+
+  it("falls back to the hand table for a custom model not on models.dev", () => {
+    const p = getPricingForModel(null, "oswe-vscode-prime");
+    expect(p?.input).toBe(1);
+    expect(p?.output).toBe(4);
+  });
 });
 
 describe("cost from resolved pricing", () => {
