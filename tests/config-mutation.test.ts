@@ -25,6 +25,7 @@ import {
   clearBudget,
   budgetKey,
   clientKeyFingerprint,
+  isKeyExpired,
   type Config,
 } from "../src/config.js";
 
@@ -434,5 +435,43 @@ describe("setServerKeyScope", () => {
     expect(masked).not.toBe("sk-a");
     // verify maskKey transforms the key as expected (so admin.ts re-keying works)
     expect(masked).toContain("…");
+  });
+});
+
+// ---- per-key expiry (expired_at) -------------------------------------------
+
+describe("per-key expiry", () => {
+  it("setServerKeyScope stores an expiry for the key", () => {
+    const next = setServerKeyScope(cfgWithKey(), 0, { expires: 2_000 });
+    expect(next.server.key_expires?.["device-A-key"]).toBe(2_000);
+  });
+
+  it("setServerKeyScope clears the expiry when passed null", () => {
+    const a = setServerKeyScope(cfgWithKey(), 0, { expires: 2_000 });
+    const b = setServerKeyScope(a, 0, { expires: null });
+    expect(b.server.key_expires).toBeUndefined();
+  });
+
+  it("setServerKeyScope leaves expiry untouched when the field is absent", () => {
+    const a = setServerKeyScope(cfgWithKey(), 0, { expires: 2_000 });
+    const b = setServerKeyScope(a, 0, { rpm: 60 }); // editing rpm only
+    expect(b.server.key_expires?.["device-A-key"]).toBe(2_000);
+  });
+
+  it("removeServerKey drops the expiry entry", () => {
+    const a = setServerKeyScope(cfgWithKey(), 0, { expires: 2_000 });
+    const b = removeServerKey(a, 0);
+    expect(b.server.key_expires).toBeUndefined();
+  });
+
+  it("isKeyExpired: true only when now is past a set expiry", () => {
+    const cfg = setServerKeyScope(cfgWithKey(), 0, { expires: 1_000 });
+    expect(isKeyExpired(cfg.server, "device-A-key", 999)).toBe(false);
+    expect(isKeyExpired(cfg.server, "device-A-key", 1_000)).toBe(false); // exactly at expiry = still valid
+    expect(isKeyExpired(cfg.server, "device-A-key", 1_001)).toBe(true);
+  });
+
+  it("isKeyExpired: false for a key with no expiry set", () => {
+    expect(isKeyExpired(cfgWithKey().server, "device-A-key", 9_999_999)).toBe(false);
   });
 });
