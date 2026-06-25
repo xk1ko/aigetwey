@@ -7,8 +7,8 @@ import { Icon } from "@/components/Icon";
 import { ModelPicker, type ModelGroup } from "@/components/ModelPicker";
 import type { BudgetStatus, ModelsPayload } from "@/lib/gateway";
 
-const WINDOWS = ["5h", "daily", "weekly", "monthly"] as const;
-type ScopeType = "global" | "provider" | "model" | "key";
+const WINDOWS = ["5h", "24h", "7day", "30day"] as const;
+type ScopeType = "global" | "provider" | "model";
 
 /** Segment-pill button style — selected = accent, matches the Unit toggle. */
 const pill = (active: boolean): string =>
@@ -34,7 +34,6 @@ const SCOPES: { id: ScopeType; icon: string; label: string; hint: string }[] = [
   { id: "global", icon: "public", label: "Global", hint: "Cap total spend across the whole gateway." },
   { id: "provider", icon: "dns", label: "Per provider", hint: "Cap one provider's spend." },
   { id: "model", icon: "neurology", label: "Per model", hint: "Cap one upstream model's spend." },
-  { id: "key", icon: "key", label: "Per API key", hint: "Cap one gateway key's spend." },
 ];
 
 /**
@@ -53,14 +52,17 @@ export function BudgetForm({
   onCancel: () => void;
 }) {
   const editing = initial !== null;
-  const [scopeType, setScopeType] = useState<ScopeType | null>(initial ? initial.scope.type : null);
-  const [scopeId, setScopeId] = useState(initial && initial.scope.type !== "global" ? initial.scope.id : "");
+  const [scopeType, setScopeType] = useState<ScopeType | null>(
+    initial && initial.scope.type !== "key" ? initial.scope.type : null,
+  );
+  const [scopeId, setScopeId] = useState(
+    initial && initial.scope.type !== "global" && initial.scope.type !== "key" ? initial.scope.id : "",
+  );
   const [catalog, setCatalog] = useState<ModelsPayload | null>(null);
-  const [keys, setKeys] = useState<{ fingerprint: string; name: string; masked: string }[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [unit, setUnit] = useState<"usd" | "tokens">(initial?.unit ?? "usd");
   const [limit, setLimit] = useState(String(initial?.limit ?? ""));
-  const [window, setWindow] = useState<(typeof WINDOWS)[number]>(initial?.window ?? "monthly");
+  const [window, setWindow] = useState<(typeof WINDOWS)[number]>(initial?.window ?? "30day");
   const [alertAt, setAlertAt] = useState(initial ? String(Math.round(initial.alert_at * 100)) : "80");
   const [note, setNote] = useState(initial?.note ?? "");
   const [error, setError] = useState("");
@@ -68,7 +70,6 @@ export function BudgetForm({
 
   useEffect(() => {
     void adminApi.models().then((r) => { if (r.ok && r.data) setCatalog(r.data); });
-    void adminApi.keys().then((r) => { if (r.ok && r.data) setKeys(r.data); });
   }, []);
 
   const providerGroups: ModelGroup[] = catalog?.providers.length
@@ -78,10 +79,7 @@ export function BudgetForm({
   const modelGroups: ModelGroup[] = (catalog?.providers ?? [])
     .filter((p) => p.models.length > 0)
     .map((p) => ({ label: p.id, items: p.models.map((m) => ({ value: m.id, label: m.id })) }));
-  const keyGroups: ModelGroup[] = keys.length
-    ? [{ label: "API keys", items: keys.map((k) => ({ value: k.fingerprint, label: k.name })) }]
-    : [];
-  const scopeIdLabel = scopeType === "key" ? (keys.find((k) => k.fingerprint === scopeId)?.name ?? scopeId) : scopeId;
+  const scopeIdLabel = scopeId;
 
   async function save() {
     const limitNum = Number(limit);
@@ -243,10 +241,10 @@ export function BudgetForm({
 
       {pickerOpen && scopeType !== "global" && (
         <ModelPicker
-          title={scopeType === "provider" ? "Select a provider" : scopeType === "model" ? "Select a model" : "Select an API key"}
-          note={`Click ${scopeType === "key" ? "a key" : `a ${scopeType}`} to scope this budget to it.`}
-          searchPlaceholder={scopeType === "provider" ? "Search providers…" : scopeType === "model" ? "Search models…" : "Search keys…"}
-          groups={scopeType === "provider" ? providerGroups : scopeType === "model" ? modelGroups : keyGroups}
+          title={scopeType === "provider" ? "Select a provider" : "Select a model"}
+          note={`Click a ${scopeType} to scope this budget to it.`}
+          searchPlaceholder={scopeType === "provider" ? "Search providers…" : "Search models…"}
+          groups={scopeType === "provider" ? providerGroups : modelGroups}
           selected={scopeId ? [scopeId] : []}
           onToggle={(v) => { setScopeId(v); setPickerOpen(false); }}
           onClose={() => setPickerOpen(false)}
