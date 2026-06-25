@@ -15,11 +15,17 @@ const FILTERS: { key: StatusFilter; label: string }[] = [
   { key: "error", label: "Errors" },
 ];
 
+// shared control style for the filter row — bordered surface chip, accent on focus.
+const ctrl = "h-9 rounded-brand border border-border bg-surface-2 px-2.5 text-[12.5px] text-text focus:border-accent focus:outline-none";
+
 export function LogTable({ logs: initial }: { logs: UsageLog[] }) {
   const [logs, setLogs] = useState(initial);
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [provFilter, setProvFilter] = useState<string>("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [live, setLive] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -46,45 +52,51 @@ export function LogTable({ logs: initial }: { logs: UsageLog[] }) {
   const okCount = logs.filter((l) => l.status >= 200 && l.status < 300).length;
   const errCount = logs.length - okCount;
 
+  const startMs = startDate ? new Date(`${startDate}T00:00:00`).getTime() : null;
+  const endMs = endDate ? new Date(`${endDate}T23:59:59.999`).getTime() : null;
+
   const shown = logs.filter((l) => {
     if (filter === "ok" && !(l.status >= 200 && l.status < 300)) return false;
     if (filter === "error" && l.status >= 200 && l.status < 300) return false;
     if (provFilter !== "all" && l.provider !== provFilter) return false;
+    if (startMs !== null && l.ts < startMs) return false;
+    if (endMs !== null && l.ts > endMs) return false;
     return true;
   });
+
+  const hasFilters = filter !== "all" || provFilter !== "all" || startDate !== "" || endDate !== "";
+  const clearFilters = () => { setFilter("all"); setProvFilter("all"); setStartDate(""); setEndDate(""); };
 
   const count = (k: StatusFilter) => (k === "all" ? logs.length : k === "ok" ? okCount : errCount);
 
   return (
     <div className="overflow-hidden rounded-brand-lg border border-border bg-surface shadow-soft">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle px-4 py-3">
-        <div className="flex items-center gap-1">
-          {FILTERS.map((f) => (
+      <header className="flex flex-col gap-3 border-b border-border-subtle px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-1.5">
             <button
-              key={f.key}
-              onClick={() => setFilter(f.key)}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
-                filter === f.key ? "bg-surface-2 text-text" : "text-text-muted hover:text-text"
-              }`}
+              onClick={() => setCollapsed((v) => !v)}
+              className="flex-none rounded p-0.5 text-text-subtle transition-colors hover:text-text"
+              aria-label={collapsed ? "Expand requests" : "Collapse requests"}
+              title={collapsed ? "Expand" : "Collapse"}
             >
-              {f.label}
-              <span className="tnum text-text-subtle">{count(f.key)}</span>
+              <Icon name={collapsed ? "chevron_right" : "expand_more"} size={18} />
             </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-2">
-          {providers.length > 1 && (
-            <select
-              value={provFilter}
-              onChange={(e) => setProvFilter(e.target.value)}
-              className="rounded border border-border-subtle bg-transparent px-2 py-1 text-[11px] text-text-muted focus:border-accent focus:outline-none"
-            >
-              <option value="all">All providers</option>
-              {providers.map((p) => (
-                <option key={p} value={p}>{p}</option>
+            <div className="flex items-center gap-1">
+              {FILTERS.map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => setFilter(f.key)}
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                    filter === f.key ? "bg-surface-2 text-text" : "text-text-muted hover:text-text"
+                  }`}
+                >
+                  {f.label}
+                  <span className="tnum text-text-subtle">{count(f.key)}</span>
+                </button>
               ))}
-            </select>
-          )}
+            </div>
+          </div>
           <button
             onClick={() => setLive((v) => !v)}
             className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
@@ -96,9 +108,53 @@ export function LogTable({ logs: initial }: { logs: UsageLog[] }) {
             Live
           </button>
         </div>
+
+        {!collapsed && (
+          <div className="flex flex-wrap items-end gap-2.5">
+            <FilterField label="Provider">
+              <select
+                value={provFilter}
+                onChange={(e) => setProvFilter(e.target.value)}
+                className={ctrl + " w-40"}
+              >
+                <option value="all">All providers</option>
+                {providers.map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            </FilterField>
+            <FilterField label="Start date">
+              <input
+                type="date"
+                value={startDate}
+                max={endDate || undefined}
+                onChange={(e) => setStartDate(e.target.value)}
+                className={ctrl + " [color-scheme:dark]"}
+              />
+            </FilterField>
+            <FilterField label="End date">
+              <input
+                type="date"
+                value={endDate}
+                min={startDate || undefined}
+                onChange={(e) => setEndDate(e.target.value)}
+                className={ctrl + " [color-scheme:dark]"}
+              />
+            </FilterField>
+            <button
+              onClick={clearFilters}
+              disabled={!hasFilters}
+              className="flex h-9 items-center gap-1.5 rounded-brand border border-border bg-surface-2 px-3 text-[12.5px] font-medium text-text-muted transition-colors hover:border-text-subtle hover:text-text disabled:opacity-40 disabled:hover:border-border disabled:hover:text-text-muted"
+              title={hasFilters ? "Reset all filters" : "No filters applied"}
+            >
+              <Icon name="filter_alt_off" size={15} />
+              Clear
+            </button>
+          </div>
+        )}
       </header>
 
-      {shown.length === 0 ? (
+      {collapsed ? null : shown.length === 0 ? (
         <div className="px-4 py-8 text-center text-[13px] text-text-muted">
           {logs.length === 0 ? "No requests recorded yet." : "No requests match this filter."}
         </div>
@@ -155,6 +211,15 @@ export function LogTable({ logs: initial }: { logs: UsageLog[] }) {
         </>
       )}
     </div>
+  );
+}
+
+function FilterField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-[10px] font-medium uppercase tracking-wider text-text-subtle">{label}</span>
+      {children}
+    </label>
   );
 }
 
