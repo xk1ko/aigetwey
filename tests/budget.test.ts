@@ -94,6 +94,25 @@ describe("BudgetTracker (scoped)", () => {
     expect(calls).toBe(2);
   });
 
+  it("key scope: filters by client_key, labels via the resolver, blocksKey matches", () => {
+    const fp = "abcd1234";
+    const tracker = new BudgetTracker(
+      () => [B({ scope: { type: "key", id: fp }, unit: "usd", limit: 5 })],
+      // exhausted only for this key's filter
+      { totals: (_s: number, f?: { provider?: string; model?: string; client_key?: string }) =>
+          f?.client_key === fp ? { tokens_in: 0, tokens_out: 0, cost: 6 } : { tokens_in: 0, tokens_out: 0, cost: 0 } },
+      () => 0,
+      5000,
+      (x) => (x === fp ? "device A" : `key …${x}`),
+    );
+    const s = tracker.statuses()[0]!;
+    expect(s.scope).toEqual({ type: "key", id: fp });
+    expect(s.label).toBe("device A");
+    expect(s.exhausted).toBe(true);
+    expect(tracker.blocksKey(fp)!.exhausted).toBe(true);
+    expect(tracker.blocksKey("ffff9999")).toBeNull();
+  });
+
   it("surfaces the optional note in the status", () => {
     const withNote = new BudgetTracker(
       () => [B({ scope: { type: "global" }, unit: "usd", limit: 10, note: "team A cap" })],
