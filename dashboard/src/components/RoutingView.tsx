@@ -239,6 +239,10 @@ function RouteForm({ providers, onDone, initial, onCancel }: { providers: Provid
       price_in: priceIn ? Number(priceIn) : undefined,
       price_out: priceOut ? Number(priceOut) : undefined,
     });
+    // rename: the new alias is saved above; drop the old one so it doesn't linger.
+    if (r.ok && isEdit && initial!.alias !== alias) {
+      await adminApi.removeRoute(initial!.alias);
+    }
     setBusy(false);
     if (r.ok) onDone();
     else setErr(r.error ?? "failed");
@@ -247,8 +251,8 @@ function RouteForm({ providers, onDone, initial, onCancel }: { providers: Provid
   return (
     <form onSubmit={submit} className="mb-5 rounded-brand-lg border border-border bg-surface p-4 shadow-soft">
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Name" hint="the model name your CLI calls">
-          <Input value={alias} onChange={(e) => setAlias(e.target.value)} placeholder="claude-sonnet-4-6" readOnly={isEdit} className={isEdit ? "opacity-60" : ""} />
+        <Field label="Alias" hint="the name your CLI requests as a model">
+          <Input value={alias} onChange={(e) => setAlias(e.target.value)} placeholder="my-claude" />
         </Field>
         <Field label="Strategy" hint="how the chain is tried">
           <Select value={strategy} onChange={(e) => setStrategy(e.target.value as "fallback" | "round-robin")}>
