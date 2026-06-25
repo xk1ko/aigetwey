@@ -82,6 +82,7 @@ export function QuotaView() {
                 }
               >
                 <div className="space-y-2.5">
+                  {b.note && <p className="text-[12px] italic text-text-subtle">{b.note}</p>}
                   <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
                     <div
                       className={`h-full rounded-full transition-all ${b.exhausted ? "bg-danger" : b.alert ? "bg-warning" : "bg-accent"}`}

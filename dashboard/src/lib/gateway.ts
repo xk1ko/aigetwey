@@ -253,6 +253,7 @@ export interface BudgetStatus {
   scope: BudgetScope;
   key: string;
   label: string;
+  note?: string;
   unit: "usd" | "tokens";
   limit: number;
   spent: number;

@@ -65,6 +65,7 @@ export const adminApi = {
     reset_at?: string;
     timezone?: string;
     alert_at?: number;
+    note?: string;
   }) => api<ConfigReply>("PUT", "/admin/budgets", body),
   clearBudget: (key: string) => api<ConfigReply>("DELETE", `/admin/budgets/${encodeURIComponent(key)}`),
 

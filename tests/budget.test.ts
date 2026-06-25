@@ -93,4 +93,15 @@ describe("BudgetTracker (scoped)", () => {
     now = 6000; t.statuses();
     expect(calls).toBe(2);
   });
+
+  it("surfaces the optional note in the status", () => {
+    const withNote = new BudgetTracker(
+      () => [B({ scope: { type: "global" }, unit: "usd", limit: 10, note: "team A cap" })],
+      fakeDb(() => ({ tokens_in: 0, tokens_out: 0, cost: 0 })),
+      () => 0,
+    );
+    expect(withNote.statuses()[0]!.note).toBe("team A cap");
+    const noNote = new BudgetTracker(() => [B({ scope: { type: "global" }, unit: "usd", limit: 10 })], fakeDb(() => ({ tokens_in: 0, tokens_out: 0, cost: 0 })), () => 0);
+    expect(noNote.statuses()[0]!.note).toBeUndefined();
+  });
 });
