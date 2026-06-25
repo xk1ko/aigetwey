@@ -100,6 +100,11 @@ function maskedConfig(config: Config): Config {
       Object.entries(clone.server.key_rpm).map(([k, v]) => [maskKey(k), v]),
     );
   }
+  if (clone.server.key_expires) {
+    clone.server.key_expires = Object.fromEntries(
+      Object.entries(clone.server.key_expires).map(([k, v]) => [maskKey(k), v]),
+    );
+  }
   return clone;
 }
 
@@ -579,8 +584,8 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     const { index } = req.params as { index: string };
     const i = Number(index);
     if (!Number.isInteger(i)) return reply.code(400).send({ error: "index must be an integer" });
-    const b = (req.body ?? {}) as { models?: string[]; rpm?: number | null };
-    applyMutation(reply, (c) => setServerKeyScope(c, i, { models: b.models, rpm: b.rpm }));
+    const b = (req.body ?? {}) as { models?: string[]; rpm?: number | null; expires?: number | null };
+    applyMutation(reply, (c) => setServerKeyScope(c, i, { models: b.models, rpm: b.rpm, expires: b.expires }));
   });
 
   app.delete("/admin/endpoint/keys/:index", requireAdmin, (req, reply) => {
@@ -770,9 +775,11 @@ function endpointPayload(config: Config) {
     headroom: config.endpoint.headroom,
     keys: config.server.api_keys.map((k) => ({
       key: maskKey(k),
+      fingerprint: clientKeyFingerprint(k),
       name: config.server.key_names?.[k],
       models: config.server.key_models?.[k],
       rpm: config.server.key_rpm?.[k],
+      expires: config.server.key_expires?.[k],
     })),
   };
 }
