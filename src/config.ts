@@ -107,6 +107,10 @@ const ServerSchema = z
     // optional friendly label per key, keyed by the key itself. Kept separate so
     // api_keys stays a plain string[] (auth/masking paths untouched).
     key_names: z.record(z.string()).optional(),
+    // per-key model allowlist (call-strings) + rate limit (req/min), keyed by the
+    // raw key like key_names. Absent → unrestricted / unlimited.
+    key_models: z.record(z.array(z.string().min(1))).optional(),
+    key_rpm: z.record(z.number().int().positive()).optional(),
   })
   .default({ host: "127.0.0.1", port: 18080, api_keys: [] });
 
@@ -840,5 +844,38 @@ export function removeServerKey(config: Config, index: number): Config {
   if (removed && next.server.key_names && removed in next.server.key_names) {
     delete next.server.key_names[removed];
   }
+  return next;
+}
+
+/**
+ * Set or clear a gateway key's scopes (by index, since keys are masked in the
+ * API). `models`/`rpm` are each applied only when present in the patch; an empty
+ * list or null/0 clears that scope. Empty maps are pruned to undefined.
+ */
+export function setServerKeyScope(
+  config: Config,
+  index: number,
+  patch: { models?: string[] | null; rpm?: number | null },
+): Config {
+  const next = cloneConfig(config);
+  const keys = next.server.api_keys;
+  if (index < 0 || index >= keys.length) throw new Error(`no gateway key at index ${index}`);
+  const key = keys[index]!;
+
+  if (patch.models !== undefined) {
+    const models = { ...(next.server.key_models ?? {}) };
+    const list = (patch.models ?? []).map((m) => m.trim()).filter(Boolean);
+    if (list.length > 0) models[key] = list;
+    else delete models[key];
+    next.server.key_models = Object.keys(models).length > 0 ? models : undefined;
+  }
+
+  if (patch.rpm !== undefined) {
+    const rpm = { ...(next.server.key_rpm ?? {}) };
+    if (patch.rpm && patch.rpm > 0) rpm[key] = Math.floor(patch.rpm);
+    else delete rpm[key];
+    next.server.key_rpm = Object.keys(rpm).length > 0 ? rpm : undefined;
+  }
+
   return next;
 }
