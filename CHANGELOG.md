@@ -5,7 +5,7 @@ All notable changes to **aigetwey** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.3.0] — 2026-06-26
+## [1.3.1] — 2026-06-26
 
 ### Added
 - **Granular cost calculation** — cost now uses separate per-1M rates for
@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Reasoning token extraction** — extracts `reasoning_tokens` from Anthropic
   (`thinking_tokens`), OpenAI (`completion_tokens_details.reasoning_tokens`), and
   Gemini (`thoughtsTokenCount`); stored in the usage log for future display.
+
+## [1.3.0] — 2026-06-26
+
+### Added
 - **Per-key expiry** — set an expiry date on a gateway key; `/v1/*` calls with an
   expired key return `403 key expired`. Editable on the Endpoint page next to the
   per-key model allowlist and rate limit. Keys with no expiry never expire.
