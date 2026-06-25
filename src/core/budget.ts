@@ -28,20 +28,23 @@ export interface BudgetStatus {
 }
 
 interface TotalsReader {
-  totals(sinceMs: number, filter?: { provider?: string; model?: string }): {
+  totals(sinceMs: number, filter?: { provider?: string; model?: string; client_key?: string }): {
     tokens_in: number;
     tokens_out: number;
     cost: number;
   };
 }
 
-function scopeLabel(scope: BudgetScope): string {
-  return scope.type === "global" ? "Global" : scope.id;
+function scopeLabel(scope: BudgetScope, keyName: (fp: string) => string): string {
+  if (scope.type === "global") return "Global";
+  if (scope.type === "key") return keyName(scope.id);
+  return scope.id;
 }
 
-function scopeFilter(scope: BudgetScope): { provider?: string; model?: string } | undefined {
+function scopeFilter(scope: BudgetScope): { provider?: string; model?: string; client_key?: string } | undefined {
   if (scope.type === "provider") return { provider: scope.id };
   if (scope.type === "model") return { model: scope.id };
+  if (scope.type === "key") return { client_key: scope.id };
   return undefined;
 }
 
@@ -53,6 +56,7 @@ export class BudgetTracker {
     private readonly db: TotalsReader,
     private readonly now: () => number = Date.now,
     private readonly cacheMs = 5000,
+    private readonly keyName: (fp: string) => string = (fp) => `key …${fp}`,
   ) {}
 
   clearCache(): void {
@@ -83,6 +87,16 @@ export class BudgetTracker {
     return null;
   }
 
+  /** The exhausted key-scoped budget for this fingerprint, or null. */
+  blocksKey(fp: string): { exhausted: true; reset_in_ms: number } | null {
+    for (const s of this.statuses()) {
+      if (s.exhausted && s.scope.type === "key" && s.scope.id === fp) {
+        return { exhausted: true, reset_in_ms: s.reset_in_ms };
+      }
+    }
+    return null;
+  }
+
   private compute(spec: Budget, t: number): BudgetStatus {
     const windowStart = currentWindowStart(spec, t);
     const total = this.db.totals(windowStart, scopeFilter(spec.scope));
@@ -97,7 +111,7 @@ export class BudgetTracker {
     return {
       scope: spec.scope,
       key: budgetKey(spec.scope),
-      label: scopeLabel(spec.scope),
+      label: scopeLabel(spec.scope, this.keyName),
       note: spec.note,
       unit: spec.unit,
       limit,
