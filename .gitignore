@@ -17,3 +17,6 @@ dashboard/.env.local
 .claude/
 .omop/
 *.log
+
+# local dev helper (hot-reload gateway + dashboard) — not shipped
+dev.sh
