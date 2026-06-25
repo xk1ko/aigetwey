@@ -9,41 +9,41 @@ import { fmt, Empty } from "@/components/ui";
 import { BudgetForm } from "@/components/BudgetForm";
 import { Button } from "@/components/Button";
 import { Icon } from "@/components/Icon";
-import type { QuotaSnapshot, BudgetStatus } from "@/lib/gateway";
+import type { BudgetStatus } from "@/lib/gateway";
 
 /**
  * Budget Tracker — scoped spend budgets (global / per-provider / per-model /
- * per-key) with an Add / Edit / Remove flow, shown above the per-provider token
- * quota grid (the older hard token cap that drives each provider card's reset
- * countdown): consumption vs limit, a fill bar, and a live reset countdown.
+ * per-key) with an Add / Edit / Remove flow: consumption vs limit, a fill bar,
+ * and a live reset countdown.
  */
-export function QuotaView() {
-  const [quota, setQuota] = useState<QuotaSnapshot[] | null>(null);
+export function BudgetTracker() {
   const [budgets, setBudgets] = useState<BudgetStatus[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [form, setForm] = useState<{ open: boolean; initial: BudgetStatus | null }>({ open: false, initial: null });
   const [error, setError] = useState("");
 
   const refresh = () =>
-    void adminApi.quota().then((r) => {
+    void adminApi.budgets().then((r) => {
       if (!r.ok) setError(r.error ?? "could not reach the gateway");
-      else { setQuota(r.data?.quota ?? []); setBudgets(r.data?.budgets ?? []); }
+      else { setBudgets(r.data?.budgets ?? []); }
+      setLoaded(true);
     });
 
   useEffect(() => { refresh(); }, []);
 
   if (error) return <Empty>{error}</Empty>;
-  if (!quota) return <Empty>Loading…</Empty>;
+  if (!loaded) return <Empty>Loading...</Empty>;
 
   return (
     <div>
       <div className="mb-6">
         <h1 className="text-[22px] font-semibold tracking-tight text-text">Budget Tracker</h1>
         <p className="mt-1 text-[13px] text-text-muted">
-          Spend caps (USD or tokens) and per-provider token quotas, with live reset countdowns.
+          Spend caps (USD or tokens) with live reset countdowns.
         </p>
       </div>
 
-      {/* ── Budgets ── */}
+      {/* -- Budgets -- */}
       <div className="mb-6">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-[15px] font-semibold text-text">Budgets</h2>
@@ -116,51 +116,6 @@ export function QuotaView() {
           </div>
         )}
       </div>
-
-      {/* ── Per-provider quota grid — only shown once a provider actually has a
-          `quota:` cap configured; superseded by per-provider token budgets, so we
-          don't advertise it with an empty state. ── */}
-      {quota.length > 0 && (
-        <>
-          <div className="mb-3 flex items-baseline justify-between gap-3">
-            <h2 className="text-[15px] font-semibold text-text">Provider quotas</h2>
-            <span className="text-[12px] text-text-subtle">hard token cap per provider, per window</span>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {quota.map((q) => (
-            <RichCard
-              key={q.provider}
-              header={
-                <>
-                  <CardTitle title={q.provider} sub={`window · ${q.window}`} />
-                  <Badge tone={q.exhausted ? "down" : q.alert ? "warn" : "live"}>
-                    {q.exhausted ? "exhausted" : q.alert ? "alert" : "active"}
-                  </Badge>
-                </>
-              }
-            >
-              <div className="space-y-2.5">
-                {q.limit_tokens ? (
-                  <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
-                    <div
-                      className={`h-full rounded-full transition-all ${q.exhausted ? "bg-danger" : q.alert ? "bg-warning" : "bg-accent"}`}
-                      style={{ width: `${Math.round((q.pct ?? 0) * 100)}%` }}
-                    />
-                  </div>
-                ) : null}
-                <div className="flex items-center justify-between text-[12px]">
-                  <span className="tnum text-text-muted">
-                    {fmt.compact(q.consumed)}
-                    {q.limit_tokens ? ` / ${fmt.compact(q.limit_tokens)}` : ""} tokens
-                  </span>
-                  <CooldownTimer ms={q.reset_in_ms} tone="muted" icon="restart_alt" keepZero />
-                </div>
-              </div>
-            </RichCard>
-          ))}
-          </div>
-        </>
-      )}
     </div>
   );
 }

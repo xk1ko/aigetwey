@@ -7,7 +7,7 @@ import { currentPassword } from "./session";
  * a Bearer token so it never reaches the browser.
  *
  * Scoped to the admin surface the gateway exposes today (usage, logs, providers,
- * quota, whole-config CRUD). Granular provider/combo mutation helpers are added
+ * budgets, whole-config CRUD). Granular provider/combo mutation helpers are added
  * alongside the pages that drive them in phase 11.
  */
 function gatewayUrl(): string {
@@ -67,7 +67,7 @@ export async function checkGatewayAuth(password: string): Promise<boolean> {
 
 export const gateway = {
   providers: () => call<{ providers: ProviderSnapshot[] }>("GET", "/admin/providers"),
-  quota: () => call<{ quota: QuotaSnapshot[]; budgets: BudgetStatus[] }>("GET", "/admin/quota"),
+  budgets: () => call<{ budgets: BudgetStatus[] }>("GET", "/admin/budgets"),
   models: () => call<ModelsPayload>("GET", "/admin/models"),
   logs: (limit = 100) => call<{ logs: UsageLog[] }>("GET", `/admin/logs?limit=${limit}`),
   usage: (since = 0) => call<UsageSummary>("GET", `/admin/usage?since=${since}`),
@@ -157,7 +157,6 @@ export interface MaskedProvider {
   auto_models: boolean;
   service_account?: string;
   models: Array<{ id: string; price_in?: number; price_out?: number }>;
-  quota?: { window: "5h" | "daily" | "weekly" | "monthly"; reset_at?: string; timezone: string; limit_tokens?: number };
   cooldown_base_ms: number;
   max_retries: number;
   disabled_keys?: number[];
@@ -233,17 +232,6 @@ export interface ProviderSnapshot {
   format: WireFormat;
   keys: KeySnapshot[];
 }
-export interface QuotaSnapshot {
-  provider: string;
-  window: "5h" | "daily" | "weekly" | "monthly";
-  consumed: number;
-  limit_tokens?: number;
-  reset_in_ms: number;
-  pct?: number;
-  exhausted: boolean;
-  alert: boolean;
-}
-
 export type BudgetScope =
   | { type: "global" }
   | { type: "provider"; id: string }

@@ -1,5 +1,5 @@
-import { QuotaView } from "@/components/QuotaView";
+import { BudgetTracker } from "@/components/BudgetTracker";
 
 export default function QuotaPage() {
-  return <QuotaView />;
+  return <BudgetTracker />;
 }

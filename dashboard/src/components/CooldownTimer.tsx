@@ -6,7 +6,7 @@ import { fmt } from "./ui";
 
 /**
  * Live countdown from a gateway-snapshot remaining-ms. Counts down locally each
- * second from render. Used for both key cooldowns (danger tone) and quota window
+ * second from render. Used for both key cooldowns (danger tone) and budget window
  * resets (muted tone). Renders nothing once it hits zero unless `keepZero`.
  */
 export function CooldownTimer({
