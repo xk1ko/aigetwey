@@ -39,7 +39,6 @@ export function EndpointView() {
   const [ep, setEp] = useState<EndpointPayload | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
-  const [newKey, setNewKey] = useState("");
   const [keyName, setKeyName] = useState("");
   const [created, setCreated] = useState<{ key: string; name: string } | null>(null);
   const [pendingDelKey, setPendingDelKey] = useState<{ i: number; label: string } | null>(null);
@@ -131,7 +130,6 @@ export function EndpointView() {
     }
     setError("");
     setKeyName("");
-    setNewKey("");
     setCreated({ key: rawKey, name });
     await reload();
   }
@@ -365,30 +363,13 @@ export function EndpointView() {
             </div>
           )}
           <div className="mt-3 space-y-2">
-            <Input value={keyName} onChange={(e) => setKeyName(e.target.value)} placeholder="key name (e.g. Claude Code)" />
             <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Input
-                  value={newKey}
-                  onChange={(e) => setNewKey(e.target.value)}
-                  placeholder="custom key (optional) — leave blank to auto-generate"
-                  className="pr-9 font-mono text-[12.5px]"
-                />
-                <button
-                  type="button"
-                  onClick={() => setNewKey(generateKey())}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-text-subtle hover:text-accent"
-                  aria-label="Generate a random key"
-                  title="Generate a random key"
-                >
-                  <Icon name="casino" size={16} />
-                </button>
-              </div>
-              <Button disabled={busy === "genkey"} onClick={() => addKey(keyName, newKey.trim() || generateKey())}>
+              <Input value={keyName} onChange={(e) => setKeyName(e.target.value)} placeholder="key name (e.g. Claude Code)" className="flex-1" />
+              <Button disabled={busy === "genkey"} onClick={() => addKey(keyName, generateKey())}>
                 <Icon name="add" size={16} /> {busy === "genkey" ? "Adding…" : "Add key"}
               </Button>
             </div>
-            <p className="text-[11px] text-text-subtle">Optionally name it, then click Add key — a key is generated and shown once. Configure its limits after.</p>
+            <p className="text-[11px] text-text-subtle">Name it, then click Add key — a key is generated and shown once. Configure its limits after.</p>
           </div>
         </RichCard>
 
