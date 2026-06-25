@@ -78,6 +78,10 @@ async function main(): Promise<void> {
       prefix: "/",
       // forward the whole HTTP surface the dashboard needs (pages + its API).
       httpMethods: ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"],
+      // forward WebSocket upgrades too, so `next dev`'s HMR socket works when the
+      // dashboard is proxied — this is what lets dev run single-URL on the gateway
+      // port like production. Harmless for the prebuilt prod dashboard (no socket).
+      websocket: true,
       // keep the ORIGINAL Host so Next builds redirects (e.g. → /login) against
       // the gateway's address, not the internal dashboard port.
       replyOptions: {

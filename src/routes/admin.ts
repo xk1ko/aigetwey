@@ -445,11 +445,17 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
 
   // every callable model: provider/model catalog entries + routing aliases.
   app.get("/admin/models", requireAdmin, (_req, reply) => {
-    const providers = deps.state.config.listProviders().map((p) => ({
-      id: p.id,
-      format: p.format,
-      models: p.models.map((m) => ({ id: m.id, ref: `${p.id}/${m.id}`, price_in: m.price_in, price_out: m.price_out })),
-    }));
+    // disabled providers are skipped in routing, so their models must not be
+    // selectable anywhere this catalog feeds (combos, CLI-tool setup, budget
+    // scopes) — drop them here at the single source.
+    const providers = deps.state.config
+      .listProviders()
+      .filter((p) => !p.disabled)
+      .map((p) => ({
+        id: p.id,
+        format: p.format,
+        models: p.models.map((m) => ({ id: m.id, ref: `${p.id}/${m.id}`, price_in: m.price_in, price_out: m.price_out })),
+      }));
     const routes = deps.state.config.listRoutes();
     reply.send({ providers, routes });
   });
