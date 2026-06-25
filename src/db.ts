@@ -27,6 +27,7 @@ export interface UsageRow {
   status: number;
   latency_ms: number;
   stream: number; // 0/1
+  client_key: string;
 }
 
 export interface LogRow {
@@ -85,7 +86,8 @@ export class UsageDB {
         cost REAL NOT NULL DEFAULT 0,
         status INTEGER NOT NULL,
         latency_ms INTEGER NOT NULL DEFAULT 0,
-        stream INTEGER NOT NULL DEFAULT 0
+        stream INTEGER NOT NULL DEFAULT 0,
+        client_key TEXT NOT NULL DEFAULT ''
       );
       CREATE INDEX IF NOT EXISTS idx_usage_ts ON usage(ts);
       CREATE TABLE IF NOT EXISTS logs (
@@ -105,10 +107,15 @@ export class UsageDB {
         last_reset INTEGER NOT NULL DEFAULT 0
       );
     `);
+    // migrate older DBs created before client_key existed.
+    const cols = this.db.prepare(`PRAGMA table_info(usage)`).all() as SqlRow[];
+    if (!cols.some((c) => String(c.name) === "client_key")) {
+      this.db.exec(`ALTER TABLE usage ADD COLUMN client_key TEXT NOT NULL DEFAULT ''`);
+    }
     this.now = now;
     this.insertUsage = this.db.prepare(`
-      INSERT INTO usage (ts, alias, provider, model, tokens_in, tokens_out, cached_tokens, cost, status, latency_ms, stream)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO usage (ts, alias, provider, model, tokens_in, tokens_out, cached_tokens, cost, status, latency_ms, stream, client_key)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     this.insertLog = this.db.prepare(`
       INSERT INTO logs (ts, direction, provider, status, request_summary, response_summary)
@@ -123,7 +130,7 @@ export class UsageDB {
     `);
   }
 
-  record(row: Omit<UsageRow, "ts"> & { ts?: number }): void {
+  record(row: Omit<UsageRow, "ts" | "client_key"> & { ts?: number; client_key?: string }): void {
     this.insertUsage.run(
       row.ts ?? this.now(),
       row.alias,
@@ -136,6 +143,7 @@ export class UsageDB {
       row.status,
       row.latency_ms,
       row.stream,
+      row.client_key ?? "",
     );
   }
 
@@ -206,7 +214,7 @@ export class UsageDB {
    * to one provider and/or one model. Backs the scoped budget tracker — the usage
    * table stays the single source of truth (no parallel counter).
    */
-  totals(sinceMs: number, filter?: { provider?: string; model?: string }): UsageTotals {
+  totals(sinceMs: number, filter?: { provider?: string; model?: string; client_key?: string }): UsageTotals {
     const clauses = ["ts >= ?"];
     const params: Array<number | string> = [sinceMs];
     if (filter?.provider) {
@@ -216,6 +224,10 @@ export class UsageDB {
     if (filter?.model) {
       clauses.push("model = ?");
       params.push(filter.model);
+    }
+    if (filter?.client_key) {
+      clauses.push("client_key = ?");
+      params.push(filter.client_key);
     }
     const row = this.db
       .prepare(
