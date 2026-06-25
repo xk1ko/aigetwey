@@ -1,66 +1,79 @@
 import { describe, it, expect } from "vitest";
-import { nextResetAt, currentWindowStart } from "../src/core/window.js";
+import { nextResetAt, currentWindowStart, windowDuration } from "../src/core/window.js";
 
 const HOUR = 3600_000;
-const FIVE_H = 5 * HOUR;
+const DAY = 24 * HOUR;
 
-describe("nextResetAt", () => {
-  it("5h window is rolling from windowStart", () => {
-    const q = { window: "5h" as const, timezone: "UTC" };
-    expect(nextResetAt(q, 1000, 1000)).toBe(1000 + 5 * HOUR);
+describe("currentWindowStart (rolling buckets, epoch-aligned)", () => {
+  it("5h: floors now to a 5-hour grid", () => {
+    const now = 123 * 5 * HOUR + 1000;
+    expect(currentWindowStart({ window: "5h" }, now)).toBe(123 * 5 * HOUR);
   });
 
-  it("daily resets at the next HH:MM in the timezone", () => {
-    const q = { window: "daily" as const, reset_at: "09:00", timezone: "UTC" };
-    const now = Date.UTC(2026, 0, 1, 8, 0);
-    const reset = nextResetAt(q, now, now);
-    expect(reset).toBe(Date.UTC(2026, 0, 1, 9, 0));
+  it("24h: floors now to a 24-hour grid", () => {
+    const now = 200 * DAY + 5000;
+    expect(currentWindowStart({ window: "24h" }, now)).toBe(200 * DAY);
   });
 
-  it("daily rolls to tomorrow when past today's reset time", () => {
-    const q = { window: "daily" as const, reset_at: "09:00", timezone: "UTC" };
-    const now = Date.UTC(2026, 0, 1, 10, 0);
-    const reset = nextResetAt(q, now, now);
-    expect(reset).toBe(Date.UTC(2026, 0, 2, 9, 0));
+  it("7day: floors now to a 7-day grid", () => {
+    const now = 10 * 7 * DAY + 99;
+    expect(currentWindowStart({ window: "7day" }, now)).toBe(10 * 7 * DAY);
   });
 
-  it("weekly resets on the named weekday at 00:00", () => {
-    const q = { window: "weekly" as const, reset_at: "monday", timezone: "UTC" };
-    const now = Date.UTC(2026, 0, 1, 12, 0); // 2026-01-01 is a Thursday
-    const reset = nextResetAt(q, now, now);
-    expect(reset).toBe(Date.UTC(2026, 0, 5, 0, 0)); // next Monday
-  });
-
-  it("monthly resets on the 1st of next month at 00:00", () => {
-    const q = { window: "monthly" as const, timezone: "UTC" };
-    const now = Date.UTC(2026, 0, 15, 0, 0);
-    const reset = nextResetAt(q, now, now);
-    expect(reset).toBe(Date.UTC(2026, 1, 1, 0, 0));
-  });
-
-  it("honors a non-UTC timezone for the daily boundary", () => {
-    const q = { window: "daily" as const, reset_at: "00:00", timezone: "Asia/Jakarta" };
-    const now = Date.UTC(2026, 0, 1, 0, 0); // 07:00 WIB on Jan 1
-    const reset = nextResetAt(q, now, now);
-    expect(reset).toBe(Date.UTC(2026, 0, 1, 17, 0)); // next 00:00 WIB = 17:00 UTC
+  it("30day: floors now to a 30-day grid", () => {
+    const now = 3 * 30 * DAY + 42;
+    expect(currentWindowStart({ window: "30day" }, now)).toBe(3 * 30 * DAY);
   });
 });
 
-describe("currentWindowStart", () => {
-  it("monthly: start is the 1st of the current month (UTC)", () => {
-    const now = Date.UTC(2026, 5, 20, 12, 0);
-    const start = currentWindowStart({ window: "monthly", timezone: "UTC" }, now);
-    expect(start).toBe(Date.UTC(2026, 5, 1, 0, 0));
+describe("nextResetAt", () => {
+  it("resets at the end of the current bucket (windowStart + duration)", () => {
+    expect(nextResetAt({ window: "5h" }, 1000, 1000)).toBe(1000 + 5 * HOUR);
+    expect(nextResetAt({ window: "24h" }, 0, 0)).toBe(DAY);
+    expect(nextResetAt({ window: "7day" }, 0, 0)).toBe(7 * DAY);
+    expect(nextResetAt({ window: "30day" }, 0, 0)).toBe(30 * DAY);
+  });
+});
+
+describe("windowDuration", () => {
+  it("maps each window name to its length in ms", () => {
+    expect(windowDuration({ window: "5h" })).toBe(5 * HOUR);
+    expect(windowDuration({ window: "24h" })).toBe(DAY);
+    expect(windowDuration({ window: "7day" })).toBe(7 * DAY);
+    expect(windowDuration({ window: "30day" })).toBe(30 * DAY);
+  });
+});
+
+describe("currentWindowStart (anchored cycles)", () => {
+  it("anchored: bucket starts at anchor and tumbles by duration", () => {
+    const anchor = 1_000_000;
+    const dur = 24 * HOUR;
+    const now = anchor + dur + dur / 2; // 1.5 cycles in
+    expect(currentWindowStart({ window: "24h", anchor }, now)).toBe(anchor + dur);
   });
 
-  it("daily: start is today's reset_at, or yesterday's if that is still ahead", () => {
-    const now = Date.UTC(2026, 0, 1, 8, 0);
-    const start = currentWindowStart({ window: "daily", reset_at: "09:00", timezone: "UTC" }, now);
-    expect(start).toBe(Date.UTC(2025, 11, 31, 9, 0));
+  it("anchored: before the anchor, the window starts at the anchor", () => {
+    const anchor = 5_000_000;
+    expect(currentWindowStart({ window: "5h", anchor }, anchor - 1000)).toBe(anchor);
   });
 
-  it("5h: start is the floor of now to a 5-hour grid", () => {
-    const now = 123 * FIVE_H + 1000;
-    expect(currentWindowStart({ window: "5h", timezone: "UTC" }, now)).toBe(123 * FIVE_H);
+  it("anchored: exactly on a cycle boundary starts the new cycle", () => {
+    const anchor = 0;
+    const dur = 7 * DAY;
+    expect(currentWindowStart({ window: "7day", anchor }, dur)).toBe(dur);
+  });
+
+  it("no anchor: falls back to the epoch grid (legacy budgets)", () => {
+    const now = 123 * 5 * HOUR + 1000;
+    expect(currentWindowStart({ window: "5h" }, now)).toBe(123 * 5 * HOUR);
+  });
+});
+
+describe("nextResetAt (anchored)", () => {
+  it("resets at the end of the anchored cycle", () => {
+    const anchor = 1_000_000;
+    const dur = 24 * HOUR;
+    const start = anchor + dur;
+    expect(nextResetAt({ window: "24h", anchor }, start, start + 5)).toBe(anchor + 2 * dur);
   });
 });
