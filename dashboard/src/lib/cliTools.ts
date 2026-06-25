@@ -56,20 +56,6 @@ export const CLI_TOOLS: CliTool[] = [
     ],
   },
   {
-    id: "codex",
-    name: "Codex",
-    icon: "code",
-    format: "openai",
-    blurb: "OpenAI-compatible. Use the /v1 base URL.",
-    install: "npm i -g @openai/codex",
-    slots: [{ label: "Model", alias: "gpt-5" }],
-    env: (base, key) => [
-      { name: "OPENAI_BASE_URL", value: `${base}/v1` },
-      { name: "OPENAI_API_KEY", value: KEY(key) },
-    ],
-    steps: ["Set the base URL to the gateway's /v1 path.", "Create a combo named like the slot above, then use it as the model."],
-  },
-  {
     id: "opencode",
     name: "opencode",
     icon: "code_blocks",
@@ -83,35 +69,6 @@ export const CLI_TOOLS: CliTool[] = [
       { name: "OPENAI_API_KEY", value: KEY(key) },
     ],
     steps: ["Add an OpenAI-compatible provider with the gateway /v1 base URL.", "Pick a combo alias as the model."],
-  },
-  {
-    id: "cursor",
-    name: "Cursor",
-    icon: "edit_square",
-    format: "openai",
-    blurb: "OpenAI-compatible. Override the base URL in settings.",
-    slots: [{ label: "Model", alias: "gpt-5" }],
-    env: (base, key) => [
-      { name: "Base URL", value: `${base}/v1` },
-      { name: "API Key", value: KEY(key) },
-    ],
-    steps: [
-      "Settings → Models → OpenAI API Key → override base URL with the gateway /v1.",
-      "Add your combo aliases as custom model names.",
-    ],
-  },
-  {
-    id: "cline",
-    name: "Cline",
-    icon: "extension",
-    format: "openai",
-    blurb: "OpenAI-compatible VS Code agent.",
-    slots: [{ label: "Model", alias: "gpt-5" }],
-    env: (base, key) => [
-      { name: "Base URL", value: `${base}/v1` },
-      { name: "API Key", value: KEY(key) },
-    ],
-    steps: ["Choose the OpenAI-compatible provider.", "Set the base URL to the gateway /v1 and use a combo alias."],
   },
 ];
 
