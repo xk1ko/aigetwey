@@ -35,9 +35,18 @@ See [CHANGELOG.md](./CHANGELOG.md) for release history.
 - **Token savers** — RTK compresses bulky `tool_result` blocks; caveman trims
   output prose; ponytail nudges minimal code; headroom compresses context via an
   external `/v1/compress`. All toggle per-endpoint.
-- **Quota + cost** — per-provider token budgets with scheduled-window resets, a
-  reset countdown, and SQLite-backed usage/cost tracking.
-- **Dashboard** — providers, combos, usage, quota, CLI tools, a live server
+- **Share it safely** — hand a gateway key to a teammate or a friend and set its
+  model allowlist, rate limit, **spend cap**, and **expiry** in one place. Each
+  key's budget resets on its own rolling cycle, so a shared key behaves like a
+  self-renewing monthly allowance; an expired key is refused with `403`.
+- **Budgets + cost** — scoped spend caps (global/provider/model/key) over rolling
+  `5h`/`24h`/`7day`/`30day` windows anchored to when each budget was created, with a
+  live reset countdown and SQLite-backed usage/cost tracking. The Budgets page
+  splits **Overall** caps from a **Keys** view that shows every key's spend.
+- **Pricing that stays current** — default per-model rates ship in the binary and
+  refresh from [models.dev](https://models.dev) with `npm run sync-pricing`
+  (first-party vendors only). Your config/dashboard overrides always win.
+- **Dashboard** — providers, combos, usage, budgets, CLI tools, a live server
   console, and a settings page with a per-model pricing editor.
 
 ### Token savers
@@ -117,7 +126,6 @@ providers:
     format: anthropic
     base_url: https://api.anthropic.com/v1
     api_keys: [sk-ant-xxx]
-    quota: { window: weekly, reset_at: monday, timezone: Asia/Jakarta }
   - id: opencode-free
     format: openai
     base_url: https://opencode.ai/zen/v1
@@ -130,6 +138,12 @@ models:                     # routing: client alias -> prioritized provider chai
     model: [claude-sonnet-4-6, claude-sonnet-4-5]
     price_in: 3             # USD per 1M tokens (for cost tracking)
     price_out: 15
+
+budgets:                    # spend caps; window = rolling 5h | 24h | 7day | 30day
+  - scope: { type: global }
+    unit: usd               # usd (cost) or tokens
+    limit: 50
+    window: 30day           # rolling 30-day lookback (epoch-aligned bucket)
 ```
 
 A **combo** is one of these `models` entries: an alias your CLI tool calls,
@@ -192,9 +206,18 @@ npm run build           # compile to dist/
 - **Penghemat token** — RTK memampatkan blok `tool_result` besar; caveman
   meringkas prosa output; ponytail mendorong kode minimal; headroom memampatkan
   konteks lewat `/v1/compress` eksternal. Semua bisa di-toggle per-endpoint.
-- **Kuota + biaya** — budget token per-provider dengan reset berjadwal, hitung
-  mundur reset, dan pelacakan pemakaian/biaya berbasis SQLite.
-- **Dashboard** — providers, combos, usage, kuota, CLI tools, server console
+- **Bagikan dengan aman** — kasih satu gateway key ke teman/rekan, lalu atur
+  allowlist model, rate limit, **batas spend**, dan **kedaluwarsa** di satu tempat.
+  Budget tiap key reset di siklus rolling-nya sendiri (jadi terasa seperti jatah
+  bulanan yang isi ulang otomatis); key yang kedaluwarsa ditolak `403`.
+- **Budget + biaya** — batas spend berskop (global/provider/model/key) atas jendela
+  rolling `5h`/`24h`/`7day`/`30day` yang di-anchor ke saat budget dibuat, dengan
+  hitung mundur reset dan pelacakan pemakaian/biaya berbasis SQLite. Halaman Budgets
+  memisah cap **Overall** dari tampilan **Keys** (pemakaian tiap key).
+- **Harga selalu update** — tarif default per-model ikut di binary dan bisa
+  di-refresh dari [models.dev](https://models.dev) lewat `npm run sync-pricing`
+  (vendor first-party saja). Override config/dashboard-mu selalu menang.
+- **Dashboard** — providers, combos, usage, budgets, CLI tools, server console
   live, dan halaman settings dengan editor harga per-model.
 
 ### Penghemat token
