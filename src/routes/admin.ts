@@ -87,6 +87,18 @@ function maskedConfig(config: Config): Config {
       Object.entries(clone.server.key_names).map(([k, name]) => [maskKey(k), name]),
     );
   }
+  // key_models / key_rpm are keyed by the RAW key — re-key to the masked form so
+  // real keys never leak through /admin/config.
+  if (clone.server.key_models) {
+    clone.server.key_models = Object.fromEntries(
+      Object.entries(clone.server.key_models).map(([k, v]) => [maskKey(k), v]),
+    );
+  }
+  if (clone.server.key_rpm) {
+    clone.server.key_rpm = Object.fromEntries(
+      Object.entries(clone.server.key_rpm).map(([k, v]) => [maskKey(k), v]),
+    );
+  }
   return clone;
 }
 
