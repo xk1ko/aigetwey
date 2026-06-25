@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.3.0] — Unreleased
 
+### Added
+- **Per-key expiry** — set an expiry date on a gateway key; `/v1/*` calls with an
+  expired key return `403 key expired`. Editable on the Endpoint page next to the
+  per-key model allowlist and rate limit. Keys with no expiry never expire.
+
 ### Changed
 - **Recurring budgets** — each budget window (`5h`/`24h`/`7day`/`30day`) now
   resets on a cycle anchored to when the budget was created, not a shared epoch
