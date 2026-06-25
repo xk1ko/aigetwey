@@ -293,6 +293,10 @@ npm run build           # compile ke dist/
 
 ---
 
+## Acknowledgements
+
+Inspired by [9router](https://github.com/decolua/9router) — its feature set and dashboard shaped much of this project's direction. / Terinspirasi oleh [9router](https://github.com/decolua/9router).
+
 ## License
 
 [MIT](./LICENSE) © xk1ko
