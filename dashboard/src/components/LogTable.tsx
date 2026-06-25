@@ -18,12 +18,25 @@ const FILTERS: { key: StatusFilter; label: string }[] = [
 // shared control style for the filter row — bordered surface chip, accent on focus.
 const ctrl = "h-9 rounded-brand border border-border bg-surface-2 px-2.5 text-[12.5px] text-text focus:border-accent focus:outline-none";
 
+// recency presets for the request log (a live 200-row buffer, so relative
+// windows fit better than absolute dates). null = no time filter.
+const SINCE_PRESETS: { label: string; ms: number | null }[] = [
+  { label: "1h", ms: 3600_000 },
+  { label: "6h", ms: 6 * 3600_000 },
+  { label: "24h", ms: 24 * 3600_000 },
+  { label: "7d", ms: 7 * 86400_000 },
+  { label: "All", ms: null },
+];
+const sincePill = (active: boolean): string =>
+  `rounded-full px-2.5 py-1 text-[12px] font-medium transition-colors ${
+    active ? "bg-accent/15 text-accent" : "text-text-muted hover:text-text"
+  }`;
+
 export function LogTable({ logs: initial }: { logs: UsageLog[] }) {
   const [logs, setLogs] = useState(initial);
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [provFilter, setProvFilter] = useState<string>("all");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [sinceMs, setSinceMs] = useState<number | null>(null);
   const [live, setLive] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
@@ -52,20 +65,18 @@ export function LogTable({ logs: initial }: { logs: UsageLog[] }) {
   const okCount = logs.filter((l) => l.status >= 200 && l.status < 300).length;
   const errCount = logs.length - okCount;
 
-  const startMs = startDate ? new Date(`${startDate}T00:00:00`).getTime() : null;
-  const endMs = endDate ? new Date(`${endDate}T23:59:59.999`).getTime() : null;
+  const sinceFloor = sinceMs !== null ? Date.now() - sinceMs : null;
 
   const shown = logs.filter((l) => {
     if (filter === "ok" && !(l.status >= 200 && l.status < 300)) return false;
     if (filter === "error" && l.status >= 200 && l.status < 300) return false;
     if (provFilter !== "all" && l.provider !== provFilter) return false;
-    if (startMs !== null && l.ts < startMs) return false;
-    if (endMs !== null && l.ts > endMs) return false;
+    if (sinceFloor !== null && l.ts < sinceFloor) return false;
     return true;
   });
 
-  const hasFilters = filter !== "all" || provFilter !== "all" || startDate !== "" || endDate !== "";
-  const clearFilters = () => { setFilter("all"); setProvFilter("all"); setStartDate(""); setEndDate(""); };
+  const hasFilters = filter !== "all" || provFilter !== "all" || sinceMs !== null;
+  const clearFilters = () => { setFilter("all"); setProvFilter("all"); setSinceMs(null); };
 
   const count = (k: StatusFilter) => (k === "all" ? logs.length : k === "ok" ? okCount : errCount);
 
@@ -123,23 +134,19 @@ export function LogTable({ logs: initial }: { logs: UsageLog[] }) {
                 ))}
               </select>
             </FilterField>
-            <FilterField label="Start date">
-              <input
-                type="date"
-                value={startDate}
-                max={endDate || undefined}
-                onChange={(e) => setStartDate(e.target.value)}
-                className={ctrl + " [color-scheme:dark]"}
-              />
-            </FilterField>
-            <FilterField label="End date">
-              <input
-                type="date"
-                value={endDate}
-                min={startDate || undefined}
-                onChange={(e) => setEndDate(e.target.value)}
-                className={ctrl + " [color-scheme:dark]"}
-              />
+            <FilterField label="Since">
+              <div className="flex h-9 items-center gap-0.5 rounded-brand border border-border bg-surface-2 px-1">
+                {SINCE_PRESETS.map((p) => (
+                  <button
+                    key={p.label}
+                    type="button"
+                    onClick={() => setSinceMs(p.ms)}
+                    className={sincePill(sinceMs === p.ms)}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
             </FilterField>
             <button
               onClick={clearFilters}
