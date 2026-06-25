@@ -24,7 +24,6 @@ export async function* streamToCanonical(events: AsyncIterable<SSEEvent>): Async
 /** Lift vendor reasoning fields into the canonical `delta.reasoning`. */
 function normalize(chunk: CanonicalChunk): CanonicalChunk {
   for (const choice of chunk.choices ?? []) {
-    // a finish_reason chunk carries no `delta`; skip it (and any delta-less choice).
     const d = choice.delta as (Record<string, unknown> & { reasoning?: string }) | undefined;
     if (!d) continue;
     if (d.reasoning === undefined) {
@@ -32,6 +31,12 @@ function normalize(chunk: CanonicalChunk): CanonicalChunk {
       if (vendor) d.reasoning = vendor;
     }
   }
+
+  // Extract reasoning_tokens from OpenAI response.usage.completion_tokens_details.reasoning_tokens
+  if (chunk.usage?.completion_tokens_details?.reasoning_tokens !== undefined) {
+    chunk.usage.reasoning_tokens = chunk.usage.completion_tokens_details.reasoning_tokens;
+  }
+
   return chunk;
 }
 

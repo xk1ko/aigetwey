@@ -280,6 +280,7 @@ export interface UsageLog {
   model: string;
   tokens_in: number;
   tokens_out: number;
+  reasoning_tokens: number;
   cached_tokens: number;
   cost: number;
   status: number;

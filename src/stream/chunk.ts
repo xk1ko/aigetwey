@@ -29,6 +29,7 @@ export interface CanonicalChunkUsage {
   cached_tokens?: number;
   cache_creation_tokens?: number;
   reasoning_tokens?: number;
+  completion_tokens_details?: { reasoning_tokens?: number };
 }
 
 export type ChunkFinishReason = "stop" | "length" | "tool_calls" | "content_filter" | null;
