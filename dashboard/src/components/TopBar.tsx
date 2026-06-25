@@ -13,7 +13,7 @@ const LABELS: Record<string, string> = {
   providers: "Providers",
   combos: "Combos",
   usage: "Usage",
-  quota: "Quota Tracker",
+  quota: "Budget Tracker",
   tools: "CLI Tools",
   console: "Server Console",
   config: "Settings",

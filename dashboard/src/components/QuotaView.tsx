@@ -12,12 +12,10 @@ import { Icon } from "@/components/Icon";
 import type { QuotaSnapshot, BudgetStatus } from "@/lib/gateway";
 
 /**
- * Quota Tracker  — the per-provider token budgets that were only
- * visible as a strip on each provider card, now their own page: consumption vs
- * limit, a fill bar, and a live countdown to the next scheduled window reset.
- *
- * Also renders scoped budget cards (global / per-provider / per-model) above
- * the per-provider quota grid, with an Add / Edit / Remove flow via BudgetModal.
+ * Budget Tracker — scoped spend budgets (global / per-provider / per-model /
+ * per-key) with an Add / Edit / Remove flow, shown above the per-provider token
+ * quota grid (the older hard token cap that drives each provider card's reset
+ * countdown): consumption vs limit, a fill bar, and a live reset countdown.
  */
 export function QuotaView() {
   const [quota, setQuota] = useState<QuotaSnapshot[] | null>(null);
@@ -39,9 +37,9 @@ export function QuotaView() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-[22px] font-semibold tracking-tight text-text">Quota Tracker</h1>
+        <h1 className="text-[22px] font-semibold tracking-tight text-text">Budget Tracker</h1>
         <p className="mt-1 text-[13px] text-text-muted">
-          Per-provider token budgets and when each window resets.
+          Spend caps (USD or tokens) and per-provider token quotas, with live reset countdowns.
         </p>
       </div>
 
@@ -119,13 +117,16 @@ export function QuotaView() {
         )}
       </div>
 
-      {/* ── Per-provider quota grid ── */}
-      {quota.length === 0 ? (
-        <Empty>
-          No quotas configured. Add a <span className="tnum">quota</span> block to a provider in Settings.
-        </Empty>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {/* ── Per-provider quota grid — only shown once a provider actually has a
+          `quota:` cap configured; superseded by per-provider token budgets, so we
+          don't advertise it with an empty state. ── */}
+      {quota.length > 0 && (
+        <>
+          <div className="mb-3 flex items-baseline justify-between gap-3">
+            <h2 className="text-[15px] font-semibold text-text">Provider quotas</h2>
+            <span className="text-[12px] text-text-subtle">hard token cap per provider, per window</span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {quota.map((q) => (
             <RichCard
               key={q.provider}
@@ -157,7 +158,8 @@ export function QuotaView() {
               </div>
             </RichCard>
           ))}
-        </div>
+          </div>
+        </>
       )}
     </div>
   );
