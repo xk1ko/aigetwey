@@ -68,6 +68,15 @@ function buildBody(
   const adapter = adapterFor(provider.format);
   const upstreamReq: CanonicalRequest = { ...req, model, stream };
   const out = adapter.requestFromCanonical(upstreamReq) as Record<string, unknown>;
+  // OpenAI-compatible streams omit usage entirely unless you opt in — without this
+  // every streamed call through an openai-format provider logs 0 tokens in/out
+  // (anthropic/gemini report usage inline, so they're unaffected). Ask for the
+  // final usage chunk; the handler taps it for accounting. Preserve a usage opt-in
+  // the client already set.
+  if (stream && provider.format === "openai") {
+    const existing = (out.stream_options ?? {}) as Record<string, unknown>;
+    out.stream_options = { ...existing, include_usage: true };
+  }
   // Normalize thinking into THIS provider's native format, keyed by the upstream
   // model's capabilities. No-op for non-reasoning models. Runs per-attempt so each
   // provider in a fallback chain gets the right shape.

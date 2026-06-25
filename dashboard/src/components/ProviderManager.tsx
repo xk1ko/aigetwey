@@ -97,7 +97,7 @@ export function ProviderManager() {
                 </div>
                 <div className="mt-2 truncate text-[12px] text-text-subtle">{p.base_url}</div>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  {p.disabled && <Badge tone="warn">disabled</Badge>}
+                  <ProviderToggle id={p.id} disabled={!!p.disabled} onDone={reload} />
                   {p.free && <Badge tone="info">free</Badge>}
                   {p.service_account && <Badge tone="info">service-account</Badge>}
                   <Badge tone="neutral">
@@ -132,6 +132,35 @@ export function ProviderManager() {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Inline enable/disable switch shown on each provider card. The card is a <Link>,
+ * so the button swallows the click (preventDefault + stopPropagation) to toggle in
+ * place instead of navigating into the provider. `busy` ignores double-clicks.
+ */
+function ProviderToggle({ id, disabled, onDone }: { id: string; disabled: boolean; onDone: () => void }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (busy) return;
+        setBusy(true);
+        void adminApi.setProviderDisabled(id, !disabled).then(() => onDone()).finally(() => setBusy(false));
+      }}
+      className="inline-flex items-center gap-1.5 text-[11px] text-text-muted"
+      aria-label={disabled ? "Enable provider" : "Disable provider"}
+      title={disabled ? "Provider disabled — click to enable" : "Provider enabled — click to disable"}
+    >
+      <span className={`relative h-4 w-7 rounded-full transition-colors ${disabled ? "bg-border-subtle" : "bg-accent"} ${busy ? "opacity-60" : ""}`}>
+        <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-transform ${disabled ? "left-0.5" : "left-[14px]"}`} />
+      </span>
+      {disabled ? "disabled" : "enabled"}
+    </button>
   );
 }
 

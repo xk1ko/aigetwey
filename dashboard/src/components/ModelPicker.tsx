@@ -22,6 +22,7 @@ export function ModelPicker({
   selected,
   onToggle,
   onClose,
+  showThinkingHint = true,
 }: {
   title?: string;
   note?: string;
@@ -30,6 +31,9 @@ export function ModelPicker({
   selected: string[];
   onToggle: (value: string) => void;
   onClose: () => void;
+  /** The "reasoning models accept a thinking suffix" footer only makes sense when
+   *  picking MODELS. Provider/key pickers reuse this component, so they hide it. */
+  showThinkingHint?: boolean;
 }) {
   const [q, setQ] = useState("");
   const needle = q.trim().toLowerCase();
@@ -104,12 +108,14 @@ export function ModelPicker({
           )}
         </div>
 
-        <div className="border-t border-border-subtle px-4 py-2 text-[11px] text-text-subtle">
-          <Icon name="neurology" size={12} className="mr-1 inline align-text-bottom text-warning" />
-          Reasoning models accept a thinking suffix — call{" "}
-          <code className="rounded bg-surface-2 px-1 text-text-muted">model(high)</code> or{" "}
-          <code className="rounded bg-surface-2 px-1 text-text-muted">model(none)</code> (high·low·medium·minimal·auto·none·or a token budget).
-        </div>
+        {showThinkingHint && (
+          <div className="border-t border-border-subtle px-4 py-2 text-[11px] text-text-subtle">
+            <Icon name="neurology" size={12} className="mr-1 inline align-text-bottom text-warning" />
+            Reasoning models accept a thinking suffix — call{" "}
+            <code className="rounded bg-surface-2 px-1 text-text-muted">model(high)</code> or{" "}
+            <code className="rounded bg-surface-2 px-1 text-text-muted">model(none)</code> (high·low·medium·minimal·auto·none·or a token budget).
+          </div>
+        )}
 
         <div className="flex items-center justify-between border-t border-border-subtle px-4 py-3">
           <span className="tnum text-[12px] text-text-subtle">{selected.length} selected</span>

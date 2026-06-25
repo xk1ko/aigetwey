@@ -14,7 +14,7 @@
  */
 import { spawn, execSync, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { existsSync, copyFileSync } from "node:fs";
+import { existsSync, copyFileSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createInterface } from "node:readline";
@@ -65,10 +65,37 @@ const HELP = `
 const GATEWAY_PORT = opts.port ?? Number(process.env.AIGETWEY_PORT ?? 18080);
 const DASHBOARD_PORT = Number(process.env.DASHBOARD_PORT ?? 3000);
 
-// reuse env secrets if present, otherwise generate (admin) / random (session).
+// reuse env secrets if present, otherwise generate (admin) / persist (session).
 const adminPassword = process.env.AIGETWEY_ADMIN_PASSWORD ?? randomBytes(6).toString("hex");
-const sessionSecret = process.env.SESSION_SECRET ?? randomBytes(24).toString("hex");
 const generatedPw = !process.env.AIGETWEY_ADMIN_PASSWORD;
+
+/**
+ * The dashboard session cookie is signed+encrypted with SESSION_SECRET. A fresh
+ * random secret each boot would invalidate every cookie on restart — the symptom
+ * being "re-enter the password after a relaunch" — so persist a generated one to
+ * the data dir (alongside auth.json) and reuse it. An explicit env var wins.
+ */
+function loadOrCreateSessionSecret(): string {
+  if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
+  const dataDir = resolve(process.env.AIGETWEY_DATA_DIR ?? join(root, "data"));
+  const file = join(dataDir, "session-secret");
+  try {
+    const existing = readFileSync(file, "utf8").trim();
+    if (existing) return existing;
+  } catch {
+    // not created yet — fall through and generate.
+  }
+  const secret = randomBytes(24).toString("hex");
+  try {
+    mkdirSync(dataDir, { recursive: true });
+    writeFileSync(file, secret, { mode: 0o600 });
+  } catch {
+    // unwritable data dir — fall back to an ephemeral secret (cookies won't
+    // survive this boot, but the gateway still runs).
+  }
+  return secret;
+}
+const sessionSecret = loadOrCreateSessionSecret();
 
 function openBrowser(url: string): void {
   const cmd =

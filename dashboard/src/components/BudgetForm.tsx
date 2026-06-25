@@ -198,9 +198,24 @@ export function BudgetForm({
             ))}
           </div>
         </Group>
-        <Field label="Alert at" hint="%">
-          <Input value={alertAt} onChange={(e) => setAlertAt(e.target.value)} inputMode="numeric" placeholder="80" />
-        </Field>
+        <Group label="Alert at">
+          <div className="flex items-center gap-3">
+            <input
+              type="range"
+              min={1}
+              max={100}
+              step={1}
+              value={Number(alertAt) || 0}
+              onChange={(e) => setAlertAt(e.target.value)}
+              className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-surface-2 accent-accent"
+              aria-label="Alert threshold percent"
+            />
+            <span className="tnum w-12 flex-none rounded-brand bg-surface-2 py-1 text-center text-[13px] font-medium text-text">
+              {Number(alertAt) || 0}%
+            </span>
+          </div>
+          <p className="text-[11px] text-text-subtle">Warn once spend crosses this share of the limit.</p>
+        </Group>
         <Field label="Note" hint="optional">
           <Input value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="e.g. client X cap" />
         </Field>
@@ -221,6 +236,7 @@ export function BudgetForm({
           selected={scopeId ? [scopeId] : []}
           onToggle={(v) => { setScopeId(v); setPickerOpen(false); }}
           onClose={() => setPickerOpen(false)}
+          showThinkingHint={scopeType === "model"}
         />
       )}
     </div>
