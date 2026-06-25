@@ -67,7 +67,6 @@ export class UsageDB {
   private readonly db: DatabaseSync;
   private readonly insertUsage;
   private readonly insertLog;
-  private readonly upsertQuota;
   private readonly now: () => number;
 
   constructor(path: string, now: () => number = Date.now) {
@@ -120,13 +119,6 @@ export class UsageDB {
     this.insertLog = this.db.prepare(`
       INSERT INTO logs (ts, direction, provider, status, request_summary, response_summary)
       VALUES (?, ?, ?, ?, ?, ?)
-    `);
-    // upsert keyed on provider_id so each provider keeps one live window row.
-    this.upsertQuota = this.db.prepare(`
-      INSERT INTO quota_state (provider_id, window_start, consumed, last_reset)
-      VALUES (?, ?, ?, ?)
-      ON CONFLICT(provider_id) DO UPDATE SET window_start = excluded.window_start,
-        consumed = excluded.consumed, last_reset = excluded.last_reset
     `);
   }
 
@@ -295,21 +287,6 @@ export class UsageDB {
       stream: num(r.stream),
       client_key: String(r.client_key ?? ""),
     }));
-  }
-
-  // ---- QuotaStore: one live window row per provider (survives restart) ----
-
-  loadQuota(): Array<{ provider_id: string; window_start: number; consumed: number }> {
-    const rows = this.db.prepare(`SELECT provider_id, window_start, consumed FROM quota_state`).all() as SqlRow[];
-    return rows.map((r) => ({
-      provider_id: String(r.provider_id),
-      window_start: num(r.window_start),
-      consumed: num(r.consumed),
-    }));
-  }
-
-  saveQuota(providerId: string, windowStart: number, consumed: number): void {
-    this.upsertQuota.run(providerId, windowStart, consumed, this.now());
   }
 
   close(): void {
