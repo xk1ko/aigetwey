@@ -24,7 +24,9 @@ export async function* streamToCanonical(events: AsyncIterable<SSEEvent>): Async
 /** Lift vendor reasoning fields into the canonical `delta.reasoning`. */
 function normalize(chunk: CanonicalChunk): CanonicalChunk {
   for (const choice of chunk.choices ?? []) {
-    const d = choice.delta as Record<string, unknown> & { reasoning?: string };
+    // a finish_reason chunk carries no `delta`; skip it (and any delta-less choice).
+    const d = choice.delta as (Record<string, unknown> & { reasoning?: string }) | undefined;
+    if (!d) continue;
     if (d.reasoning === undefined) {
       const vendor = (d["reasoning_content"] as string | undefined) ?? (d["reasoning"] as string | undefined);
       if (vendor) d.reasoning = vendor;

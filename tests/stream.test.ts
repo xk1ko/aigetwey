@@ -65,6 +65,21 @@ describe("openai stream — identity", () => {
     const out = await collect(openaiStream.streamFromCanonical(fromArray(chunks)));
     expect(out[out.length - 1]!.data).toBe("[DONE]");
   });
+
+  // Regression: the OpenAI finish_reason chunk carries no `delta`; the trailing
+  // usage chunk (stream_options.include_usage) has empty `choices`. The parser
+  // must not throw on either, or the stream aborts before usage is captured.
+  it("survives a delta-less finish chunk and captures the trailing usage chunk", async () => {
+    const provider: SSEEvent[] = [
+      { data: '{"choices":[{"index":0,"delta":{"content":"Hi"}}]}' },
+      { data: '{"choices":[{"finish_reason":"stop","index":0}]}' }, // no delta
+      { data: '{"choices":[],"usage":{"prompt_tokens":146,"completion_tokens":22,"total_tokens":168}}' },
+      { data: "[DONE]" },
+    ];
+    const chunks = await collect(openaiStream.streamToCanonical(fromArray(provider)));
+    const usage = chunks.find((c) => c.usage)?.usage;
+    expect(usage).toMatchObject({ prompt_tokens: 146, completion_tokens: 22 });
+  });
 });
 
 describe("anthropic stream — provider SSE -> canonical", () => {
