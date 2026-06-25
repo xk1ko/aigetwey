@@ -177,7 +177,26 @@ export interface EndpointPayload {
   caveman: InjectLevel;
   ponytail: InjectLevel;
   headroom: { enabled: boolean; url: string; compress_user_messages: boolean };
-  keys: Array<{ key: string; name?: string; models?: string[]; rpm?: number }>;
+  keys: Array<{ key: string; fingerprint: string; name?: string; models?: string[]; rpm?: number; expires?: number }>;
+}
+
+export interface KeyUsageRow {
+  fingerprint: string;
+  name: string;
+  masked: string;
+  expires?: number;
+  spent: number;
+  tokens: number;
+  budget: {
+    unit: "usd" | "tokens";
+    limit: number;
+    spent: number;
+    pct: number;
+    window: "5h" | "24h" | "7day" | "30day";
+    reset_in_ms: number;
+    exhausted: boolean;
+    alert: boolean;
+  } | null;
 }
 
 export interface HeadroomStatusReply {
@@ -252,7 +271,7 @@ export interface BudgetStatus {
   exhausted: boolean;
   est_converse: number | null;
   reset_in_ms: number;
-  window: "5h" | "daily" | "weekly" | "monthly";
+  window: "5h" | "24h" | "7day" | "30day";
 }
 export interface UsageLog {
   ts: number;
