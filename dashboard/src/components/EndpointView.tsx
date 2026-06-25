@@ -7,11 +7,19 @@ import { RichCard, CardTitle } from "@/components/RichCard";
 import { Button, Input } from "@/components/Button";
 import { Icon } from "@/components/Icon";
 import { KeyReveal } from "@/components/KeyReveal";
-import { Empty } from "@/components/ui";
+import { Empty, fmt } from "@/components/ui";
 import { ModelPicker, type ModelGroup } from "@/components/ModelPicker";
 import type { EndpointPayload, HeadroomStatusReply, InjectLevel, MaskedConfig } from "@/lib/gateway";
 
 const LEVELS: InjectLevel[] = ["off", "lite", "full", "ultra"];
+
+const DAY_MS = 86_400_000;
+const EXPIRY_MS: Record<"7day" | "30day" | "90day" | "1year", number> = {
+  "7day": 7 * DAY_MS,
+  "30day": 30 * DAY_MS,
+  "90day": 90 * DAY_MS,
+  "1year": 365 * DAY_MS,
+};
 
 /** Generate a random gateway key client-side (aigetwey's one-click create). */
 function generateKey(): string {
@@ -35,7 +43,7 @@ export function EndpointView() {
   const [scopeKey, setScopeKey] = useState<number | null>(null);
   const [scopeModels, setScopeModels] = useState<string[]>([]);
   const [scopeRpm, setScopeRpm] = useState("");
-  const [scopeExpires, setScopeExpires] = useState(""); // "YYYY-MM-DD" or ""
+  const [scopeExpiry, setScopeExpiry] = useState<"keep" | "never" | "7day" | "30day" | "90day" | "1year">("never");
   const [scopeLimit, setScopeLimit] = useState("");      // USD limit, "" = no cap
   const [scopeWindow, setScopeWindow] = useState<"5h" | "24h" | "7day" | "30day">("30day");
   const [keyBudgets, setKeyBudgets] = useState<Record<string, { limit: number; window: string }>>({});
@@ -183,7 +191,7 @@ export function EndpointView() {
                           <span>·</span>
                           <span>
                             {k.expires
-                              ? (Date.now() > k.expires ? <span className="text-danger">expired</span> : `expires ${new Date(k.expires).toISOString().slice(0, 10)}`)
+                              ? (Date.now() > k.expires ? <span className="text-danger">expired</span> : `expires ${fmt.date(k.expires)}`)
                               : "no expiry"}
                           </span>
                         </div>
@@ -194,7 +202,7 @@ export function EndpointView() {
                             setScopeKey(i);
                             setScopeModels(k.models ?? []);
                             setScopeRpm(k.rpm ? String(k.rpm) : "");
-                            setScopeExpires(k.expires ? new Date(k.expires).toISOString().slice(0, 10) : "");
+                            setScopeExpiry(k.expires ? "keep" : "never");
                             const kb = keyBudgets[k.fingerprint];
                             setScopeLimit(kb ? String(kb.limit) : "");
                             setScopeWindow((kb?.window as "5h" | "24h" | "7day" | "30day") ?? "30day");
@@ -251,8 +259,26 @@ export function EndpointView() {
                         </div>
                         <div>
                           <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-text-subtle">Access expiry</div>
-                          <Input type="date" lang="en-GB" value={scopeExpires} onChange={(e) => setScopeExpires(e.target.value)} aria-label="Access expires on" />
-                          <div className="mt-1 text-[11px] text-text-subtle">Access ends at the end of this day. Blank = never.</div>
+                          {k.expires && (
+                            <div className="mb-1.5 text-[11px] text-text-subtle">
+                              currently {Date.now() > k.expires ? <span className="text-danger">expired</span> : `expires ${fmt.date(k.expires)}`}
+                            </div>
+                          )}
+                          <div className="flex flex-wrap gap-1">
+                            {(k.expires
+                              ? (["keep", "never", "7day", "30day", "90day", "1year"] as const)
+                              : (["never", "7day", "30day", "90day", "1year"] as const)
+                            ).map((opt) => (
+                              <button
+                                key={opt}
+                                type="button"
+                                onClick={() => setScopeExpiry(opt)}
+                                className={`rounded-brand px-2 py-1 text-[12px] ${scopeExpiry === opt ? "bg-accent text-accent-ink" : "border border-border text-text-muted hover:text-text"}`}
+                              >
+                                {opt === "never" ? "no expiry" : opt === "keep" ? "keep" : opt}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                         <div>
                           <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-text-subtle">Spend cap (USD)</div>
@@ -284,10 +310,15 @@ export function EndpointView() {
                             disabled={busy === `scope${i}`}
                             onClick={() =>
                               run(`scope${i}`, async () => {
+                                // "keep" leaves expiry untouched (omit); "never" clears; a duration sets now+N.
+                                const expires =
+                                  scopeExpiry === "keep" ? undefined
+                                  : scopeExpiry === "never" ? null
+                                  : Date.now() + EXPIRY_MS[scopeExpiry];
                                 const r = await adminApi.setServerKeyScope(i, {
                                   models: scopeModels,
                                   rpm: scopeRpm ? Number(scopeRpm) : null,
-                                  expires: scopeExpires ? new Date(`${scopeExpires}T23:59:59`).getTime() : null,
+                                  expires,
                                 });
                                 if (!r.ok) return r;
                                 const limit = scopeLimit ? Number(scopeLimit) : 0;

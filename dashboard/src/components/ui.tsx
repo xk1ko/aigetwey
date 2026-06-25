@@ -16,6 +16,11 @@ export const fmt = {
   time(ts: number): string {
     return new Date(ts).toLocaleString("en-US", { hour12: false });
   },
+  /** DD/MM/YYYY (local) */
+  date(ts: number): string {
+    const d = new Date(ts);
+    return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+  },
   /** "3m", "2h", "5d" — coarse relative age */
   ago(ts: number): string {
     const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
