@@ -35,6 +35,10 @@ export function EndpointView() {
   const [scopeKey, setScopeKey] = useState<number | null>(null);
   const [scopeModels, setScopeModels] = useState<string[]>([]);
   const [scopeRpm, setScopeRpm] = useState("");
+  const [scopeExpires, setScopeExpires] = useState(""); // "YYYY-MM-DD" or ""
+  const [scopeLimit, setScopeLimit] = useState("");      // USD limit, "" = no cap
+  const [scopeWindow, setScopeWindow] = useState<"5h" | "24h" | "7day" | "30day">("30day");
+  const [keyBudgets, setKeyBudgets] = useState<Record<string, { limit: number; window: string }>>({});
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const reload = useCallback(async () => {
@@ -71,6 +75,15 @@ export function EndpointView() {
         setGroups(grps);
       } catch { /* non-critical — picker will just be empty */ }
     })();
+    // index existing key-scoped budgets by fingerprint so the modal can prefill.
+    void adminApi.budgets().then((r) => {
+      if (!r.ok || !r.data) return;
+      const map: Record<string, { limit: number; window: string }> = {};
+      for (const b of r.data.budgets) {
+        if (b.scope.type === "key") map[b.scope.id] = { limit: b.limit, window: b.window };
+      }
+      setKeyBudgets(map);
+    });
   }, [reload, reloadHr]);
 
   if (error) return <Empty>{error}</Empty>;
@@ -167,14 +180,28 @@ export function EndpointView() {
                           <span>{k.models?.length ? `${k.models.length} model${k.models.length > 1 ? "s" : ""}` : "all models"}</span>
                           <span>·</span>
                           <span>{k.rpm ? `${k.rpm}/min` : "no rate limit"}</span>
+                          <span>·</span>
+                          <span>
+                            {k.expires
+                              ? (Date.now() > k.expires ? <span className="text-danger">expired</span> : `expires ${new Date(k.expires).toISOString().slice(0, 10)}`)
+                              : "no expiry"}
+                          </span>
                         </div>
                       </div>
                       <div className="flex flex-none items-center gap-1">
                         <button
-                          onClick={() => { setScopeKey(i); setScopeModels(k.models ?? []); setScopeRpm(k.rpm ? String(k.rpm) : ""); }}
+                          onClick={() => {
+                            setScopeKey(i);
+                            setScopeModels(k.models ?? []);
+                            setScopeRpm(k.rpm ? String(k.rpm) : "");
+                            setScopeExpires(k.expires ? new Date(k.expires).toISOString().slice(0, 10) : "");
+                            const kb = keyBudgets[k.fingerprint];
+                            setScopeLimit(kb ? String(kb.limit) : "");
+                            setScopeWindow((kb?.window as "5h" | "24h" | "7day" | "30day") ?? "30day");
+                          }}
                           className="text-text-subtle hover:text-text"
                           aria-label="Edit key scope"
-                          title="Model allowlist + rate limit"
+                          title="Model allowlist + rate limit + budget + expiry"
                         >
                           <Icon name="tune" size={15} />
                         </button>
@@ -222,6 +249,32 @@ export function EndpointView() {
                             placeholder="req/min (blank = unlimited)"
                           />
                         </div>
+                        <div>
+                          <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-text-subtle">Access expiry</div>
+                          <Input type="date" value={scopeExpires} onChange={(e) => setScopeExpires(e.target.value)} aria-label="Access expires on" />
+                          <div className="mt-1 text-[11px] text-text-subtle">Access ends at the end of this day. Blank = never.</div>
+                        </div>
+                        <div>
+                          <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-text-subtle">Spend cap (USD)</div>
+                          <Input
+                            inputMode="decimal"
+                            value={scopeLimit}
+                            onChange={(e) => setScopeLimit(e.target.value.replace(/[^\d.]/g, ""))}
+                            placeholder="USD (blank = no cap)"
+                          />
+                          <div className="mt-1.5 flex gap-1">
+                            {(["5h", "24h", "7day", "30day"] as const).map((w) => (
+                              <button
+                                key={w}
+                                type="button"
+                                onClick={() => setScopeWindow(w)}
+                                className={`rounded-brand px-2 py-1 text-[12px] ${scopeWindow === w ? "bg-accent text-accent-ink" : "border border-border text-text-muted hover:text-text"}`}
+                              >
+                                {w}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                         <div className="flex justify-end gap-2">
                           <Button variant="ghost" onClick={() => setScopeKey(null)}>Cancel</Button>
                           <Button
@@ -231,8 +284,16 @@ export function EndpointView() {
                                 const r = await adminApi.setServerKeyScope(i, {
                                   models: scopeModels,
                                   rpm: scopeRpm ? Number(scopeRpm) : null,
+                                  expires: scopeExpires ? new Date(`${scopeExpires}T23:59:59`).getTime() : null,
                                 });
-                                if (r.ok) setScopeKey(null);
+                                if (!r.ok) return r;
+                                const limit = scopeLimit ? Number(scopeLimit) : 0;
+                                if (limit > 0) {
+                                  await adminApi.setBudget({ scope: { type: "key", id: k.fingerprint }, unit: "usd", limit, window: scopeWindow });
+                                } else if (keyBudgets[k.fingerprint]) {
+                                  await adminApi.clearBudget(`key:${k.fingerprint}`);
+                                }
+                                setScopeKey(null);
                                 return r;
                               })
                             }
