@@ -120,7 +120,7 @@ export function ProviderDetail({ id }: { id: string }) {
       </button>
 
       <div className="mb-6 flex items-center gap-3">
-        <Lamp state={health?.keys.some((k) => k.healthy) ?? true ? "live" : "down"} />
+        <Lamp state={provider.disabled ? "idle" : (health?.keys.some((k) => k.healthy) ?? true) ? "live" : "down"} />
         <div>
           <h1 className="text-[22px] font-semibold tracking-tight text-text">{provider.name || provider.id}</h1>
           {provider.name && <span className="text-[12px] text-text-subtle">{provider.id}/</span>}
@@ -128,24 +128,12 @@ export function ProviderDetail({ id }: { id: string }) {
         <FormatBadge format={provider.format} />
         {provider.free && <Badge tone="info">free</Badge>}
         {provider.service_account && <Badge tone="info">service-account</Badge>}
-        {provider.disabled && <Badge tone="warn">disabled</Badge>}
-
-        {/* enable/disable the whole provider — skipped in routing when off */}
-        <label className="ml-auto flex items-center gap-2 text-[12px] text-text-muted">
-          {provider.disabled ? "Disabled" : "Enabled"}
-          <button
-            type="button"
-            onClick={() => void adminApi.setProviderDisabled(id, !provider.disabled).then(() => reload())}
-            className={`relative h-5 w-9 rounded-full transition-colors ${provider.disabled ? "bg-border-subtle" : "bg-accent"}`}
-            aria-label="Toggle provider enabled"
-            title={provider.disabled ? "Provider is disabled — enable it" : "Provider is enabled — disable it"}
-          >
-            <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${provider.disabled ? "left-0.5" : "left-[18px]"}`} />
-          </button>
-        </label>
+        {/* enable/disable lives on the Providers list (one place); here we just
+            flag the state. Disabled = red badge + the content below fades. */}
+        {provider.disabled && <Badge tone="down">disabled</Badge>}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className={`grid gap-4 lg:grid-cols-2 transition-opacity ${provider.disabled ? "opacity-50" : ""}`}>
         <RichCard header={<CardTitle title="Connection" />}>
           {editingConn ? (
             <div className="space-y-3">
@@ -250,21 +238,31 @@ export function ProviderDetail({ id }: { id: string }) {
                   className={`relative h-5 w-9 rounded-full transition-colors ${provider.strategy === "round-robin" ? "bg-accent" : "bg-border-subtle"}`}
                   aria-label="Toggle round-robin"
                 >
-                  <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${provider.strategy === "round-robin" ? "left-[18px]" : "left-0.5"}`} />
+                  <span className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${provider.strategy === "round-robin" ? "translate-x-[18px]" : "translate-x-0"}`} />
                 </button>
                 {provider.strategy === "round-robin" && (
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5">
                     <span className="text-[11px] text-text-subtle">Sticky:</span>
-                    <input
-                      type="number"
-                      min={1}
-                      value={provider.sticky ?? 1}
-                      onChange={(e) => {
-                        const v = Number(e.target.value) || 1;
-                        void adminApi.setProviderStrategy(id, "round-robin", v).then(() => reload());
-                      }}
-                      className="w-12 rounded border border-border-subtle bg-transparent px-1.5 py-0.5 text-[11px] text-text focus:border-accent focus:outline-none"
-                    />
+                    <div className="flex items-center rounded-brand border border-border-subtle">
+                      <button
+                        type="button"
+                        disabled={(provider.sticky ?? 1) <= 1}
+                        onClick={() => void adminApi.setProviderStrategy(id, "round-robin", Math.max(1, (provider.sticky ?? 1) - 1)).then(() => reload())}
+                        className="px-1.5 py-0.5 text-text-subtle transition-colors hover:text-text disabled:opacity-30"
+                        aria-label="Decrease sticky"
+                      >
+                        <Icon name="remove" size={13} />
+                      </button>
+                      <span className="tnum w-6 text-center text-[11px] text-text">{provider.sticky ?? 1}</span>
+                      <button
+                        type="button"
+                        onClick={() => void adminApi.setProviderStrategy(id, "round-robin", (provider.sticky ?? 1) + 1).then(() => reload())}
+                        className="px-1.5 py-0.5 text-text-subtle transition-colors hover:text-text"
+                        aria-label="Increase sticky"
+                      >
+                        <Icon name="add" size={13} />
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
