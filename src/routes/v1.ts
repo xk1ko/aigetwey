@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { checkAuth, extractKey, clientKeyFingerprint } from "../middleware/auth.js";
+import { isKeyExpired } from "../config.js";
 import type { GatewayState } from "../core/state.js";
 import { handle, GatewayError, type HandleDeps } from "../core/handler.js";
 import type { WireFormat } from "../core/canonical.js";
@@ -23,6 +24,11 @@ export function registerV1Routes(app: FastifyInstance, state: GatewayState, db?:
       }
 
       const presented = extractKey(req);
+      if (presented && isKeyExpired(state.config.server, presented, Date.now())) {
+        reply.code(403).send({ error: "key expired" });
+        return; // short-circuit
+      }
+
       const rpm = presented ? state.config.server.key_rpm?.[presented] : undefined;
       if (presented && rpm && limiter.over(clientKeyFingerprint(presented), rpm)) {
         reply.code(429).send({ error: "rate limit exceeded" });
