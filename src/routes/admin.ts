@@ -44,6 +44,7 @@ import {
   addServerKey,
   editServerKey,
   removeServerKey,
+  setServerKeyScope,
   setBudget,
   clearBudget,
   type Config,
@@ -573,6 +574,15 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     applyMutation(reply, (c) => editServerKey(c, i, { name: b?.name }));
   });
 
+  // set/clear ONE gateway key's scopes (model allowlist + rpm), by index.
+  app.put("/admin/endpoint/keys/:index/scope", requireAdmin, (req, reply) => {
+    const { index } = req.params as { index: string };
+    const i = Number(index);
+    if (!Number.isInteger(i)) return reply.code(400).send({ error: "index must be an integer" });
+    const b = (req.body ?? {}) as { models?: string[]; rpm?: number | null };
+    applyMutation(reply, (c) => setServerKeyScope(c, i, { models: b.models, rpm: b.rpm }));
+  });
+
   app.delete("/admin/endpoint/keys/:index", requireAdmin, (req, reply) => {
     const { index } = req.params as { index: string };
     const i = Number(index);
@@ -758,6 +768,11 @@ function endpointPayload(config: Config) {
     caveman: config.endpoint.caveman,
     ponytail: config.endpoint.ponytail,
     headroom: config.endpoint.headroom,
-    keys: config.server.api_keys.map((k) => ({ key: maskKey(k), name: config.server.key_names?.[k] })),
+    keys: config.server.api_keys.map((k) => ({
+      key: maskKey(k),
+      name: config.server.key_names?.[k],
+      models: config.server.key_models?.[k],
+      rpm: config.server.key_rpm?.[k],
+    })),
   };
 }
