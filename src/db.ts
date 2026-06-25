@@ -22,6 +22,7 @@ export interface UsageRow {
   model: string;
   tokens_in: number;
   tokens_out: number;
+  reasoning_tokens: number;
   cached_tokens: number;
   cost: number;
   status: number;
@@ -81,6 +82,7 @@ export class UsageDB {
         model TEXT NOT NULL,
         tokens_in INTEGER NOT NULL DEFAULT 0,
         tokens_out INTEGER NOT NULL DEFAULT 0,
+        reasoning_tokens INTEGER NOT NULL DEFAULT 0,
         cached_tokens INTEGER NOT NULL DEFAULT 0,
         cost REAL NOT NULL DEFAULT 0,
         status INTEGER NOT NULL,
@@ -111,10 +113,13 @@ export class UsageDB {
     if (!cols.some((c) => String(c.name) === "client_key")) {
       this.db.exec(`ALTER TABLE usage ADD COLUMN client_key TEXT NOT NULL DEFAULT ''`);
     }
+    if (!cols.some((c) => String(c.name) === "reasoning_tokens")) {
+      this.db.exec(`ALTER TABLE usage ADD COLUMN reasoning_tokens INTEGER NOT NULL DEFAULT 0`);
+    }
     this.now = now;
     this.insertUsage = this.db.prepare(`
-      INSERT INTO usage (ts, alias, provider, model, tokens_in, tokens_out, cached_tokens, cost, status, latency_ms, stream, client_key)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO usage (ts, alias, provider, model, tokens_in, tokens_out, reasoning_tokens, cached_tokens, cost, status, latency_ms, stream, client_key)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     this.insertLog = this.db.prepare(`
       INSERT INTO logs (ts, direction, provider, status, request_summary, response_summary)
@@ -122,7 +127,7 @@ export class UsageDB {
     `);
   }
 
-  record(row: Omit<UsageRow, "ts" | "client_key"> & { ts?: number; client_key?: string }): void {
+  record(row: Omit<UsageRow, "ts" | "client_key" | "reasoning_tokens"> & { ts?: number; client_key?: string; reasoning_tokens?: number }): void {
     this.insertUsage.run(
       row.ts ?? this.now(),
       row.alias,
@@ -130,6 +135,7 @@ export class UsageDB {
       row.model,
       row.tokens_in,
       row.tokens_out,
+      row.reasoning_tokens ?? 0,
       row.cached_tokens,
       row.cost,
       row.status,
@@ -268,7 +274,7 @@ export class UsageDB {
   recent(limit = 100): UsageRow[] {
     const rows = this.db
       .prepare(
-        `SELECT ts, alias, provider, model, tokens_in, tokens_out, cached_tokens,
+        `SELECT ts, alias, provider, model, tokens_in, tokens_out, reasoning_tokens, cached_tokens,
                 cost, status, latency_ms, stream, client_key
          FROM usage ORDER BY id DESC LIMIT ?`,
       )
@@ -280,6 +286,7 @@ export class UsageDB {
       model: String(r.model),
       tokens_in: num(r.tokens_in),
       tokens_out: num(r.tokens_out),
+      reasoning_tokens: num(r.reasoning_tokens),
       cached_tokens: num(r.cached_tokens),
       cost: num(r.cost),
       status: num(r.status),
@@ -294,9 +301,29 @@ export class UsageDB {
   }
 }
 
-/** Compute USD cost from token counts and per-1M prices. */
-export function computeCost(tokensIn: number, tokensOut: number, priceIn?: number, priceOut?: number): number {
-  const ci = priceIn ? (tokensIn / 1_000_000) * priceIn : 0;
-  const co = priceOut ? (tokensOut / 1_000_000) * priceOut : 0;
-  return ci + co;
+/** Compute USD cost from token counts and per-1M prices. Separate rates for input (non-cache), cache_read, output, reasoning. */
+export function computeCost(tokensIn: number, tokensOut: number, priceIn?: number, priceOut?: number, priceReasoning?: number, priceCachedRead?: number, cachedTokens?: number, reasoningTokens?: number): number {
+  let cost = 0;
+
+  // Non-cached input (input minus cache_read)
+  const nonCachedInput = Math.max(0, tokensIn - (cachedTokens ?? 0));
+  if (priceIn) cost += (nonCachedInput / 1_000_000) * priceIn;
+
+  // Cached read — uses separate rate or falls back to input rate
+  if (cachedTokens && priceCachedRead) {
+    cost += (cachedTokens / 1_000_000) * priceCachedRead;
+  } else if (cachedTokens && priceIn) {
+    cost += (cachedTokens / 1_000_000) * priceIn;
+  }
+
+  // Output completion
+  if (priceOut) cost += (tokensOut / 1_000_000) * priceOut;
+
+  // Reasoning tokens — uses dedicated rate or falls back to output rate
+  if (reasoningTokens) {
+    if (priceReasoning) cost += (reasoningTokens / 1_000_000) * priceReasoning;
+    else if (priceOut) cost += (reasoningTokens / 1_000_000) * priceOut;
+  }
+
+  return cost;
 }

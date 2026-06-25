@@ -76,7 +76,7 @@ export async function* streamToCanonical(events: AsyncIterable<SSEEvent>): Async
     }
 
     const usageMetadata = msg.usageMetadata as
-      | { promptTokenCount?: number; candidatesTokenCount?: number; cachedContentTokenCount?: number }
+      | { promptTokenCount?: number; candidatesTokenCount?: number; cachedContentTokenCount?: number; thoughtsTokenCount?: number }
       | undefined;
     if (cand?.finishReason || usageMetadata) {
       const chunk = base({}, mapFinish(cand?.finishReason));
@@ -84,7 +84,8 @@ export async function* streamToCanonical(events: AsyncIterable<SSEEvent>): Async
         chunk.usage = {
           prompt_tokens: usageMetadata.promptTokenCount ?? 0,
           completion_tokens: usageMetadata.candidatesTokenCount ?? 0,
-          cached_tokens: usageMetadata.cachedContentTokenCount,
+          cached_tokens: usageMetadata.cachedContentTokenCount ?? 0,
+          reasoning_tokens: usageMetadata.thoughtsTokenCount ?? 0,
         };
       }
       yield chunk;
