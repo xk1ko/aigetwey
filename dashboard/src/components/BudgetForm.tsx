@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { adminApi } from "@/lib/client";
 import { Button, Input, Field } from "@/components/Button";
 import { Icon } from "@/components/Icon";
-import type { BudgetStatus, ProviderSnapshot } from "@/lib/gateway";
+import { ModelPicker, type ModelGroup } from "@/components/ModelPicker";
+import type { BudgetStatus, ModelsPayload } from "@/lib/gateway";
 
 const WINDOWS = ["5h", "daily", "weekly", "monthly"] as const;
 type ScopeType = "global" | "provider" | "model";
@@ -53,7 +54,8 @@ export function BudgetForm({
   const editing = initial !== null;
   const [scopeType, setScopeType] = useState<ScopeType | null>(initial ? initial.scope.type : null);
   const [scopeId, setScopeId] = useState(initial && initial.scope.type !== "global" ? initial.scope.id : "");
-  const [providers, setProviders] = useState<string[]>([]);
+  const [catalog, setCatalog] = useState<ModelsPayload | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [unit, setUnit] = useState<"usd" | "tokens">(initial?.unit ?? "usd");
   const [limit, setLimit] = useState(String(initial?.limit ?? ""));
   const [window, setWindow] = useState<(typeof WINDOWS)[number]>(initial?.window ?? "monthly");
@@ -62,10 +64,18 @@ export function BudgetForm({
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    void adminApi.providers().then((r) => {
-      if (r.ok && r.data) setProviders(r.data.providers.map((p: ProviderSnapshot) => p.id));
+    void adminApi.models().then((r) => {
+      if (r.ok && r.data) setCatalog(r.data);
     });
   }, []);
+
+  const providerGroups: ModelGroup[] = catalog?.providers.length
+    ? [{ label: "Providers", items: catalog.providers.map((p) => ({ value: p.id, label: p.id })) }]
+    : [];
+  // one entry per distinct upstream model id (a budget keys on usage.model), grouped by provider.
+  const modelGroups: ModelGroup[] = (catalog?.providers ?? [])
+    .filter((p) => p.models.length > 0)
+    .map((p) => ({ label: p.id, items: p.models.map((m) => ({ value: m.id, label: m.id })) }));
 
   async function save() {
     const limitNum = Number(limit);
@@ -151,23 +161,19 @@ export function BudgetForm({
 
       <div className="space-y-3">
         {/* scope target — only when adding; editing locks the scope (shown in the header) */}
-        {!editing && scopeType === "provider" && (
-          <Group label="Provider">
-            {providers.length === 0 ? (
-              <p className="text-[12px] text-text-subtle">No providers configured yet — add one on the Providers page first.</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {providers.map((p) => (
-                  <button key={p} type="button" onClick={() => setScopeId(p)} className={pill(scopeId === p)}>{p}</button>
-                ))}
-              </div>
-            )}
+        {!editing && scopeType !== "global" && (
+          <Group label={scopeType === "provider" ? "Provider" : "Model"}>
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              className="flex w-full items-center justify-between rounded-brand border border-border bg-bg px-3 py-2 text-left text-[13px] transition-colors hover:border-accent"
+            >
+              <span className={scopeId ? "text-text" : "text-text-subtle"}>
+                {scopeId || (scopeType === "provider" ? "Choose a provider…" : "Choose a model…")}
+              </span>
+              <Icon name="search" size={15} className="text-text-subtle" />
+            </button>
           </Group>
-        )}
-        {!editing && scopeType === "model" && (
-          <Field label="Model" hint="upstream model id">
-            <Input value={scopeId} onChange={(e) => setScopeId(e.target.value)} placeholder="claude-opus-4-6" />
-          </Field>
         )}
 
         <Group label="Unit">
@@ -196,6 +202,18 @@ export function BudgetForm({
         <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>
         <Button type="button" disabled={saving} onClick={save}>{saving ? "Saving…" : editing ? "Save changes" : "Add budget"}</Button>
       </div>
+
+      {pickerOpen && scopeType !== "global" && (
+        <ModelPicker
+          title={scopeType === "provider" ? "Select a provider" : "Select a model"}
+          note={scopeType === "provider" ? "Click a provider to scope this budget to it." : "Click a model to scope this budget to it."}
+          searchPlaceholder={scopeType === "provider" ? "Search providers…" : "Search models…"}
+          groups={scopeType === "provider" ? providerGroups : modelGroups}
+          selected={scopeId ? [scopeId] : []}
+          onToggle={(v) => { setScopeId(v); setPickerOpen(false); }}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
     </div>
   );
 }

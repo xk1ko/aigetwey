@@ -12,6 +12,7 @@ import type {
   EndpointPayload,
   HeadroomStatusReply,
   InjectLevel,
+  ModelsPayload,
   PingResult,
   PricingPayload,
   ProviderSnapshot,
@@ -54,6 +55,7 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<Api
 export const adminApi = {
   providers: () => api<{ providers: ProviderSnapshot[] }>("GET", "/admin/providers"),
   quota: () => api<{ quota: QuotaSnapshot[]; budgets: BudgetStatus[] }>("GET", "/admin/quota"),
+  models: () => api<ModelsPayload>("GET", "/admin/models"),
 
   setBudget: (body: {
     scope: { type: "global" } | { type: "provider"; id: string } | { type: "model"; id: string };
