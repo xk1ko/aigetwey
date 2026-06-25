@@ -247,7 +247,8 @@ export interface QuotaSnapshot {
 export type BudgetScope =
   | { type: "global" }
   | { type: "provider"; id: string }
-  | { type: "model"; id: string };
+  | { type: "model"; id: string }
+  | { type: "key"; id: string };
 
 export interface BudgetStatus {
   scope: BudgetScope;

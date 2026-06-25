@@ -15,15 +15,23 @@ function digest(s: string): Buffer {
   return createHash("sha256").update(s).digest();
 }
 
-/** Constant-time membership test over fixed-length digests. */
-export function isValidKey(presented: string, validKeys: string[]): boolean {
+/** Non-secret stable id for a client key: sha256 truncated to 8 hex chars. */
+export function clientKeyFingerprint(key: string): string {
+  return createHash("sha256").update(key).digest("hex").slice(0, 8);
+}
+
+/** Constant-time: returns the matching key (digest every candidate) or null. */
+export function matchKey(presented: string, validKeys: string[]): string | null {
   const p = digest(presented);
-  // compare against every key so timing can't reveal which one matched.
-  let ok = false;
+  let found: string | null = null;
   for (const k of validKeys) {
-    if (timingSafeEqual(p, digest(k))) ok = true;
+    if (timingSafeEqual(p, digest(k))) found = k;
   }
-  return ok;
+  return found;
+}
+
+export function isValidKey(presented: string, validKeys: string[]): boolean {
+  return matchKey(presented, validKeys) !== null;
 }
 
 export function extractKey(req: FastifyRequest): string | null {
@@ -40,14 +48,16 @@ export interface AuthResult {
   ok: boolean;
   status?: number;
   error?: string;
+  keyFp?: string;
 }
 
 export function checkAuth(req: FastifyRequest, validKeys: string[]): AuthResult {
   if (validKeys.length === 0) return { ok: true }; // auth disabled
   const key = extractKey(req);
   if (!key) return { ok: false, status: 401, error: "missing API key" };
-  if (!isValidKey(key, validKeys)) return { ok: false, status: 401, error: "invalid API key" };
-  return { ok: true };
+  const matched = matchKey(key, validKeys);
+  if (!matched) return { ok: false, status: 401, error: "invalid API key" };
+  return { ok: true, keyFp: clientKeyFingerprint(matched) };
 }
 
 /** Verifies a presented admin password (against the persisted hash store). */

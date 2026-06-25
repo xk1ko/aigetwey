@@ -124,6 +124,25 @@ describe("UsageDB.totals scoped sums", () => {
   });
 });
 
+describe("UsageDB client_key", () => {
+  function seed(): UsageDB {
+    const db = new UsageDB(":memory:");
+    db.record({ alias: "a", provider: "openai", model: "gpt-4o", tokens_in: 100, tokens_out: 50, cached_tokens: 0, cost: 1, status: 200, latency_ms: 1, stream: 0, client_key: "aaaa1111", ts: 1000 });
+    db.record({ alias: "a", provider: "openai", model: "gpt-4o", tokens_in: 10, tokens_out: 5, cached_tokens: 0, cost: 0.2, status: 200, latency_ms: 1, stream: 0, client_key: "bbbb2222", ts: 2000 });
+    return db;
+  }
+  it("totals filters by client_key", () => {
+    expect(seed().totals(0, { client_key: "aaaa1111" }).cost).toBeCloseTo(1);
+    expect(seed().totals(0, { client_key: "bbbb2222" }).cost).toBeCloseTo(0.2);
+  });
+  it("record defaults client_key to '' when omitted, excluded from a keyed sum", () => {
+    const db = new UsageDB(":memory:");
+    db.record({ alias: "a", provider: "p", model: "m", tokens_in: 1, tokens_out: 1, cached_tokens: 0, cost: 9, status: 200, latency_ms: 1, stream: 0, ts: 1 });
+    expect(db.totals(0).cost).toBeCloseTo(9);              // global still counts it
+    expect(db.totals(0, { client_key: "aaaa1111" }).cost).toBe(0); // not attributed to any key
+  });
+});
+
 describe("UsageDB.log", () => {
   it("records a debug log row without throwing", () => {
     const d = db();

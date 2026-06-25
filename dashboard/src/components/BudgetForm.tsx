@@ -8,7 +8,7 @@ import { ModelPicker, type ModelGroup } from "@/components/ModelPicker";
 import type { BudgetStatus, ModelsPayload } from "@/lib/gateway";
 
 const WINDOWS = ["5h", "daily", "weekly", "monthly"] as const;
-type ScopeType = "global" | "provider" | "model";
+type ScopeType = "global" | "provider" | "model" | "key";
 
 /** Segment-pill button style — selected = accent, matches the Unit toggle. */
 const pill = (active: boolean): string =>
@@ -34,6 +34,7 @@ const SCOPES: { id: ScopeType; icon: string; label: string; hint: string }[] = [
   { id: "global", icon: "public", label: "Global", hint: "Cap total spend across the whole gateway." },
   { id: "provider", icon: "dns", label: "Per provider", hint: "Cap one provider's spend." },
   { id: "model", icon: "neurology", label: "Per model", hint: "Cap one upstream model's spend." },
+  { id: "key", icon: "key", label: "Per API key", hint: "Cap one gateway key's spend." },
 ];
 
 /**
@@ -55,6 +56,7 @@ export function BudgetForm({
   const [scopeType, setScopeType] = useState<ScopeType | null>(initial ? initial.scope.type : null);
   const [scopeId, setScopeId] = useState(initial && initial.scope.type !== "global" ? initial.scope.id : "");
   const [catalog, setCatalog] = useState<ModelsPayload | null>(null);
+  const [keys, setKeys] = useState<{ fingerprint: string; name: string; masked: string }[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [unit, setUnit] = useState<"usd" | "tokens">(initial?.unit ?? "usd");
   const [limit, setLimit] = useState(String(initial?.limit ?? ""));
@@ -65,9 +67,8 @@ export function BudgetForm({
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    void adminApi.models().then((r) => {
-      if (r.ok && r.data) setCatalog(r.data);
-    });
+    void adminApi.models().then((r) => { if (r.ok && r.data) setCatalog(r.data); });
+    void adminApi.keys().then((r) => { if (r.ok && r.data) setKeys(r.data); });
   }, []);
 
   const providerGroups: ModelGroup[] = catalog?.providers.length
@@ -77,6 +78,10 @@ export function BudgetForm({
   const modelGroups: ModelGroup[] = (catalog?.providers ?? [])
     .filter((p) => p.models.length > 0)
     .map((p) => ({ label: p.id, items: p.models.map((m) => ({ value: m.id, label: m.id })) }));
+  const keyGroups: ModelGroup[] = keys.length
+    ? [{ label: "API keys", items: keys.map((k) => ({ value: k.fingerprint, label: k.name })) }]
+    : [];
+  const scopeIdLabel = scopeType === "key" ? (keys.find((k) => k.fingerprint === scopeId)?.name ?? scopeId) : scopeId;
 
   async function save() {
     const limitNum = Number(limit);
@@ -112,7 +117,7 @@ export function BudgetForm({
             <Icon name="close" size={18} />
           </button>
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <div className="mt-4 grid gap-3 sm:grid-cols-4">
           {SCOPES.map((s) => (
             <button
               key={s.id}
@@ -146,7 +151,7 @@ export function BudgetForm({
         <div>
           <div className="text-[13.5px] font-semibold text-text">{editing ? "Edit budget" : scopeMeta.label}</div>
           <div className="tnum text-[11px] text-text-subtle">
-            {scopeType === "global" ? "whole gateway" : `${scopeType} · ${editing ? initial!.label : scopeId || "—"}`}
+            {scopeType === "global" ? "whole gateway" : `${scopeType} · ${editing ? initial!.label : scopeIdLabel || "—"}`}
           </div>
         </div>
         {editing ? null : (
@@ -163,14 +168,14 @@ export function BudgetForm({
       <div className="space-y-3">
         {/* scope target — only when adding; editing locks the scope (shown in the header) */}
         {!editing && scopeType !== "global" && (
-          <Group label={scopeType === "provider" ? "Provider" : "Model"}>
+          <Group label={scopeType === "provider" ? "Provider" : scopeType === "model" ? "Model" : "API key"}>
             <button
               type="button"
               onClick={() => setPickerOpen(true)}
               className="flex w-full items-center justify-between rounded-brand border border-border bg-bg px-3 py-2 text-left text-[13px] transition-colors hover:border-accent"
             >
               <span className={scopeId ? "text-text" : "text-text-subtle"}>
-                {scopeId || (scopeType === "provider" ? "Choose a provider…" : "Choose a model…")}
+                {scopeId ? scopeIdLabel : scopeType === "provider" ? "Choose a provider…" : scopeType === "model" ? "Choose a model…" : "Choose an API key…"}
               </span>
               <Icon name="search" size={15} className="text-text-subtle" />
             </button>
@@ -209,10 +214,10 @@ export function BudgetForm({
 
       {pickerOpen && scopeType !== "global" && (
         <ModelPicker
-          title={scopeType === "provider" ? "Select a provider" : "Select a model"}
-          note={scopeType === "provider" ? "Click a provider to scope this budget to it." : "Click a model to scope this budget to it."}
-          searchPlaceholder={scopeType === "provider" ? "Search providers…" : "Search models…"}
-          groups={scopeType === "provider" ? providerGroups : modelGroups}
+          title={scopeType === "provider" ? "Select a provider" : scopeType === "model" ? "Select a model" : "Select an API key"}
+          note={`Click ${scopeType === "key" ? "a key" : `a ${scopeType}`} to scope this budget to it.`}
+          searchPlaceholder={scopeType === "provider" ? "Search providers…" : scopeType === "model" ? "Search models…" : "Search keys…"}
+          groups={scopeType === "provider" ? providerGroups : scopeType === "model" ? modelGroups : keyGroups}
           selected={scopeId ? [scopeId] : []}
           onToggle={(v) => { setScopeId(v); setPickerOpen(false); }}
           onClose={() => setPickerOpen(false)}

@@ -152,8 +152,8 @@ describe("handle — non-stream pipeline", () => {
 });
 
 describe("scoped budget hard-stop", () => {
-  const globalExhausted = { globalStatus: () => ({ exhausted: true, reset_in_ms: 1234 }), blocks: () => null };
-  const noBudget = { globalStatus: () => null, blocks: () => null };
+  const globalExhausted = { globalStatus: () => ({ exhausted: true, reset_in_ms: 1234 }), blocks: () => null, blocksKey: () => null };
+  const noBudget = { globalStatus: () => null, blocks: () => null, blocksKey: () => null };
 
   it("402 when the global budget is exhausted", async () => {
     const deps = { ...depsWith(), budget: globalExhausted };
@@ -166,6 +166,7 @@ describe("scoped budget hard-stop", () => {
     const allBlocked = {
       globalStatus: () => null,
       blocks: () => ({ exhausted: true as const, reset_in_ms: 777 }),
+      blocksKey: () => null,
     };
     const deps = { ...depsWith(), budget: allBlocked };
     await expect(
@@ -195,6 +196,7 @@ describe("scoped budget hard-stop", () => {
       globalStatus: () => null,
       blocks: (providerId: string, _model: string) =>
         providerId === "blocked-oa" ? { exhausted: true as const, reset_in_ms: 500 } : null,
+      blocksKey: () => null,
     };
     const deps: HandleDeps = { config: multiConfig, pool: new KeyPool(), budget: partialBlock };
     const res = await handle(deps, "openai", { model: "multi", messages: [{ role: "user", content: "hi" }] });
@@ -216,6 +218,28 @@ describe("scoped budget hard-stop", () => {
     requestMock.mockResolvedValue(fakeResponse(200, upstreamJson));
 
     const deps = { ...depsWith(), budget: noBudget };
+    const res = await handle(deps, "openai", { model: "smart", messages: [{ role: "user", content: "hi" }] });
+    expect(res.status).toBe(200);
+  });
+});
+
+describe("per-key budget hard-stop", () => {
+  const keyBlocked = { globalStatus: () => null, blocks: () => null, blocksKey: (fp: string) => (fp === "aaaa1111" ? { exhausted: true as const, reset_in_ms: 42 } : null) };
+  it("402 when the caller key is over budget", async () => {
+    const deps = { ...depsWith(), budget: keyBlocked, clientKeyFp: "aaaa1111" };
+    await expect(handle(deps, "openai", { model: "smart", messages: [{ role: "user", content: "hi" }] }))
+      .rejects.toMatchObject({ status: 402, payload: { error: "budget exceeded", reset_in_ms: 42 } });
+  });
+  it("passes a different key through", async () => {
+    const upstreamJson = {
+      id: "chatcmpl-1",
+      model: "gpt-4o",
+      created: 1,
+      choices: [{ index: 0, message: { role: "assistant", content: "hi" }, finish_reason: "stop" }],
+      usage: { prompt_tokens: 5, completion_tokens: 2, total_tokens: 7 },
+    };
+    requestMock.mockResolvedValue(fakeResponse(200, upstreamJson));
+    const deps = { ...depsWith(), budget: keyBlocked, clientKeyFp: "bbbb2222" };
     const res = await handle(deps, "openai", { model: "smart", messages: [{ role: "user", content: "hi" }] });
     expect(res.status).toBe(200);
   });
