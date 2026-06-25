@@ -15,7 +15,7 @@ import { resolve } from "node:path";
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import type { GatewayState } from "../core/state.js";
 import type { UsageDB } from "../db.js";
-import { checkAdminAuth, type AdminVerifier } from "../middleware/auth.js";
+import { checkAdminAuth, clientKeyFingerprint, type AdminVerifier } from "../middleware/auth.js";
 import {
   maskKey,
   serializeConfig,
@@ -563,6 +563,19 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     const i = Number(index);
     if (!Number.isInteger(i)) return reply.code(400).send({ error: "index must be an integer" });
     applyMutation(reply, (c) => removeServerKey(c, i));
+  });
+
+  // server keys with a non-secret fingerprint + display name, for the budget
+  // key-scope picker. Never returns the raw key.
+  app.get("/admin/keys", requireAdmin, (_req, reply) => {
+    const s = deps.state.config.raw.server;
+    reply.send(
+      s.api_keys.map((k) => ({
+        fingerprint: clientKeyFingerprint(k),
+        name: s.key_names?.[k] ?? maskKey(k),
+        masked: maskKey(k),
+      })),
+    );
   });
 
   // reveal ONE raw gateway key (the "show key" button on the Endpoint page).
