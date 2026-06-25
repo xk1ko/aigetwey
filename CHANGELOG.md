@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   per-key model allowlist and rate limit. Keys with no expiry never expire.
 
 ### Changed
+- **Budgets page → Overall + Keys** — the Budgets page now separates Overall caps
+  (global/provider/model) from a Keys section that lists every gateway key with its
+  spend; capped keys show a bar, reset countdown, and expiry, uncapped keys show
+  spend + "no limit". A key's spend cap and expiry are now set in one place — the
+  key settings on the Endpoint page — alongside its model allowlist and rate limit.
 - **Recurring budgets** — each budget window (`5h`/`24h`/`7day`/`30day`) now
   resets on a cycle anchored to when the budget was created, not a shared epoch
   grid. A per-key budget shared with another device becomes a self-resetting
