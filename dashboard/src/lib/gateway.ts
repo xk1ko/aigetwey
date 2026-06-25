@@ -177,7 +177,7 @@ export interface EndpointPayload {
   caveman: InjectLevel;
   ponytail: InjectLevel;
   headroom: { enabled: boolean; url: string; compress_user_messages: boolean };
-  keys: Array<{ key: string; name?: string }>;
+  keys: Array<{ key: string; name?: string; models?: string[]; rpm?: number }>;
 }
 
 export interface HeadroomStatusReply {
