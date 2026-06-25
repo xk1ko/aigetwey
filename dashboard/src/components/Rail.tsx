@@ -14,7 +14,7 @@ const MAIN: NavItem[] = [
   { href: "/providers", label: "Providers", icon: "dns" },
   { href: "/combos", label: "Combos", icon: "layers" },
   { href: "/usage", label: "Usage", icon: "bar_chart" },
-  { href: "/quota", label: "Budget Tracker", icon: "data_usage" },
+  { href: "/quota", label: "Budgets", icon: "data_usage" },
   { href: "/tools", label: "CLI Tools", icon: "terminal" },
 ];
 
