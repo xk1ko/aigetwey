@@ -23,6 +23,7 @@ import {
   setBudget,
   clearBudget,
   budgetKey,
+  clientKeyFingerprint,
   type Config,
 } from "../src/config.js";
 
@@ -303,5 +304,34 @@ describe("scoped budget mutations", () => {
     expect(cfg.raw.budgets[0]!.scope).toEqual({ type: "global" });
     expect(cfg.raw.budgets[0]!.limit).toBe(50);
     expect((cfg.raw as Record<string, unknown>).budget).toBeUndefined();
+  });
+});
+
+// ---- key-scoped budgets -----------------------------------------------------
+
+function cfgWithKey(): Config {
+  return validateConfig({
+    server: { api_keys: ["device-A-key"] },
+    providers: [], models: [],
+  }).raw;
+}
+
+describe("key-scoped budgets", () => {
+  it("budgetKey encodes a key scope", () => {
+    expect(budgetKey({ type: "key", id: "abcd1234" })).toBe("key:abcd1234");
+  });
+  it("setBudget accepts a key scope whose fingerprint matches a server key", () => {
+    const fp = clientKeyFingerprint("device-A-key");
+    const next = setBudget(cfgWithKey(), { scope: { type: "key", id: fp }, unit: "usd", limit: 5, window: "monthly", timezone: "UTC" });
+    expect(next.budgets[0]!.scope).toEqual({ type: "key", id: fp });
+  });
+  it("setBudget rejects a key scope for an unknown fingerprint", () => {
+    expect(() =>
+      setBudget(cfgWithKey(), { scope: { type: "key", id: "deadbeef" }, unit: "usd", limit: 5, window: "monthly", timezone: "UTC" }),
+    ).toThrow(/unknown API key/);
+  });
+  it("schema rejects a key scope with an empty id", () => {
+    expect(() => validateConfig({ providers: [], models: [], budgets: [{ scope: { type: "key", id: "" }, unit: "usd", limit: 5, window: "daily" }] }))
+      .toThrow(/invalid config/);
   });
 });

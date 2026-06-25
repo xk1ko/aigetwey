@@ -9,6 +9,9 @@ import {
 import { dirname } from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { z } from "zod";
+import { clientKeyFingerprint } from "./middleware/auth.js";
+
+export { clientKeyFingerprint } from "./middleware/auth.js";
 
 // ---- schema (PLAN §8) -------------------------------------------------------
 //
@@ -130,6 +133,7 @@ const BudgetScopeSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("global") }),
   z.object({ type: z.literal("provider"), id: z.string().min(1) }),
   z.object({ type: z.literal("model"), id: z.string().min(1) }),
+  z.object({ type: z.literal("key"), id: z.string().min(1) }),
 ]);
 
 const BudgetSchema = z.object({
@@ -793,6 +797,12 @@ export function setBudget(config: Config, budget: Budget): Config {
       throw new Error(`unknown provider "${id}" for budget scope`);
     }
   }
+  if (budget.scope.type === "key") {
+    const { id } = budget.scope;
+    if (!config.server.api_keys.some((k) => clientKeyFingerprint(k) === id)) {
+      throw new Error(`unknown API key fingerprint "${id}" for budget scope`);
+    }
+  }
   const next = cloneConfig(config);
   const key = budgetKey(budget.scope);
   const idx = next.budgets.findIndex((b) => budgetKey(b.scope) === key);
@@ -801,7 +811,7 @@ export function setBudget(config: Config, budget: Budget): Config {
   return next;
 }
 
-/** Remove a budget by its scope key (global | provider:<id> | model:<id>). */
+/** Remove a budget by its scope key (global | provider:<id> | model:<id> | key:<fp>). */
 export function clearBudget(config: Config, key: string): Config {
   const next = cloneConfig(config);
   const idx = next.budgets.findIndex((b) => budgetKey(b.scope) === key);

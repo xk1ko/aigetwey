@@ -4,7 +4,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Fastify, { type FastifyInstance } from "fastify";
-import { validateConfig } from "../src/config.js";
+import { validateConfig, clientKeyFingerprint } from "../src/config.js";
 import { registerRoutes } from "../src/routes/index.js";
 import { GatewayState } from "../src/core/state.js";
 import { UsageDB } from "../src/db.js";
@@ -115,7 +115,7 @@ beforeAll(async () => {
 
   // ---- real gateway pointed at the fake upstream ----
   const config = validateConfig({
-    server: { api_keys: ["gw-key"] },
+    server: { api_keys: ["gw-key", "device-A-key"] },
     endpoint: { rtk: true },
     providers: [
       { id: "oa-ok", format: "openai", base_url: `${up}/oa-ok/v1`, api_key: "sk-oa", max_retries: 0 },
@@ -331,5 +331,37 @@ describe("E2E — scoped budget admin endpoints", () => {
       body: JSON.stringify({ scope: { type: "provider", id: "ghost" }, unit: "usd", limit: 10, window: "daily" }),
     });
     expect(res.status).toBe(400);
+  });
+});
+
+describe("E2E — per-key budget admin", () => {
+  const adminHeaders = { authorization: "Bearer admin-pw", "content-type": "application/json" };
+
+  it("GET /admin/keys returns fingerprint+name (no raw key)", async () => {
+    const res = await fetch(gwUrl("/admin/keys"), { headers: adminHeaders });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Array<{ fingerprint: string; name: string; masked: string }>;
+    expect(body.length).toBeGreaterThanOrEqual(1);
+    const entry = body.find((k) => k.fingerprint === clientKeyFingerprint("device-A-key"));
+    expect(entry).toBeDefined();
+    expect(JSON.stringify(body)).not.toContain("device-A-key");
+  });
+
+  it("PUT a key-scoped budget round-trips via /admin/quota", async () => {
+    const fp = clientKeyFingerprint("device-A-key");
+    let res = await fetch(gwUrl("/admin/budgets"), {
+      method: "PUT",
+      headers: adminHeaders,
+      body: JSON.stringify({ scope: { type: "key", id: fp }, unit: "usd", limit: 5, window: "monthly" }),
+    });
+    expect(res.status).toBe(200);
+
+    res = await fetch(gwUrl("/admin/quota"), { headers: adminHeaders });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { budgets: Array<{ key: string }> };
+    expect(body.budgets.some((b) => b.key === `key:${fp}`)).toBe(true);
+
+    // clean up
+    await fetch(gwUrl(`/admin/budgets/${encodeURIComponent(`key:${fp}`)}`), { method: "DELETE", headers: adminHeaders });
   });
 });

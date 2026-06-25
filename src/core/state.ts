@@ -17,10 +17,19 @@ import {
   validateConfig,
   unmaskSecrets,
   writeConfigFile,
+  maskKey,
 } from "../config.js";
+import { clientKeyFingerprint } from "../middleware/auth.js";
 import { KeyPool } from "./keypool.js";
 import { QuotaTracker } from "./quota.js";
 import { BudgetTracker } from "./budget.js";
+
+function serverKeyLabel(server: { api_keys: string[]; key_names?: Record<string, string> }, fp: string): string {
+  for (const k of server.api_keys) {
+    if (clientKeyFingerprint(k) === fp) return server.key_names?.[k] ?? maskKey(k);
+  }
+  return `key …${fp}`;
+}
 
 export class GatewayState {
   private _config: GatewayConfig;
@@ -32,12 +41,18 @@ export class GatewayState {
     private readonly configPath: string,
     initial: GatewayConfig,
     quota?: QuotaTracker,
-    budgetDb?: { totals(since: number, filter?: { provider?: string; model?: string }): { tokens_in: number; tokens_out: number; cost: number } },
+    budgetDb?: { totals(since: number, filter?: { provider?: string; model?: string; client_key?: string }): { tokens_in: number; tokens_out: number; cost: number } },
   ) {
     this._config = initial;
     this._pool = new KeyPool();
     this._quota = quota ?? new QuotaTracker();
-    this._budget = new BudgetTracker(() => this._config.raw.budgets, budgetDb ?? { totals: () => ({ tokens_in: 0, tokens_out: 0, cost: 0 }) });
+    this._budget = new BudgetTracker(
+      () => this._config.raw.budgets,
+      budgetDb ?? { totals: () => ({ tokens_in: 0, tokens_out: 0, cost: 0 }) },
+      undefined,
+      undefined,
+      (fp) => serverKeyLabel(this._config.raw.server, fp),
+    );
   }
 
   get config(): GatewayConfig {
