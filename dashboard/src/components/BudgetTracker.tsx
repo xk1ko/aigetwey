@@ -9,7 +9,7 @@ import { fmt, Empty } from "@/components/ui";
 import { BudgetForm } from "@/components/BudgetForm";
 import { Button } from "@/components/Button";
 import { Icon } from "@/components/Icon";
-import type { BudgetStatus } from "@/lib/gateway";
+import type { BudgetStatus, KeyUsageRow } from "@/lib/gateway";
 
 /**
  * Budget Tracker — scoped spend budgets (global / per-provider / per-model /
@@ -18,16 +18,19 @@ import type { BudgetStatus } from "@/lib/gateway";
  */
 export function BudgetTracker() {
   const [budgets, setBudgets] = useState<BudgetStatus[]>([]);
+  const [keys, setKeys] = useState<KeyUsageRow[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [form, setForm] = useState<{ open: boolean; initial: BudgetStatus | null }>({ open: false, initial: null });
   const [error, setError] = useState("");
 
-  const refresh = () =>
+  const refresh = () => {
     void adminApi.budgets().then((r) => {
       if (!r.ok) setError(r.error ?? "could not reach the gateway");
       else { setBudgets(r.data?.budgets ?? []); }
       setLoaded(true);
     });
+    void adminApi.keysUsage().then((r) => { if (r.ok) setKeys(r.data?.keys ?? []); });
+  };
 
   useEffect(() => { refresh(); }, []);
 
@@ -37,7 +40,7 @@ export function BudgetTracker() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-[22px] font-semibold tracking-tight text-text">Budget Tracker</h1>
+        <h1 className="text-[22px] font-semibold tracking-tight text-text">Budgets</h1>
         <p className="mt-1 text-[13px] text-text-muted">
           Spend caps (USD or tokens) with live reset countdowns.
         </p>
@@ -46,7 +49,7 @@ export function BudgetTracker() {
       {/* -- Budgets -- */}
       <div className="mb-6">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-[15px] font-semibold text-text">Budgets</h2>
+          <h2 className="text-[15px] font-semibold text-text">Overall</h2>
           {!form.open && (
             <Button onClick={() => setForm({ open: true, initial: null })}>
               <Icon name="add" size={16} /> Add budget
@@ -63,11 +66,11 @@ export function BudgetTracker() {
           />
         )}
 
-        {budgets.length === 0 ? (
+        {budgets.filter((b) => b.scope.type !== "key").length === 0 ? (
           !form.open && <Empty>No budgets yet. Add one to cap spend globally, per provider, or per model.</Empty>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {budgets.map((b) => (
+            {budgets.filter((b) => b.scope.type !== "key").map((b) => (
               <RichCard
                 key={b.key}
                 header={
@@ -109,6 +112,63 @@ export function BudgetTracker() {
                     >
                       <Icon name="delete" size={14} /> Remove
                     </Button>
+                  </div>
+                </div>
+              </RichCard>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* -- Keys -- */}
+      <div>
+        <h2 className="mb-3 text-[15px] font-semibold text-text">Keys</h2>
+        {keys.length === 0 ? (
+          <Empty>No gateway keys yet. Add one on the Endpoint page.</Empty>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {keys.map((k) => (
+              <RichCard
+                key={k.fingerprint}
+                header={
+                  <>
+                    <CardTitle title={k.name} sub={k.budget ? `key · ${k.budget.window}` : "key · no limit"} />
+                    {k.expires && Date.now() > k.expires ? (
+                      <Badge tone="down">expired</Badge>
+                    ) : k.budget?.exhausted ? (
+                      <Badge tone="down">exhausted</Badge>
+                    ) : (
+                      <Badge tone="live">active</Badge>
+                    )}
+                  </>
+                }
+              >
+                <div className="space-y-2.5">
+                  {k.budget ? (
+                    <>
+                      <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
+                        <div
+                          className={`h-full rounded-full transition-all ${k.budget.exhausted ? "bg-danger" : k.budget.alert ? "bg-warning" : "bg-accent"}`}
+                          style={{ width: `${Math.min(100, Math.round(k.budget.pct * 100))}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-[12px]">
+                        <span className="tnum text-text-muted">
+                          {k.budget.unit === "usd"
+                            ? `$${k.budget.spent.toFixed(2)} / $${k.budget.limit.toFixed(2)}`
+                            : `${fmt.compact(k.budget.spent)} / ${fmt.compact(k.budget.limit)} tokens`}
+                        </span>
+                        <CooldownTimer ms={k.budget.reset_in_ms} tone="muted" icon="restart_alt" keepZero />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex items-center justify-between text-[12px]">
+                      <span className="tnum text-text-muted">${k.spent.toFixed(2)} spent</span>
+                      <span className="text-text-subtle">no limit</span>
+                    </div>
+                  )}
+                  <div className="text-[11px] text-text-subtle">
+                    {k.expires ? `expires ${new Date(k.expires).toISOString().slice(0, 10)}` : "no expiry"}
                   </div>
                 </div>
               </RichCard>
