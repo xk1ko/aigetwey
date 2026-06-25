@@ -18,6 +18,7 @@ import {
   addServerKey,
   editServerKey,
   removeServerKey,
+  setServerKeyScope,
   renameProvider,
   maskKey,
   setBudget,
@@ -333,5 +334,83 @@ describe("key-scoped budgets", () => {
   it("schema rejects a key scope with an empty id", () => {
     expect(() => validateConfig({ providers: [], models: [], budgets: [{ scope: { type: "key", id: "" }, unit: "usd", limit: 5, window: "daily" }] }))
       .toThrow(/invalid config/);
+  });
+});
+
+// ---- removeServerKey cleans up per-key scope entries -----------------------
+
+describe("removeServerKey cleans up key_models + key_rpm", () => {
+  function cfgWithTwoKeys(): Config {
+    return validateConfig({
+      server: { host: "127.0.0.1", port: 18080, api_keys: ["sk-a", "sk-b"] },
+      providers: [],
+      models: [],
+    }).raw;
+  }
+
+  it("drops the removed key's allowlist and rpm entries, prunes empty maps", () => {
+    // set scopes on key 0 ("sk-a") only
+    let c = setServerKeyScope(cfgWithTwoKeys(), 0, { models: ["gpt-4o"], rpm: 30 });
+    expect(c.server.key_models).toEqual({ "sk-a": ["gpt-4o"] });
+    expect(c.server.key_rpm).toEqual({ "sk-a": 30 });
+
+    // remove key 0 — scopes must vanish and maps must be pruned to undefined
+    c = removeServerKey(c, 0);
+    expect(c.server.api_keys).toEqual(["sk-b"]);
+    expect(c.server.key_models).toBeUndefined();
+    expect(c.server.key_rpm).toBeUndefined();
+  });
+
+  it("keeps other keys' scope entries when one key is removed", () => {
+    let c = setServerKeyScope(cfgWithTwoKeys(), 0, { models: ["gpt-4o"], rpm: 30 });
+    c = setServerKeyScope(c, 1, { models: ["claude-sonnet-4-6"], rpm: 60 });
+
+    // remove key 0 ("sk-a") — key 1 ("sk-b") scopes must survive
+    c = removeServerKey(c, 0);
+    expect(c.server.api_keys).toEqual(["sk-b"]);
+    expect(c.server.key_models).toEqual({ "sk-b": ["claude-sonnet-4-6"] });
+    expect(c.server.key_rpm).toEqual({ "sk-b": 60 });
+  });
+});
+
+// ---- per-key scopes (model allowlist + rpm) ---------------------------------
+
+describe("setServerKeyScope", () => {
+  // helper: build a minimal config with two server keys
+  function cfgWithKeys(): Config {
+    return validateConfig({
+      server: { host: "127.0.0.1", port: 18080, api_keys: ["sk-a", "sk-b"] },
+      providers: [],
+      models: [],
+    }).raw;
+  }
+
+  it("sets the model allowlist + rpm for the key at an index", () => {
+    const c = setServerKeyScope(cfgWithKeys(), 0, { models: ["claude-sonnet-4-6", "openai/gpt-4o"], rpm: 60 });
+    expect(c.server.key_models).toEqual({ "sk-a": ["claude-sonnet-4-6", "openai/gpt-4o"] });
+    expect(c.server.key_rpm).toEqual({ "sk-a": 60 });
+  });
+
+  it("clears the allowlist with an empty list and rpm with null, pruning empty maps", () => {
+    let c = setServerKeyScope(cfgWithKeys(), 0, { models: ["x"], rpm: 30 });
+    c = setServerKeyScope(c, 0, { models: [], rpm: null });
+    expect(c.server.key_models).toBeUndefined();
+    expect(c.server.key_rpm).toBeUndefined();
+  });
+
+  it("throws for an out-of-range index", () => {
+    expect(() => setServerKeyScope(cfgWithKeys(), 5, { rpm: 10 })).toThrow();
+  });
+
+  it("masks key_models and key_rpm keys via maskKey (raw keys never leak)", () => {
+    const c = setServerKeyScope(cfgWithKeys(), 0, { models: ["m"], rpm: 9 });
+    // raw key "sk-a" must be present in the real config
+    expect(c.server.key_models!["sk-a"]).toEqual(["m"]);
+    expect(c.server.key_rpm!["sk-a"]).toBe(9);
+    // the masked form must NOT be a key in the raw config (masking happens in admin)
+    const masked = maskKey("sk-a");
+    expect(masked).not.toBe("sk-a");
+    // verify maskKey transforms the key as expected (so admin.ts re-keying works)
+    expect(masked).toContain("…");
   });
 });

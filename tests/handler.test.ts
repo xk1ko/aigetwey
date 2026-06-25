@@ -223,6 +223,50 @@ describe("scoped budget hard-stop", () => {
   });
 });
 
+describe("per-key model allowlist", () => {
+  it("403s when the requested model is not in the key's allowlist", async () => {
+    const deps = { ...depsWith(), clientKeyModels: ["some-other-model"] };
+    await expect(
+      handle(deps, "openai", { model: "smart", messages: [] }),
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it("allows a model that IS in the allowlist", async () => {
+    const upstreamJson = {
+      id: "chatcmpl-1",
+      model: "gpt-4o",
+      created: 1,
+      choices: [{ index: 0, message: { role: "assistant", content: "ok" }, finish_reason: "stop" }],
+      usage: { prompt_tokens: 5, completion_tokens: 2, total_tokens: 7 },
+    };
+    requestMock.mockResolvedValue(fakeResponse(200, upstreamJson));
+    const deps = { ...depsWith(), clientKeyModels: ["smart"] };
+    const res = await handle(deps, "openai", { model: "smart", messages: [{ role: "user", content: "hi" }] });
+    expect(res.status).toBe(200);
+  });
+
+  it("does not restrict when the allowlist is absent or empty", async () => {
+    const upstreamJson = {
+      id: "chatcmpl-1",
+      model: "gpt-4o",
+      created: 1,
+      choices: [{ index: 0, message: { role: "assistant", content: "ok" }, finish_reason: "stop" }],
+      usage: { prompt_tokens: 5, completion_tokens: 2, total_tokens: 7 },
+    };
+    requestMock.mockResolvedValue(fakeResponse(200, upstreamJson));
+
+    // empty array
+    const deps1 = { ...depsWith(), clientKeyModels: [] as string[] };
+    const res1 = await handle(deps1, "openai", { model: "smart", messages: [{ role: "user", content: "hi" }] });
+    expect(res1.status).toBe(200);
+
+    // absent (undefined)
+    const deps2 = depsWith();
+    const res2 = await handle(deps2, "openai", { model: "smart", messages: [{ role: "user", content: "hi" }] });
+    expect(res2.status).toBe(200);
+  });
+});
+
 describe("per-key budget hard-stop", () => {
   const keyBlocked = { globalStatus: () => null, blocks: () => null, blocksKey: (fp: string) => (fp === "aaaa1111" ? { exhausted: true as const, reset_in_ms: 42 } : null) };
   it("402 when the caller key is over budget", async () => {
