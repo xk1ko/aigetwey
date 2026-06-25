@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.3.0] — 2026-06-26
 
 ### Added
+- **Granular cost calculation** — cost now uses separate per-1M rates for
+  non-cached input, cache-read, output, and reasoning tokens instead of a flat
+  input/output split. Models with extended thinking (Claude Sonnet 4, o1, Gemini
+  thinking) are now tracked accurately.
+- **Reasoning token extraction** — extracts `reasoning_tokens` from Anthropic
+  (`thinking_tokens`), OpenAI (`completion_tokens_details.reasoning_tokens`), and
+  Gemini (`thoughtsTokenCount`); stored in the usage log for future display.
 - **Per-key expiry** — set an expiry date on a gateway key; `/v1/*` calls with an
   expired key return `403 key expired`. Editable on the Endpoint page next to the
   per-key model allowlist and rate limit. Keys with no expiry never expire.
