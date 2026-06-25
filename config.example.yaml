@@ -23,7 +23,6 @@ providers: []
 #    format: anthropic
 #    base_url: https://api.anthropic.com/v1
 #    api_keys: [sk-ant-xxx]
-#    quota: { window: weekly, reset_at: monday, timezone: Asia/Jakarta }
 #
 #  - id: openai
 #    format: openai
