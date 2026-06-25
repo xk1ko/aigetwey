@@ -251,7 +251,7 @@ export function EndpointView() {
                         </div>
                         <div>
                           <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-text-subtle">Access expiry</div>
-                          <Input type="date" value={scopeExpires} onChange={(e) => setScopeExpires(e.target.value)} aria-label="Access expires on" />
+                          <Input type="date" lang="en-GB" value={scopeExpires} onChange={(e) => setScopeExpires(e.target.value)} aria-label="Access expires on" />
                           <div className="mt-1 text-[11px] text-text-subtle">Access ends at the end of this day. Blank = never.</div>
                         </div>
                         <div>
@@ -262,18 +262,21 @@ export function EndpointView() {
                             onChange={(e) => setScopeLimit(e.target.value.replace(/[^\d.]/g, ""))}
                             placeholder="USD (blank = no cap)"
                           />
-                          <div className="mt-1.5 flex gap-1">
-                            {(["5h", "24h", "7day", "30day"] as const).map((w) => (
-                              <button
-                                key={w}
-                                type="button"
-                                onClick={() => setScopeWindow(w)}
-                                className={`rounded-brand px-2 py-1 text-[12px] ${scopeWindow === w ? "bg-accent text-accent-ink" : "border border-border text-text-muted hover:text-text"}`}
-                              >
-                                {w}
-                              </button>
-                            ))}
-                          </div>
+                          {scopeLimit && (
+                            <div className="mt-1.5 flex items-center gap-1.5">
+                              <span className="text-[11px] text-text-subtle">resets every</span>
+                              {(["5h", "24h", "7day", "30day"] as const).map((w) => (
+                                <button
+                                  key={w}
+                                  type="button"
+                                  onClick={() => setScopeWindow(w)}
+                                  className={`rounded-brand px-2 py-1 text-[12px] ${scopeWindow === w ? "bg-accent text-accent-ink" : "border border-border text-text-muted hover:text-text"}`}
+                                >
+                                  {w}
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         <div className="flex justify-end gap-2">
                           <Button variant="ghost" onClick={() => setScopeKey(null)}>Cancel</Button>
