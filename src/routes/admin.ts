@@ -16,6 +16,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import type { GatewayState } from "../core/state.js";
 import type { UsageDB } from "../db.js";
 import { checkAdminAuth, clientKeyFingerprint, type AdminVerifier } from "../middleware/auth.js";
+import { buildKeyUsageRow } from "../core/keysUsage.js";
 import {
   maskKey,
   serializeConfig,
@@ -606,6 +607,26 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
         masked: maskKey(k),
       })),
     );
+  });
+
+  // per-key spend for the Budgets page "Keys" section: every gateway key, its
+  // all-time usage, expiry, and key-scoped budget status (null when uncapped).
+  app.get("/admin/keys/usage", requireAdmin, (_req, reply) => {
+    if (!deps.db) return reply.code(503).send({ error: "usage tracking disabled" });
+    const cfg = deps.state.config.raw;
+    const statuses = deps.state.budget.statuses();
+    const keys = cfg.server.api_keys.map((k) => {
+      const fp = clientKeyFingerprint(k);
+      return buildKeyUsageRow({
+        fingerprint: fp,
+        name: cfg.server.key_names?.[k] ?? maskKey(k),
+        masked: maskKey(k),
+        expires: cfg.server.key_expires?.[k],
+        totals: deps.db!.totals(0, { client_key: fp }),
+        budget: statuses.find((s) => s.scope.type === "key" && s.scope.id === fp) ?? null,
+      });
+    });
+    reply.send({ keys });
   });
 
   // reveal ONE raw gateway key (the "show key" button on the Endpoint page).
