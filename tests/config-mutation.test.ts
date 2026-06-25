@@ -337,6 +337,42 @@ describe("key-scoped budgets", () => {
   });
 });
 
+// ---- removeServerKey cleans up per-key scope entries -----------------------
+
+describe("removeServerKey cleans up key_models + key_rpm", () => {
+  function cfgWithTwoKeys(): Config {
+    return validateConfig({
+      server: { host: "127.0.0.1", port: 18080, api_keys: ["sk-a", "sk-b"] },
+      providers: [],
+      models: [],
+    }).raw;
+  }
+
+  it("drops the removed key's allowlist and rpm entries, prunes empty maps", () => {
+    // set scopes on key 0 ("sk-a") only
+    let c = setServerKeyScope(cfgWithTwoKeys(), 0, { models: ["gpt-4o"], rpm: 30 });
+    expect(c.server.key_models).toEqual({ "sk-a": ["gpt-4o"] });
+    expect(c.server.key_rpm).toEqual({ "sk-a": 30 });
+
+    // remove key 0 — scopes must vanish and maps must be pruned to undefined
+    c = removeServerKey(c, 0);
+    expect(c.server.api_keys).toEqual(["sk-b"]);
+    expect(c.server.key_models).toBeUndefined();
+    expect(c.server.key_rpm).toBeUndefined();
+  });
+
+  it("keeps other keys' scope entries when one key is removed", () => {
+    let c = setServerKeyScope(cfgWithTwoKeys(), 0, { models: ["gpt-4o"], rpm: 30 });
+    c = setServerKeyScope(c, 1, { models: ["claude-sonnet-4-6"], rpm: 60 });
+
+    // remove key 0 ("sk-a") — key 1 ("sk-b") scopes must survive
+    c = removeServerKey(c, 0);
+    expect(c.server.api_keys).toEqual(["sk-b"]);
+    expect(c.server.key_models).toEqual({ "sk-b": ["claude-sonnet-4-6"] });
+    expect(c.server.key_rpm).toEqual({ "sk-b": 60 });
+  });
+});
+
 // ---- per-key scopes (model allowlist + rpm) ---------------------------------
 
 describe("setServerKeyScope", () => {
