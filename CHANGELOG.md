@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.3.0] — Unreleased
 
 ### Added
+- **Auto-synced pricing** — `npm run sync-pricing` regenerates
+  `src/providers/pricing.generated.ts` from models.dev (first-party vendors only,
+  no aggregator margin). It's a fallback under your config/dashboard price
+  overrides and above the hand-curated table, so vendor prices stay fresh while
+  custom-model prices and your overrides are untouched.
 - **Per-key expiry** — set an expiry date on a gateway key; `/v1/*` calls with an
   expired key return `403 key expired`. Editable on the Endpoint page next to the
   per-key model allowlist and rate limit. Keys with no expiry never expire.
