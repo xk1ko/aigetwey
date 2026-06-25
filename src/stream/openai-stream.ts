@@ -36,6 +36,10 @@ function normalize(chunk: CanonicalChunk): CanonicalChunk {
   if (chunk.usage?.completion_tokens_details?.reasoning_tokens !== undefined) {
     chunk.usage.reasoning_tokens = chunk.usage.completion_tokens_details.reasoning_tokens;
   }
+  // Extract cached_tokens from OpenAI response.usage.prompt_tokens_details.cached_tokens
+  if (chunk.usage?.prompt_tokens_details?.cached_tokens !== undefined) {
+    chunk.usage.cached_tokens = chunk.usage.prompt_tokens_details.cached_tokens;
+  }
 
   return chunk;
 }

@@ -67,6 +67,7 @@ interface GeminiResponse {
     promptTokenCount?: number;
     candidatesTokenCount?: number;
     cachedContentTokenCount?: number;
+    thoughtsTokenCount?: number;
   };
   modelVersion?: string;
 }
@@ -289,6 +290,7 @@ export function responseToCanonical(resp: unknown): CanonicalResponse {
           completion_tokens: u.candidatesTokenCount ?? 0,
           total_tokens: (u.promptTokenCount ?? 0) + (u.candidatesTokenCount ?? 0),
           cached_tokens: u.cachedContentTokenCount,
+          reasoning_tokens: u.thoughtsTokenCount,
         }
       : undefined,
   };
