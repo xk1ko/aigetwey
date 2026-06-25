@@ -18,3 +18,6 @@ dashboard/.env.local
 .omop/
 *.log
 docs/superpowers/
+
+# local dev helper (hot-reload gateway + dashboard) — not shipped
+dev.sh
