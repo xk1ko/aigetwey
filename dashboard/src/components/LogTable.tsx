@@ -195,7 +195,7 @@ export function LogTable({ logs: initial }: { logs: UsageLog[] }) {
                           {l.status}
                         </Badge>
                       </Td>
-                      <Td muted title={fmt.time(l.ts)}>
+                      <Td muted title={fmt.time(l.ts)} suppressHydrationWarning>
                         {fmt.ago(l.ts)} ago
                       </Td>
                       <Td className="text-text">{l.alias}</Td>
@@ -236,16 +236,19 @@ function Td({
   right,
   title,
   className,
+  suppressHydrationWarning,
 }: {
   children: React.ReactNode;
   muted?: boolean;
   right?: boolean;
   title?: string;
   className?: string;
+  suppressHydrationWarning?: boolean;
 }) {
   return (
     <td
       title={title}
+      suppressHydrationWarning={suppressHydrationWarning}
       className={`whitespace-nowrap px-4 py-2.5 tnum text-[12.5px] ${right ? "text-right" : "text-left"} ${
         muted ? "text-text-muted" : "text-text"
       }${className ? ` ${className}` : ""}`}
