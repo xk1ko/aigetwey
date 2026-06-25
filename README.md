@@ -41,7 +41,8 @@ See [CHANGELOG.md](./CHANGELOG.md) for release history.
   self-renewing monthly allowance; an expired key is refused with `403`.
 - **Budgets + cost** — scoped spend caps (global/provider/model/key) over rolling
   `5h`/`24h`/`7day`/`30day` windows anchored to when each budget was created, with a
-  live reset countdown and SQLite-backed usage/cost tracking. The Budgets page
+  live reset countdown and SQLite-backed usage/cost tracking. Cost uses separate
+  rates for input, cached-read, output, and reasoning tokens. The Budgets page
   splits **Overall** caps from a **Keys** view that shows every key's spend.
 - **Dashboard** — providers, combos, usage, budgets, CLI tools, a live server
   console, and a settings page with a per-model pricing editor.
@@ -209,7 +210,8 @@ npm run build           # compile to dist/
   bulanan yang isi ulang otomatis); key yang kedaluwarsa ditolak `403`.
 - **Budget + biaya** — batas spend berskop (global/provider/model/key) atas jendela
   rolling `5h`/`24h`/`7day`/`30day` yang di-anchor ke saat budget dibuat, dengan
-  hitung mundur reset dan pelacakan pemakaian/biaya berbasis SQLite. Halaman Budgets
+  hitung mundur reset dan pelacakan pemakaian/biaya berbasis SQLite. Biaya dihitung
+  per jenis token (input, cached-read, output, reasoning). Halaman Budgets
   memisah cap **Overall** dari tampilan **Keys** (pemakaian tiap key).
 - **Dashboard** — providers, combos, usage, budgets, CLI tools, server console
   live, dan halaman settings dengan editor harga per-model.
