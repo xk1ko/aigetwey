@@ -50,7 +50,6 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "sync-pricing": "tsx scripts/sync-pricing.ts",
     "prepublishOnly": "npm run build && npm --prefix dashboard run build"
   },
   "publishConfig": {

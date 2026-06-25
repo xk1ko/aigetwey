@@ -15,7 +15,6 @@ data/
 # .gitignore excludes it anyway).
 dashboard/.next/
 .claude/
-.omop/
 .gstack/
 tests/
 *.test.ts

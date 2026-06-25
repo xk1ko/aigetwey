@@ -17,9 +17,6 @@ export interface Pricing {
   cache_creation?: number;
 }
 
-// Auto-synced vendor pricing from models.dev (run `npm run sync-pricing`).
-import { GENERATED_PRICING } from "./pricing.generated.js";
-
 /**
  * Canonical model pricing — provider-agnostic.
  * Cover all known models; deduplicated across providers.
@@ -231,11 +228,10 @@ export function matchPattern(pattern: string, model: string): boolean {
 }
 
 /**
- * Resolve pricing for a model using the fallback chain (first match wins):
- *   1. PROVIDER_PRICING[provider][model]  — hand provider-specific override
- *   2. GENERATED_PRICING[model]           — auto-synced vendor price (models.dev)
- *   3. MODEL_PRICING[model]               — hand canonical (custom / unlisted models)
- *   4. PATTERN_PRICING (glob match)
+ * Resolve pricing for a model using the 3-step fallback chain:
+ *   1. PROVIDER_PRICING[provider][model]
+ *   2. MODEL_PRICING[model]
+ *   3. PATTERN_PRICING (glob match)
  *
  * @param {string} provider
  * @param {string} model
@@ -249,18 +245,12 @@ export function getPricingForModel(provider: string | null, model: string): Pric
     return PROVIDER_PRICING[provider][model];
   }
 
-  // strip a vendor prefix if present: "deepseek/deepseek-chat" → "deepseek-chat"
+  // 2. Canonical model pricing (strip vendor prefix if needed: "deepseek/deepseek-chat" → "deepseek-chat")
   const baseModel = (model.includes("/") ? model.split("/").pop() : model) ?? model;
-
-  // 2. Auto-synced vendor pricing (broad, kept fresh by `npm run sync-pricing`)
-  if (GENERATED_PRICING[baseModel]) return GENERATED_PRICING[baseModel];
-  if (GENERATED_PRICING[model]) return GENERATED_PRICING[model];
-
-  // 3. Hand-curated canonical (models models.dev doesn't list)
   if (MODEL_PRICING[baseModel]) return MODEL_PRICING[baseModel];
   if (MODEL_PRICING[model]) return MODEL_PRICING[model];
 
-  // 4. Pattern match
+  // 3. Pattern match
   for (const { pattern, pricing } of PATTERN_PRICING) {
     if (matchPattern(pattern, baseModel) || matchPattern(pattern, model)) {
       return pricing;
