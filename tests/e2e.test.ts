@@ -302,7 +302,7 @@ describe("E2E — scoped budget admin endpoints", () => {
   const admin = { authorization: "Bearer admin-pw", "content-type": "application/json" };
 
   it("PUT adds a global budget, GET returns it, DELETE clears it", async () => {
-    let res = await fetch(gwUrl("/admin/quota"), { headers: admin });
+    let res = await fetch(gwUrl("/admin/budgets"), { headers: admin });
     expect((await res.json() as { budgets: unknown[] }).budgets).toEqual([]);
 
     res = await fetch(gwUrl("/admin/budgets"), {
@@ -312,7 +312,7 @@ describe("E2E — scoped budget admin endpoints", () => {
     });
     expect(res.status).toBe(200);
 
-    res = await fetch(gwUrl("/admin/quota"), { headers: admin });
+    res = await fetch(gwUrl("/admin/budgets"), { headers: admin });
     const body1 = (await res.json()) as { budgets: { key: string }[] };
     expect(body1.budgets).toHaveLength(1);
     expect(body1.budgets[0].key).toBe("global");
@@ -320,7 +320,7 @@ describe("E2E — scoped budget admin endpoints", () => {
     res = await fetch(gwUrl("/admin/budgets/global"), { method: "DELETE", headers: { authorization: "Bearer admin-pw" } });
     expect(res.status).toBe(200);
 
-    res = await fetch(gwUrl("/admin/quota"), { headers: admin });
+    res = await fetch(gwUrl("/admin/budgets"), { headers: admin });
     expect((await res.json() as { budgets: unknown[] }).budgets).toEqual([]);
   });
 
@@ -347,7 +347,7 @@ describe("E2E — per-key budget admin", () => {
     expect(JSON.stringify(body)).not.toContain("device-A-key");
   });
 
-  it("PUT a key-scoped budget round-trips via /admin/quota", async () => {
+  it("PUT a key-scoped budget round-trips via /admin/budgets", async () => {
     const fp = clientKeyFingerprint("device-A-key");
     let res = await fetch(gwUrl("/admin/budgets"), {
       method: "PUT",
@@ -356,7 +356,7 @@ describe("E2E — per-key budget admin", () => {
     });
     expect(res.status).toBe(200);
 
-    res = await fetch(gwUrl("/admin/quota"), { headers: adminHeaders });
+    res = await fetch(gwUrl("/admin/budgets"), { headers: adminHeaders });
     expect(res.status).toBe(200);
     const body = (await res.json()) as { budgets: Array<{ key: string }> };
     expect(body.budgets.some((b) => b.key === `key:${fp}`)).toBe(true);

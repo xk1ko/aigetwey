@@ -4,7 +4,6 @@ import { loadConfig } from "./config.js";
 import { registerRoutes } from "./routes/index.js";
 import { GatewayState } from "./core/state.js";
 import { UsageDB } from "./db.js";
-import { QuotaTracker } from "./core/quota.js";
 import { AuthStore } from "./core/authStore.js";
 import { consoleBuffer } from "./core/console-buffer.js";
 
@@ -52,14 +51,8 @@ async function main(): Promise<void> {
   const dataDir = resolve(process.env.AIGETWEY_DATA_DIR ?? "data");
   const db = new UsageDB(join(dataDir, "usage.sqlite"));
 
-  // quota counts persist via the DB so a restart within a window keeps the budget.
-  const quota = new QuotaTracker(Date.now, {
-    load: () => db.loadQuota(),
-    save: (id, start, consumed) => db.saveQuota(id, start, consumed),
-  });
-
   // holder enables runtime config edits (hot-reload) from the dashboard.
-  const state = new GatewayState(configPath, config, quota, db);
+  const state = new GatewayState(configPath, config, db);
   // admin password lives in a hash store (seeded from the env on first run,
   // changeable at runtime from the dashboard).
   const auth = AuthStore.open(dataDir, process.env.AIGETWEY_ADMIN_PASSWORD);

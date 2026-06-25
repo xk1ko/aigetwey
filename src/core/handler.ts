@@ -20,7 +20,6 @@ import { parseSSE, encodeSSE } from "../stream/sse.js";
 import { streamAdapterFor } from "../stream/index.js";
 import type { CanonicalChunk } from "../stream/chunk.js";
 import type { KeyPool } from "./keypool.js";
-import type { QuotaTracker } from "./quota.js";
 import { executeWithFallback } from "./fallback.js";
 import { type UsageDB, computeCost } from "../db.js";
 import { compressMessages } from "../rtk/index.js";
@@ -50,7 +49,6 @@ export interface HandleDeps {
   config: GatewayConfig;
   pool: KeyPool;
   db?: UsageDB;
-  quota?: QuotaTracker;
   budget?: {
     globalStatus(): { exhausted: boolean; reset_in_ms: number } | null;
     blocks(providerId: string, model: string): { exhausted: true; reset_in_ms: number } | null;
@@ -71,8 +69,6 @@ function recordUsage(
 ): void {
   const tokensIn = usage?.prompt_tokens ?? 0;
   const tokensOut = usage?.completion_tokens ?? 0;
-  // count the full request against the served provider's window budget.
-  deps.quota?.consume(route.provider, tokensIn + tokensOut);
   if (!deps.db) return;
   // Cost: a combo/route may set explicit prices; otherwise fall back to the ported
   // aigetwey pricing table so cost auto-resolves per model instead of showing $0.
@@ -127,8 +123,7 @@ export async function handle(
   }
 
   // Budget hard-stop. Global overrun fails fast. Provider/model budgets bar the
-  // matching routes (like the token-quota skip); if every candidate is barred,
-  // there's nothing to serve → 402.
+  // matching routes; if every candidate is barred, there's nothing to serve → 402.
   if (deps.budget) {
     const g = deps.budget.globalStatus();
     if (g?.exhausted) throw new GatewayError(402, { error: "budget exceeded", reset_in_ms: g.reset_in_ms });
@@ -193,7 +188,6 @@ export async function handle(
       stream: wantStream,
       signal,
       thinkingIntent,
-      isExhausted: deps.quota ? (p) => deps.quota!.isExhausted(p) : undefined,
       onAttempt: (a) =>
         deps.log?.(`[fallback] ${a.provider}/${a.model} ${a.status ?? "-"} -> ${a.outcome}${a.detail ? ` (${a.detail})` : ""}`),
     });

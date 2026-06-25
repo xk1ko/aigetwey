@@ -143,12 +143,9 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     reply.send({ providers: deps.state.pool.snapshot(deps.state.config.listProviders()) });
   });
 
-  // per-provider quota: consumed, limit, and ms until the next scheduled reset.
-  app.get("/admin/quota", requireAdmin, (_req, reply) => {
-    reply.send({
-      quota: deps.state.quota.snapshot(deps.state.config.listProviders()),
-      budgets: deps.state.budget.statuses(),
-    });
+  // budget statuses: consumed, limit, and ms until the next scheduled reset.
+  app.get("/admin/budgets", requireAdmin, (_req, reply) => {
+    reply.send({ budgets: deps.state.budget.statuses() });
   });
 
   // add or replace a budget (keyed by scope). Body = Budget; invalid shape or an
@@ -403,7 +400,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
   });
 
   // Test ONE model end-to-end (aigetwey's per-model science button). Routes through
-  // the real pipeline via handle(), so the ping lands in usage/quota exactly like
+  // the real pipeline via handle(), so the ping lands in usage exactly like
   // a normal call — and it catches "model not found / not entitled" a /models
   // ping can't. Model id travels as ?model= to survive slashes through the proxy.
   app.post("/admin/providers/:id/models/test", requireAdmin, async (req, reply) => {
@@ -414,7 +411,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     if (!provider) return reply.code(404).send({ error: `provider "${id}" not found` });
     try {
       await handle(
-        { config: deps.state.config, pool: deps.state.pool, db: deps.db, quota: deps.state.quota },
+        { config: deps.state.config, pool: deps.state.pool, db: deps.db },
         "openai",
         { model: `${id}/${modelId}`, messages: [{ role: "user", content: "ping" }], max_tokens: 1, stream: false },
       );
