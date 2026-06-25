@@ -197,7 +197,7 @@ export function BudgetForm({
           <Input value={alertAt} onChange={(e) => setAlertAt(e.target.value)} inputMode="numeric" placeholder="80" />
         </Field>
         <Field label="Note" hint="optional">
-          <Input value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="e.g. client X cap — don't forget" />
+          <Input value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="e.g. client X cap" />
         </Field>
       </div>
 
