@@ -41,6 +41,7 @@ export function registerV1Routes(app: FastifyInstance, state: GatewayState, db?:
       pool: state.pool,
       budget: state.budget,
       db,
+      clientKeyModels: presented ? state.config.server.key_models?.[presented] : undefined,
       clientKeyFp: presented ? clientKeyFingerprint(presented) : undefined,
       log: (msg) => app.log.info(msg),
     };
