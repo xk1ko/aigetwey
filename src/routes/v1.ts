@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { checkAuth } from "../middleware/auth.js";
+import { checkAuth, extractKey, clientKeyFingerprint } from "../middleware/auth.js";
 import type { GatewayState } from "../core/state.js";
 import { handle, GatewayError, type HandleDeps } from "../core/handler.js";
 import type { WireFormat } from "../core/canonical.js";
@@ -23,17 +23,21 @@ export function registerV1Routes(app: FastifyInstance, state: GatewayState, db?:
   };
 
   // build deps from the live holder per request (never close over config/pool).
-  const depsNow = (): HandleDeps => ({
-    config: state.config,
-    pool: state.pool,
-    quota: state.quota,
-    budget: state.budget,
-    db,
-    log: (msg) => app.log.info(msg),
-  });
+  const depsNow = (req: FastifyRequest): HandleDeps => {
+    const presented = extractKey(req);
+    return {
+      config: state.config,
+      pool: state.pool,
+      quota: state.quota,
+      budget: state.budget,
+      db,
+      clientKeyFp: presented ? clientKeyFingerprint(presented) : undefined,
+      log: (msg) => app.log.info(msg),
+    };
+  };
 
-  app.post("/v1/chat/completions", requireAuth, (req, reply) => dispatch(depsNow(), "openai", req, reply));
-  app.post("/v1/messages", requireAuth, (req, reply) => dispatch(depsNow(), "anthropic", req, reply));
+  app.post("/v1/chat/completions", requireAuth, (req, reply) => dispatch(depsNow(req), "openai", req, reply));
+  app.post("/v1/messages", requireAuth, (req, reply) => dispatch(depsNow(req), "anthropic", req, reply));
 }
 
 const SSE_HEADERS = {

@@ -277,7 +277,7 @@ export class UsageDB {
     const rows = this.db
       .prepare(
         `SELECT ts, alias, provider, model, tokens_in, tokens_out, cached_tokens,
-                cost, status, latency_ms, stream
+                cost, status, latency_ms, stream, client_key
          FROM usage ORDER BY id DESC LIMIT ?`,
       )
       .all(Math.max(1, Math.min(limit, 1000))) as SqlRow[];
@@ -293,6 +293,7 @@ export class UsageDB {
       status: num(r.status),
       latency_ms: num(r.latency_ms),
       stream: num(r.stream),
+      client_key: String(r.client_key ?? ""),
     }));
   }
 

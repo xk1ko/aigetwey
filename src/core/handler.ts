@@ -54,7 +54,9 @@ export interface HandleDeps {
   budget?: {
     globalStatus(): { exhausted: boolean; reset_in_ms: number } | null;
     blocks(providerId: string, model: string): { exhausted: true; reset_in_ms: number } | null;
+    blocksKey(fp: string): { exhausted: true; reset_in_ms: number } | null;
   };
+  clientKeyFp?: string;
   log?: (msg: string) => void;
   now?: () => number;
 }
@@ -88,6 +90,7 @@ function recordUsage(
     status,
     latency_ms: latencyMs,
     stream: stream ? 1 : 0,
+    client_key: deps.clientKeyFp ?? "",
   });
 }
 
@@ -128,8 +131,10 @@ export async function handle(
   // there's nothing to serve → 402.
   if (deps.budget) {
     const g = deps.budget.globalStatus();
-    if (g?.exhausted) {
-      throw new GatewayError(402, { error: "budget exceeded", reset_in_ms: g.reset_in_ms });
+    if (g?.exhausted) throw new GatewayError(402, { error: "budget exceeded", reset_in_ms: g.reset_in_ms });
+    if (deps.clientKeyFp) {
+      const kb = deps.budget.blocksKey(deps.clientKeyFp);
+      if (kb?.exhausted) throw new GatewayError(402, { error: "budget exceeded", reset_in_ms: kb.reset_in_ms });
     }
     const eligible = routes.filter((r) => !deps.budget!.blocks(r.provider.id, r.model));
     if (eligible.length === 0) {
