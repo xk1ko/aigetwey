@@ -2,12 +2,32 @@
 
 import { useEffect, useState } from "react";
 import { adminApi } from "@/lib/client";
-import { Button, Input, Select, Field } from "@/components/Button";
+import { Button, Input, Field } from "@/components/Button";
 import { Icon } from "@/components/Icon";
 import type { BudgetStatus, ProviderSnapshot } from "@/lib/gateway";
 
 const WINDOWS = ["5h", "daily", "weekly", "monthly"] as const;
 type ScopeType = "global" | "provider" | "model";
+
+/** Segment-pill button style — selected = accent, matches the Unit toggle. */
+const pill = (active: boolean): string =>
+  `rounded-brand px-3 py-1.5 text-[13px] font-medium transition-colors ${
+    active ? "bg-accent/12 text-accent" : "bg-surface-2 text-text-muted hover:text-text"
+  }`;
+
+/**
+ * A labelled field group for BUTTON controls. Unlike `Field` (a <label>, which
+ * forwards a pointer click to its first control and would swallow pill clicks),
+ * this is a plain <div> so each pill button receives its own click.
+ */
+function Group({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-[11px] font-medium uppercase tracking-wider text-text-subtle">{label}</span>
+      {children}
+    </div>
+  );
+}
 
 const SCOPES: { id: ScopeType; icon: string; label: string; hint: string }[] = [
   { id: "global", icon: "public", label: "Global", hint: "Cap total spend across the whole gateway." },
@@ -130,34 +150,42 @@ export function BudgetForm({
       </div>
 
       <div className="space-y-3">
-        {scopeType === "provider" && (
-          <Field label="Provider">
-            <Select value={scopeId} onChange={(e) => setScopeId(e.target.value)} disabled={editing}>
-              <option value="">Select a provider…</option>
-              {providers.map((p) => <option key={p} value={p}>{p}</option>)}
-            </Select>
-          </Field>
+        {/* scope target — only when adding; editing locks the scope (shown in the header) */}
+        {!editing && scopeType === "provider" && (
+          <Group label="Provider">
+            {providers.length === 0 ? (
+              <p className="text-[12px] text-text-subtle">No providers configured yet — add one on the Providers page first.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {providers.map((p) => (
+                  <button key={p} type="button" onClick={() => setScopeId(p)} className={pill(scopeId === p)}>{p}</button>
+                ))}
+              </div>
+            )}
+          </Group>
         )}
-        {scopeType === "model" && (
+        {!editing && scopeType === "model" && (
           <Field label="Model" hint="upstream model id">
-            <Input value={scopeId} onChange={(e) => setScopeId(e.target.value)} placeholder="claude-opus-4-6" disabled={editing} />
+            <Input value={scopeId} onChange={(e) => setScopeId(e.target.value)} placeholder="claude-opus-4-6" />
           </Field>
         )}
 
-        <Field label="Unit">
-          <div className="flex gap-2">
-            <button type="button" onClick={() => setUnit("usd")} className={`rounded-brand px-3 py-1.5 text-[13px] font-medium transition-colors ${unit === "usd" ? "bg-accent/12 text-accent" : "bg-surface-2 text-text-muted hover:text-text"}`}>USD</button>
-            <button type="button" onClick={() => setUnit("tokens")} className={`rounded-brand px-3 py-1.5 text-[13px] font-medium transition-colors ${unit === "tokens" ? "bg-accent/12 text-accent" : "bg-surface-2 text-text-muted hover:text-text"}`}>Tokens</button>
+        <Group label="Unit">
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => setUnit("usd")} className={pill(unit === "usd")}>USD</button>
+            <button type="button" onClick={() => setUnit("tokens")} className={pill(unit === "tokens")}>Tokens</button>
           </div>
-        </Field>
+        </Group>
         <Field label="Limit" hint={unit === "usd" ? "$" : "tokens"}>
           <Input value={limit} onChange={(e) => setLimit(e.target.value)} inputMode="decimal" placeholder={unit === "usd" ? "50.00" : "1000000"} />
         </Field>
-        <Field label="Window">
-          <Select value={window} onChange={(e) => setWindow(e.target.value as (typeof WINDOWS)[number])}>
-            {WINDOWS.map((w) => <option key={w} value={w}>{w}</option>)}
-          </Select>
-        </Field>
+        <Group label="Window">
+          <div className="flex flex-wrap gap-2">
+            {WINDOWS.map((w) => (
+              <button key={w} type="button" onClick={() => setWindow(w)} className={pill(window === w)}>{w}</button>
+            ))}
+          </div>
+        </Group>
         <Field label="Alert at" hint="%">
           <Input value={alertAt} onChange={(e) => setAlertAt(e.target.value)} inputMode="numeric" placeholder="80" />
         </Field>
