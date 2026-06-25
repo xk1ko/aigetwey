@@ -115,7 +115,11 @@ beforeAll(async () => {
 
   // ---- real gateway pointed at the fake upstream ----
   const config = validateConfig({
-    server: { api_keys: ["gw-key", "device-A-key"] },
+    server: {
+      api_keys: ["gw-key", "device-A-key"],
+      key_models: { "gw-key": ["smart", "claude-ish", "fb"] },
+      key_rpm: { "gw-key": 120 },
+    },
     endpoint: { rtk: true },
     providers: [
       { id: "oa-ok", format: "openai", base_url: `${up}/oa-ok/v1`, api_key: "sk-oa", max_retries: 0 },
@@ -278,10 +282,21 @@ describe("E2E — admin surface over real HTTP", () => {
     // config masks the real secret
     const cfg = (await (await fetch(gwUrl("/admin/config"), { headers: admin })).json()) as {
       providers: { id: string; api_key?: string }[];
-      server: { api_keys: string[] };
+      server: { api_keys: string[]; key_models?: Record<string, string[]>; key_rpm?: Record<string, number> };
     };
     const masked = cfg.providers.find((p) => p.id === "oa-ok")!.api_key!;
     expect(masked).not.toBe("sk-oa");
+
+    // key_models + key_rpm are re-keyed to the masked form (raw key never leaks)
+    expect(cfg.server.key_models).toBeDefined();
+    expect(cfg.server.key_rpm).toBeDefined();
+    const maskedGwKey = cfg.server.api_keys[0]!;
+    expect(maskedGwKey).not.toBe("gw-key");
+    expect(cfg.server.key_models![maskedGwKey]).toEqual(["smart", "claude-ish", "fb"]);
+    expect(cfg.server.key_rpm![maskedGwKey]).toBe(120);
+    // raw key must not appear as a map key
+    expect(cfg.server.key_models!["gw-key"]).toBeUndefined();
+    expect(cfg.server.key_rpm!["gw-key"]).toBeUndefined();
 
     // reveal hands back the real one, but only behind the admin gate
     expect((await fetch(gwUrl("/admin/providers/oa-ok/keys/0/reveal"))).status).toBe(401);
@@ -363,5 +378,69 @@ describe("E2E — per-key budget admin", () => {
 
     // clean up
     await fetch(gwUrl(`/admin/budgets/${encodeURIComponent(`key:${fp}`)}`), { method: "DELETE", headers: adminHeaders });
+  });
+});
+
+describe("E2E — per-key rate limit (429)", () => {
+  let rlUpstream: Server;
+  let rlGateway: FastifyInstance;
+  let rlPort = 0;
+
+  beforeAll(async () => {
+    rlUpstream = createServer(async (req, res) => {
+      await readBody(req);
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          id: "chatcmpl-rl",
+          model: "gpt",
+          created: 0,
+          choices: [{ index: 0, message: { role: "assistant", content: "ok" }, finish_reason: "stop" }],
+          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+        }),
+      );
+    });
+    await new Promise<void>((r) => rlUpstream.listen(0, "127.0.0.1", r));
+    const rlUpPort = (rlUpstream.address() as { port: number }).port;
+
+    const config = validateConfig({
+      server: {
+        api_keys: ["sk-rl"],
+        key_rpm: { "sk-rl": 1 },
+      },
+      providers: [
+        { id: "rl-prov", format: "openai", base_url: `http://127.0.0.1:${rlUpPort}/v1`, api_key: "sk-up", max_retries: 0 },
+      ],
+      models: [{ alias: "m", target: ["rl-prov"], model: "gpt" }],
+    });
+
+    const dir = mkdtempSync(join(tmpdir(), "aig-rl-"));
+    const db = new UsageDB(":memory:");
+    const state = new GatewayState(join(dir, "config.yaml"), config, undefined, db);
+    rlGateway = Fastify({ logger: false, bodyLimit: 32 * 1024 * 1024 });
+    registerRoutes(rlGateway, state, db, AuthStore.memory("admin-pw"));
+    await rlGateway.listen({ host: "127.0.0.1", port: 0 });
+    rlPort = (rlGateway.server.address() as { port: number }).port;
+  });
+
+  afterAll(async () => {
+    await rlGateway.close();
+    await new Promise<void>((r) => rlUpstream.close(() => r()));
+  });
+
+  it("returns 429 when a key exceeds its key_rpm", async () => {
+    const url = `http://127.0.0.1:${rlPort}/v1/chat/completions`;
+    const opts = {
+      method: "POST" as const,
+      headers: { "content-type": "application/json", authorization: "Bearer sk-rl" },
+      body: JSON.stringify({ model: "m", messages: [{ role: "user", content: "hi" }] }),
+    };
+
+    const first = await fetch(url, opts);
+    expect(first.status).toBe(200);
+
+    const second = await fetch(url, opts);
+    expect(second.status).toBe(429);
+    expect(await second.json()).toEqual({ error: "rate limit exceeded" });
   });
 });

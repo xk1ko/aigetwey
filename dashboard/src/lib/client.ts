@@ -141,6 +141,8 @@ export const adminApi = {
   setPonytail: (level: InjectLevel) => api<ConfigReply>("PUT", "/admin/endpoint/ponytail", { level }),
   addServerKey: (key: string, name?: string) => api<ConfigReply>("POST", "/admin/endpoint/keys", { key, name }),
   editServerKey: (index: number, name: string) => api<ConfigReply>("PUT", `/admin/endpoint/keys/${index}`, { name }),
+  setServerKeyScope: (index: number, body: { models?: string[]; rpm?: number | null }) =>
+    api<ConfigReply>("PUT", `/admin/endpoint/keys/${index}/scope`, body),
   removeServerKey: (index: number) => api<ConfigReply>("DELETE", `/admin/endpoint/keys/${index}`),
   revealServerKey: (index: number) => api<{ key: string }>("GET", `/admin/endpoint/keys/${index}/reveal`),
 

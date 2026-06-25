@@ -4,6 +4,7 @@ import type { GatewayState } from "../core/state.js";
 import { handle, GatewayError, type HandleDeps } from "../core/handler.js";
 import type { WireFormat } from "../core/canonical.js";
 import type { UsageDB } from "../db.js";
+import { RateLimiter } from "../core/ratelimit.js";
 
 /**
  * /v1 proxy surface. Auth-gates on the gateway's own keys (read from state each
@@ -11,6 +12,8 @@ import type { UsageDB } from "../db.js";
  * pipeline (non-stream JSON or SSE stream).
  */
 export function registerV1Routes(app: FastifyInstance, state: GatewayState, db?: UsageDB): void {
+  const limiter = new RateLimiter();
+
   const requireAuth = {
     preHandler: (req: FastifyRequest, reply: FastifyReply, done: (err?: Error) => void) => {
       const res = checkAuth(req, state.config.server.api_keys);
@@ -18,6 +21,14 @@ export function registerV1Routes(app: FastifyInstance, state: GatewayState, db?:
         reply.code(res.status ?? 401).send({ error: res.error });
         return; // skip done() to short-circuit the route
       }
+
+      const presented = extractKey(req);
+      const rpm = presented ? state.config.server.key_rpm?.[presented] : undefined;
+      if (presented && rpm && limiter.over(clientKeyFingerprint(presented), rpm)) {
+        reply.code(429).send({ error: "rate limit exceeded" });
+        return; // short-circuit
+      }
+
       done();
     },
   };
@@ -30,6 +41,7 @@ export function registerV1Routes(app: FastifyInstance, state: GatewayState, db?:
       pool: state.pool,
       budget: state.budget,
       db,
+      clientKeyModels: presented ? state.config.server.key_models?.[presented] : undefined,
       clientKeyFp: presented ? clientKeyFingerprint(presented) : undefined,
       log: (msg) => app.log.info(msg),
     };
