@@ -41,7 +41,7 @@ export class GatewayState {
     private readonly configPath: string,
     initial: GatewayConfig,
     quota?: QuotaTracker,
-    budgetDb?: { totals(since: number, filter?: { provider?: string; model?: string }): { tokens_in: number; tokens_out: number; cost: number } },
+    budgetDb?: { totals(since: number, filter?: { provider?: string; model?: string; client_key?: string }): { tokens_in: number; tokens_out: number; cost: number } },
   ) {
     this._config = initial;
     this._pool = new KeyPool();
