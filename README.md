@@ -28,8 +28,8 @@ See [CHANGELOG.md](./CHANGELOG.md) for release history.
 ### Highlights
 
 - **One endpoint, every format** — clients speak OpenAI (`/v1/chat/completions`)
-  or Anthropic (`/v1/messages`); the gateway translates to/from OpenAI,
-  Anthropic, or Gemini providers, streaming included.
+  or Anthropic (`/v1/messages`); the gateway translates to/from OpenAI- and
+  Anthropic-compatible providers, streaming included.
 - **Routing + fallback** — a client alias resolves to a prioritized provider
   chain; on 429/5xx/timeout it rotates keys and falls through to the next.
 - **Token savers** — RTK compresses bulky `tool_result` blocks; caveman trims
@@ -184,8 +184,8 @@ npm run build           # compile to dist/
 ### Sorotan
 
 - **Satu endpoint, semua format** — klien bicara OpenAI (`/v1/chat/completions`)
-  atau Anthropic (`/v1/messages`); gateway menerjemahkan ke/dari provider OpenAI,
-  Anthropic, atau Gemini, termasuk streaming.
+  atau Anthropic (`/v1/messages`); gateway menerjemahkan ke/dari provider yang
+  kompatibel OpenAI & Anthropic, termasuk streaming.
 - **Routing + fallback** — sebuah alias klien diarahkan ke rantai provider
   berprioritas; saat 429/5xx/timeout ia memutar key dan jatuh ke provider
   berikutnya.

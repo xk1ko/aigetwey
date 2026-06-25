@@ -38,11 +38,12 @@ providers: []
 #    free: true
 #    auto_models: true
 #
-#  - id: vertex
-#    format: gemini
-#    base_url: https://us-central1-aiplatform.googleapis.com/v1
-#    service_account: /path/to/sa.json
-#    quota: { window: monthly, limit_tokens: 300000000 }
+#  - id: anthropic
+#    format: anthropic
+#    base_url: https://api.anthropic.com
+#    api_key: sk-ant-xxx
+#    models:
+#      - { id: claude-sonnet-4-6 }
 
 # Combos: client-facing alias -> ordered provider chain. Call the alias as the
 # model name from your CLI tool. strategy: fallback (try in order) | round-robin.
