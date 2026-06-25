@@ -8,7 +8,8 @@ import { Button, Input } from "@/components/Button";
 import { Icon } from "@/components/Icon";
 import { KeyReveal } from "@/components/KeyReveal";
 import { Empty } from "@/components/ui";
-import type { EndpointPayload, HeadroomStatusReply, InjectLevel } from "@/lib/gateway";
+import { ModelPicker, type ModelGroup } from "@/components/ModelPicker";
+import type { EndpointPayload, HeadroomStatusReply, InjectLevel, MaskedConfig } from "@/lib/gateway";
 
 const LEVELS: InjectLevel[] = ["off", "lite", "full", "ultra"];
 
@@ -30,6 +31,11 @@ export function EndpointView() {
   const [hr, setHr] = useState<HeadroomStatusReply | null>(null);
   const [editKey, setEditKey] = useState<number | null>(null);
   const [editKeyName, setEditKeyName] = useState("");
+  const [groups, setGroups] = useState<ModelGroup[]>([]);
+  const [scopeKey, setScopeKey] = useState<number | null>(null);
+  const [scopeModels, setScopeModels] = useState<string[]>([]);
+  const [scopeRpm, setScopeRpm] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const reload = useCallback(async () => {
     const r = await adminApi.endpoint();
@@ -51,6 +57,20 @@ export function EndpointView() {
   useEffect(() => {
     void reload();
     void reloadHr();
+    // load the model catalog for the per-key scope picker (combos + provider/model refs).
+    void (async () => {
+      try {
+        const res = await fetch("/api/gw/admin/config");
+        if (!res.ok) return;
+        const cfg = (await res.json()) as MaskedConfig;
+        const grps: ModelGroup[] = [];
+        if (cfg.models.length) grps.push({ label: "Combos", items: cfg.models.map((m) => ({ value: m.alias, label: m.alias })) });
+        for (const p of cfg.providers) {
+          if (p.models.length) grps.push({ label: p.id, items: p.models.map((m) => ({ value: `${p.id}/${m.id}`, label: `${p.id}/${m.id}` })) });
+        }
+        setGroups(grps);
+      } catch { /* non-critical — picker will just be empty */ }
+    })();
   }, [reload, reloadHr]);
 
   if (error) return <Empty>{error}</Empty>;
@@ -132,30 +152,96 @@ export function EndpointView() {
                     </div>
                   </div>
                 ) : (
-                  <div key={i} className="flex items-center justify-between gap-2 rounded-brand border border-border-subtle px-3 py-2">
-                    <div className="flex min-w-0 flex-col gap-0.5">
-                      {k.name && <span className="text-[12px] font-semibold text-text-muted">{k.name}</span>}
-                      <KeyReveal
-                        masked={k.key}
-                        reveal={async () => {
-                          const r = await adminApi.revealServerKey(i);
-                          return r.ok ? r.data?.key ?? null : null;
-                        }}
-                      />
+                  <div key={i} className="space-y-0 rounded-brand border border-border-subtle">
+                    <div className="flex items-center justify-between gap-2 px-3 py-2">
+                      <div className="flex min-w-0 flex-col gap-0.5">
+                        {k.name && <span className="text-[12px] font-semibold text-text-muted">{k.name}</span>}
+                        <KeyReveal
+                          masked={k.key}
+                          reveal={async () => {
+                            const r = await adminApi.revealServerKey(i);
+                            return r.ok ? r.data?.key ?? null : null;
+                          }}
+                        />
+                        <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-text-subtle">
+                          <span>{k.models?.length ? `${k.models.length} model${k.models.length > 1 ? "s" : ""}` : "all models"}</span>
+                          <span>·</span>
+                          <span>{k.rpm ? `${k.rpm}/min` : "no rate limit"}</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-none items-center gap-1">
+                        <button
+                          onClick={() => { setScopeKey(i); setScopeModels(k.models ?? []); setScopeRpm(k.rpm ? String(k.rpm) : ""); }}
+                          className="text-text-subtle hover:text-text"
+                          aria-label="Edit key scope"
+                          title="Model allowlist + rate limit"
+                        >
+                          <Icon name="tune" size={15} />
+                        </button>
+                        <button
+                          onClick={() => { setEditKey(i); setEditKeyName(k.name ?? ""); }}
+                          className="text-text-subtle hover:text-text"
+                          aria-label="Rename key"
+                          title="Rename key"
+                        >
+                          <Icon name="edit" size={15} />
+                        </button>
+                        <button onClick={() => run(`rmkey${i}`, () => adminApi.removeServerKey(i))} className="text-text-subtle hover:text-danger" aria-label="Remove key">
+                          <Icon name="delete" size={16} />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex flex-none items-center gap-1">
-                      <button
-                        onClick={() => { setEditKey(i); setEditKeyName(k.name ?? ""); }}
-                        className="text-text-subtle hover:text-text"
-                        aria-label="Rename key"
-                        title="Rename key"
-                      >
-                        <Icon name="edit" size={15} />
-                      </button>
-                      <button onClick={() => run(`rmkey${i}`, () => adminApi.removeServerKey(i))} className="text-text-subtle hover:text-danger" aria-label="Remove key">
-                        <Icon name="delete" size={16} />
-                      </button>
-                    </div>
+                    {scopeKey === i && (
+                      <div className="space-y-2 border-t border-border-subtle bg-accent-soft/40 px-3 py-2.5">
+                        <div>
+                          <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-text-subtle">Allowed models</div>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {scopeModels.length === 0 ? (
+                              <span className="text-[12px] text-text-subtle">All models (unrestricted)</span>
+                            ) : (
+                              scopeModels.map((m) => (
+                                <span key={m} className="inline-flex items-center gap-1 rounded border border-accent bg-accent-soft px-2 py-0.5 text-[12px] text-accent">
+                                  <span className="tnum">{m}</span>
+                                  <button onClick={() => setScopeModels((s) => s.filter((x) => x !== m))} className="hover:text-danger" aria-label={`Remove ${m}`}>
+                                    <Icon name="close" size={12} />
+                                  </button>
+                                </span>
+                              ))
+                            )}
+                          </div>
+                          <Button type="button" variant="ghost" className="mt-1.5" onClick={() => setPickerOpen(true)}>
+                            <Icon name="add" size={15} /> Pick models
+                          </Button>
+                        </div>
+                        <div>
+                          <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-text-subtle">Rate limit</div>
+                          <Input
+                            inputMode="numeric"
+                            value={scopeRpm}
+                            onChange={(e) => setScopeRpm(e.target.value.replace(/[^\d]/g, ""))}
+                            placeholder="req/min (blank = unlimited)"
+                          />
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" onClick={() => setScopeKey(null)}>Cancel</Button>
+                          <Button
+                            disabled={busy === `scope${i}`}
+                            onClick={() =>
+                              run(`scope${i}`, async () => {
+                                const r = await adminApi.setServerKeyScope(i, {
+                                  models: scopeModels,
+                                  rpm: scopeRpm ? Number(scopeRpm) : null,
+                                });
+                                if (r.ok) setScopeKey(null);
+                                return r;
+                              })
+                            }
+                          >
+                            Save
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ),
               )}
@@ -226,6 +312,17 @@ export function EndpointView() {
       </div>
 
       {created && <KeyCreatedModal name={created.name} value={created.key} onClose={() => setCreated(null)} />}
+      {pickerOpen && (
+        <ModelPicker
+          title="Allowed models"
+          note="Pick the models this key may call. None = all."
+          groups={groups}
+          selected={scopeModels}
+          onToggle={(v) => setScopeModels((s) => s.includes(v) ? s.filter((x) => x !== v) : [...s, v])}
+          onClose={() => setPickerOpen(false)}
+          showThinkingHint={false}
+        />
+      )}
     </div>
   );
 }
