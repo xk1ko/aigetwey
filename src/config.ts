@@ -810,8 +810,10 @@ export function setBudget(config: Config, budget: Budget, now: number = Date.now
     next.budgets.push({ ...budget, anchor: budget.anchor ?? now });
   } else {
     const prev = next.budgets[idx]!;
-    // keep the running cycle on edit; start a fresh one only when the window changed.
-    const anchor = budget.anchor ?? (prev.window === budget.window ? prev.anchor ?? now : now);
+    // keep the running cycle on edit (preserve prev anchor as-is, including a
+    // legacy undefined = epoch grid, so editing a limit never resets spend);
+    // start a fresh cycle only when the window length actually changed.
+    const anchor = budget.anchor ?? (prev.window === budget.window ? prev.anchor : now);
     next.budgets[idx] = { ...budget, anchor };
   }
   return next;

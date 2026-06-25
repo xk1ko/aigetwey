@@ -329,6 +329,19 @@ describe("scoped budget mutations", () => {
     const b = setBudget(a, { scope: { type: "global" }, unit: "usd", limit: 50, window: "7day" }, 9999);
     expect(b.budgets[0]!.anchor).toBe(9999);
   });
+
+  it("editing a legacy budget (no anchor) keeps it anchorless when the window is unchanged", () => {
+    // simulate a budget from before the anchor feature: no anchor stored.
+    const legacy = validateConfig({
+      providers: [], models: [],
+      budgets: [{ scope: { type: "global" }, unit: "usd", limit: 50, window: "30day" }],
+    }).raw;
+    expect(legacy.budgets[0]!.anchor).toBeUndefined();
+    // edit only the limit — must NOT stamp an anchor (that would reset spend).
+    const edited = setBudget(legacy, { scope: { type: "global" }, unit: "usd", limit: 80, window: "30day" }, 9999);
+    expect(edited.budgets[0]!.anchor).toBeUndefined();
+    expect(edited.budgets[0]!.limit).toBe(80);
+  });
 });
 
 // ---- key-scoped budgets -----------------------------------------------------
