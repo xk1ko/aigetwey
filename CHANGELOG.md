@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-06-25
+
+### Added
+- **Scoped budgets** — budgets are now multi-scope: cap spend **globally**, per
+  **provider**, per **model**, or per **API key**. Each carries its own unit
+  (USD or tokens), window, soft alert, and a hard `402 budget exceeded` stop;
+  spend is still derived from the usage table (restart-safe). The Budget Tracker
+  page shows them as a card grid with an inline Add/Edit panel and a searchable
+  scope picker. Configure via `budgets:` or `PUT /admin/budgets`. Replaces the
+  single gateway-wide budget.
+- **Per-API-key budgets** — cap one gateway key's spend. The matched caller key
+  fingerprint is recorded on each usage row; `GET /admin/keys` lists keys for
+  the picker.
+- **Budget note** — an optional label on a budget to say what it's for.
+- **Headroom re-check** — a "Check" button to re-probe the Headroom proxy.
+- **Usage timeframes** — the Usage window adds **Today** (since local midnight)
+  and **60D** alongside 24h / 7D / 30D.
+- **Request log filters** — the request log is collapsible and gains Provider +
+  Start/End-date filters with a Clear button.
+
+### Changed
+- **Budget Tracker** — the Quota page is renamed Budget Tracker; the budget
+  "Alert at" threshold is a slider with a typeable %, and the per-provider token
+  quota grid (superseded by per-provider budgets) only shows when one is set.
+- **Providers** — enable/disable a provider directly from the list card; a
+  disabled provider fades, reads red, and its models drop out of the combo,
+  CLI-tool, and budget pickers.
+- **CLI tools** — the setup list is trimmed to Claude Code + opencode.
+- **Providers + OpenAI only** — the project is scoped to Anthropic- and
+  OpenAI-compatible providers; Gemini is no longer advertised.
+- **Next 16** — adopt the `proxy` file convention (was `middleware`).
+
+### Fixed
+- **Streaming usage** — openai-format streaming upstreams now report token
+  usage (`stream_options.include_usage`); previously every streamed call through
+  an openai-compatible provider logged 0 tokens in/out.
+- **Session persistence** — the dashboard session secret is persisted to the
+  data dir, so a gateway restart no longer invalidates the cookie and forces a
+  re-login.
+- Favicon (`icon.svg`) is served publicly past the auth gate.
+- Editing a budget preserves its alert threshold.
+- The launcher waits for the dashboard to be ready, not just the proxy port.
+
 ## [1.1.0] — 2026-06-24
 
 ### Added
@@ -30,15 +73,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] — 2026-06-24
 
 First public release. A personal AI gateway that routes, translates, and tracks
-requests across Anthropic / OpenAI / Gemini-compatible providers, with a built-in
+requests across Anthropic and OpenAI-compatible providers, with a built-in
 dashboard.
 
 ### Added
 
 #### Gateway
 - **Multi-format translation** — one canonical (OpenAI Chat) request shape,
-  translated to/from each provider's native wire format (`openai`, `anthropic`,
-  `gemini`) on both ingress and egress.
+  translated to/from each provider's native wire format (`openai`, `anthropic`)
+  on both ingress and egress.
 - **Combos** — alias an ordered provider chain (`fallback` or `round-robin`)
   behind a single model name; the alias *is* the model you call.
 - **Key pool** — multiple keys per provider with health tracking, cooldown on
