@@ -111,6 +111,8 @@ const ServerSchema = z
     // raw key like key_names. Absent → unrestricted / unlimited.
     key_models: z.record(z.array(z.string().min(1))).optional(),
     key_rpm: z.record(z.number().int().positive()).optional(),
+    // per-key access expiry, epoch ms, keyed by the RAW key. Absent → never expires.
+    key_expires: z.record(z.number().int().positive()).optional(),
   })
   .default({ host: "127.0.0.1", port: 18080, api_keys: [] });
 
@@ -866,6 +868,10 @@ export function removeServerKey(config: Config, index: number): Config {
     delete next.server.key_rpm[removed];
     if (Object.keys(next.server.key_rpm).length === 0) next.server.key_rpm = undefined;
   }
+  if (removed && next.server.key_expires && removed in next.server.key_expires) {
+    delete next.server.key_expires[removed];
+    if (Object.keys(next.server.key_expires).length === 0) next.server.key_expires = undefined;
+  }
   return next;
 }
 
@@ -877,7 +883,7 @@ export function removeServerKey(config: Config, index: number): Config {
 export function setServerKeyScope(
   config: Config,
   index: number,
-  patch: { models?: string[] | null; rpm?: number | null },
+  patch: { models?: string[] | null; rpm?: number | null; expires?: number | null },
 ): Config {
   const next = cloneConfig(config);
   const keys = next.server.api_keys;
@@ -899,5 +905,18 @@ export function setServerKeyScope(
     next.server.key_rpm = Object.keys(rpm).length > 0 ? rpm : undefined;
   }
 
+  if (patch.expires !== undefined) {
+    const exp = { ...(next.server.key_expires ?? {}) };
+    if (patch.expires && patch.expires > 0) exp[key] = Math.floor(patch.expires);
+    else delete exp[key];
+    next.server.key_expires = Object.keys(exp).length > 0 ? exp : undefined;
+  }
+
   return next;
+}
+
+/** True when `rawKey` has an expiry set and `now` is strictly past it. */
+export function isKeyExpired(server: Config["server"], rawKey: string, now: number): boolean {
+  const at = server.key_expires?.[rawKey];
+  return at !== undefined && now > at;
 }
