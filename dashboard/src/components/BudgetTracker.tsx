@@ -168,7 +168,7 @@ export function BudgetTracker() {
                     </div>
                   )}
                   <div className="text-[11px] text-text-subtle">
-                    {k.expires ? `expires ${new Date(k.expires).toISOString().slice(0, 10)}` : "no expiry"}
+                    {k.expires ? `expires ${fmt.date(k.expires)}` : "no expiry"}
                   </div>
                 </div>
               </RichCard>
