@@ -16,7 +16,6 @@ import type {
   PingResult,
   PricingPayload,
   ProviderSnapshot,
-  QuotaSnapshot,
   WireFormat,
 } from "./gateway";
 
@@ -54,7 +53,7 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<Api
 
 export const adminApi = {
   providers: () => api<{ providers: ProviderSnapshot[] }>("GET", "/admin/providers"),
-  quota: () => api<{ quota: QuotaSnapshot[]; budgets: BudgetStatus[] }>("GET", "/admin/quota"),
+  budgets: () => api<{ budgets: BudgetStatus[] }>("GET", "/admin/budgets"),
   models: () => api<ModelsPayload>("GET", "/admin/models"),
   keys: () => api<Array<{ fingerprint: string; name: string; masked: string }>>("GET", "/admin/keys"),
 
