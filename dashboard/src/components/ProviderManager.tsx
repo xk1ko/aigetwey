@@ -268,7 +268,7 @@ function AddProviderForm({ onDone, onClose }: { onDone: () => void; onClose: () 
 
         <div className="space-y-3">
           <Field label="Name" hint="a friendly id — also the model prefix (name/model)">
-            <Input value={id} onChange={(e) => setId(e.target.value)} placeholder="e.g. openai, huki" />
+            <Input value={id} onChange={(e) => setId(e.target.value)} placeholder="e.g. openai, anthropic" />
           </Field>
           <Field label="Base URL" hint={preset.hint}>
             <Input value={baseUrl} onChange={(e) => { setBaseUrl(e.target.value); setCheckRes(null); }} placeholder={preset.base_url} className="font-mono text-[12.5px]" />

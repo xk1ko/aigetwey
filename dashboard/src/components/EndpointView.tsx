@@ -501,9 +501,10 @@ function HeadroomCard({
 
         <Toggle
           label="Enable headroom"
-          desc="Compress the full context through the proxy before each request (fail-open if it's down)."
+          desc="Compress the full context through the proxy before each request."
           on={h.enabled}
           busy={localBusy === "enable"}
+          disabled={!hr?.running && !h.enabled}
           onChange={(v) => act("enable", () => adminApi.setHeadroom({ enabled: v }))}
         />
         <Toggle
@@ -530,10 +531,14 @@ function HeadroomCard({
 
         <div className="flex flex-wrap items-center gap-2">
           <Button
-            disabled={!hr?.canStart || hr?.running || localBusy === "start"}
-            onClick={() => act("start", () => adminApi.headroomStart())}
+            disabled={!hr?.canStart || hr?.running || !!localBusy}
+            onClick={async () => {
+              await act("start", () => adminApi.headroomStart());
+              await checkProxy();
+            }}
           >
-            <Icon name="play_arrow" size={16} /> {localBusy === "start" ? "Starting…" : "Start proxy"}
+            <Icon name={localBusy === "start" ? "sync" : "play_arrow"} size={16} className={localBusy === "start" ? "animate-spin" : ""} />
+            {localBusy === "start" ? "Starting…" : "Start proxy"}
           </Button>
           <Button
             variant="danger"
@@ -629,15 +634,16 @@ function CopyRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Toggle({ label, desc, on, busy, onChange }: { label: string; desc: string; on: boolean; busy: boolean; onChange: (v: boolean) => void }) {
+function Toggle({ label, desc, on, busy, disabled, onChange }: { label: string; desc: string; on: boolean; busy: boolean; disabled?: boolean; onChange: (v: boolean) => void }) {
+  const off = busy || disabled;
   return (
-    <div className="flex items-center justify-between gap-4">
+    <div className={`flex items-center justify-between gap-4 ${off ? "opacity-40" : ""}`}>
       <div>
         <div className="text-[13px] font-semibold text-text">{label}</div>
         <div className="text-[12px] text-text-muted">{desc}</div>
       </div>
       <button
-        disabled={busy}
+        disabled={off}
         onClick={() => onChange(!on)}
         className={`relative h-6 w-11 flex-none rounded-full transition-colors ${on ? "bg-accent" : "bg-surface-3"}`}
         aria-pressed={on}
