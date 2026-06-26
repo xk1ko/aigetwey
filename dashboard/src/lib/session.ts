@@ -11,7 +11,12 @@ import { cookies } from "next/headers";
  * Cookie token = `<b64(iv|tag|ciphertext)>.<hmac(payload)>`. Middleware only
  * needs the HMAC check (cheap, edge-safe); decryption happens in node handlers.
  */
-const COOKIE = "aigetwey_session";
+// Include gateway port in cookie name so multiple local instances
+// (e.g. global :18080 + dev :18081) don't share/overwrite each other's session.
+const _port = (() => {
+  try { return new URL(process.env.GATEWAY_URL ?? "").port || "18080"; } catch { return "18080"; }
+})();
+const COOKIE = `aigetwey_session_${_port}`;
 
 function secret(): string {
   return process.env.SESSION_SECRET ?? "";
