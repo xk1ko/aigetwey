@@ -5,6 +5,39 @@ All notable changes to **aigetwey** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] — 2026-06-27
+
+### Added
+- **Access Keys page** — dedicated `/keys` page with card grid, per-key scope
+  modal (models, rate limit, expiry, budget), and inline search/filter.
+- **Provider drag-to-reorder** — reorder provider cards via drag-and-drop
+  (@dnd-kit/sortable); priority persists to config.
+- **Update modal** — top bar update chip opens a modal with copy command and
+  "Copy & Shut down" action for seamless upgrades.
+- **Key name deduplication** — adding a key with an existing name is rejected
+  with an inline error banner.
+
+### Changed
+- **"Gateway Keys" → "Access Keys"** — renamed across nav, top bar, and page.
+- **Provider cards** — larger font sizes, more padding, "free" badge renamed to
+  "no auth", provider lamp turns red (not grey) when toggled off,
+  enabled/disabled label removed from toggle.
+- **Key cards** — buttons match budget card style (Edit / Remove, always
+  visible); rename merged into the scope modal; active badge is green, expired
+  is red.
+- **Endpoint card** — full-width, URL label simplified to "Local".
+- **Dashboard readability** — 1.06× zoom on main content area for better
+  legibility across all pages.
+- **README** — updated screenshots (Endpoint, Access Keys, Budgets).
+
+### Fixed
+- **ModelPicker crash** — `onSelect` → `onToggle` prop fix in key scope modal.
+- **Key reveal layout shift** — copy button reserves space when hidden.
+- **Error display** — key page errors shown as dismissible inline banner instead
+  of full-page blank.
+- **Version chip** — shows "current → latest" instead of "vX available".
+- **CLI tools** — removed hardcoded `API_TIMEOUT_MS` from config preview.
+
 ## [1.3.9] — 2026-06-26
 
 ### Added
