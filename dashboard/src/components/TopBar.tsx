@@ -21,7 +21,7 @@ const LABELS: Record<string, string> = {
 
 function CopyUpdateCmd({ version }: { version: string }) {
   const [copied, setCopied] = useState(false);
-  const cmd = `npm install -g aigetwey@${version}`;
+  const cmd = `npm install -g aigetwey@latest`;
   return (
     <button
       onClick={() => { void navigator.clipboard.writeText(cmd).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1800); }); }}
