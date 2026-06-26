@@ -259,39 +259,32 @@ export function ToolDetail({ id }: { id: string }) {
               <div className="space-y-3">
                 <SetupRow label="Endpoint">
                   <div className="flex flex-col gap-1.5">
-                    <Select
-                      value={selectedBase || "__auto__"}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        if (v === "__custom__") { setShowCustomBase(true); return; }
-                        const next = v === "__auto__" ? "" : v;
-                        setSelectedBase(next);
-                        localStorage.setItem(`cli-selected-base-${id}`, next);
-                      }}
-                    >
-                      <option value="__auto__">{autoBase} (auto)</option>
-                      {savedBases.map((b) => <option key={b} value={b}>{b}</option>)}
-                      <option value="__custom__">Custom URL…</option>
-                    </Select>
-                    {savedBases.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {savedBases.map((b) => (
-                          <span key={b} className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] font-mono ${selectedBase === b ? "border-accent bg-accent-soft text-accent" : "border-border text-text-muted"}`}>
-                            <span className="max-w-[180px] truncate">{b}</span>
-                            <button
-                              onClick={() => {
-                                const next = savedBases.filter((x) => x !== b);
-                                setSavedBases(next);
-                                localStorage.setItem(`cli-saved-bases-${id}`, JSON.stringify(next));
-                                if (selectedBase === b) { setSelectedBase(""); localStorage.setItem(`cli-selected-base-${id}`, ""); }
-                              }}
-                              className="hover:text-danger"
-                              aria-label="remove"
-                            ><Icon name="close" size={11} /></button>
-                          </span>
-                        ))}
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <Select
+                        value={selectedBase || "__auto__"}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (v === "__custom__") { setShowCustomBase(true); return; }
+                          const next = v === "__auto__" ? "" : v;
+                          setSelectedBase(next);
+                          localStorage.setItem(`cli-selected-base-${id}`, next);
+                        }}
+                        className="flex-1"
+                      >
+                        <option value="__auto__">{autoBase} (auto)</option>
+                        {savedBases.map((b) => <option key={b} value={b}>{b}</option>)}
+                        <option value="__custom__">Custom URL…</option>
+                      </Select>
+                      {selectedBase && (
+                        <Button variant="ghost" className="px-2 py-1 flex-none" title="remove this URL" onClick={() => {
+                          const next = savedBases.filter((x) => x !== selectedBase);
+                          setSavedBases(next);
+                          localStorage.setItem(`cli-saved-bases-${id}`, JSON.stringify(next));
+                          setSelectedBase("");
+                          localStorage.setItem(`cli-selected-base-${id}`, "");
+                        }}><Icon name="delete" size={15} /></Button>
+                      )}
+                    </div>
                     {showCustomBase && (
                       <div className="flex items-center gap-2">
                         <input
@@ -311,20 +304,29 @@ export function ToolDetail({ id }: { id: string }) {
 
                 <SetupRow label="API Key">
                   <div className="flex flex-col gap-1.5">
-                    <Select
-                      value={customKey ? "__custom__" : String(keyIdx)}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        if (v === "__custom__") { setShowCustomKey(true); return; }
-                        setCustomKey("");
-                        setKeyIdx(Number(v));
-                        localStorage.removeItem(`cli-custom-key-${id}`);
-                      }}
-                    >
-                      {ep.keys.map((k, i) => <option key={i} value={i}>{k.name || `key ${i + 1}`}</option>)}
-                      {customKey && <option value="__custom__">{customKey.slice(0, 12)}… (custom)</option>}
-                      {!customKey && <option value="__custom__">Custom key…</option>}
-                    </Select>
+                    <div className="flex items-center gap-2">
+                      <Select
+                        value={customKey ? "__custom__" : String(keyIdx)}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (v === "__custom__") { setShowCustomKey(true); return; }
+                          setCustomKey("");
+                          setKeyIdx(Number(v));
+                          localStorage.removeItem(`cli-custom-key-${id}`);
+                        }}
+                        className="flex-1"
+                      >
+                        {ep.keys.map((k, i) => <option key={i} value={i}>{k.name || `key ${i + 1}`}</option>)}
+                        {customKey && <option value="__custom__">{customKey.slice(0, 12)}… (custom)</option>}
+                        {!customKey && <option value="__custom__">Custom key…</option>}
+                      </Select>
+                      {customKey && (
+                        <Button variant="ghost" className="px-2 py-1 flex-none" title="remove custom key" onClick={() => {
+                          setCustomKey("");
+                          localStorage.removeItem(`cli-custom-key-${id}`);
+                        }}><Icon name="delete" size={15} /></Button>
+                      )}
+                    </div>
                     {showCustomKey && (
                       <div className="flex items-center gap-2">
                         <input
