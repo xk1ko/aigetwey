@@ -267,7 +267,7 @@ function spawnDashboard(): ChildProcess {
 function ensureSetup(): void {
   if (!existsSync(join(root, "config.yaml")) && existsSync(join(root, "config.example.yaml"))) {
     copyFileSync(join(root, "config.example.yaml"), join(root, "config.yaml"));
-    console.log("  seeded config.yaml from the example — edit it to add providers.");
+    console.log("  seeded config.yaml from the example — add providers via the dashboard or edit it directly.");
   }
   if (!existsSync(join(root, "node_modules"))) {
     console.log("  installing gateway dependencies (first run)…");
