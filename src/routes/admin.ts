@@ -27,6 +27,7 @@ import {
   addProviderKey,
   removeProviderKey,
   editProviderKey,
+  reorderProvider,
   reorderProviderKey,
   toggleProviderKey,
   setProviderStrategy,
@@ -303,6 +304,14 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     const i = Number(index);
     if (!Number.isInteger(i)) return reply.code(400).send({ error: "index must be an integer" });
     applyMutation(reply, (c) => removeProviderKey(c, id, i));
+  });
+
+  app.put("/admin/providers/reorder", requireAdmin, (req, reply) => {
+    const b = req.body as { from?: number; to?: number };
+    if (!Number.isInteger(b?.from) || !Number.isInteger(b?.to)) {
+      return reply.code(400).send({ error: "from and to must be integers" });
+    }
+    applyMutation(reply, (c) => reorderProvider(c, b.from!, b.to!));
   });
 
   app.put("/admin/providers/:id/keys/reorder", requireAdmin, (req, reply) => {

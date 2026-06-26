@@ -558,6 +558,18 @@ export function editProviderKey(
   return next;
 }
 
+/** Move a provider from one position to another in the providers array. */
+export function reorderProvider(config: Config, from: number, to: number): Config {
+  const next = cloneConfig(config);
+  const n = next.providers.length;
+  if (from < 0 || from >= n) throw new Error(`from index ${from} out of range`);
+  if (to < 0 || to >= n) throw new Error(`to index ${to} out of range`);
+  if (from === to) return next;
+  const [moved] = next.providers.splice(from, 1);
+  next.providers.splice(to, 0, moved!);
+  return next;
+}
+
 /** Swap a provider key from one index to another, preserving names. */
 export function reorderProviderKey(config: Config, id: string, from: number, to: number): Config {
   const next = cloneConfig(config);
