@@ -6,6 +6,7 @@ config.yaml.bak
 config.yaml.tmp
 .next/
 data/
+data-dev/
 *.sqlite
 *.sqlite-journal
 .env
