@@ -35,7 +35,6 @@
     "src",
     "dashboard",
     "assets",
-    "scripts",
     "config.example.yaml",
     "tsconfig.json",
     "run.sh",
@@ -51,7 +50,6 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "postinstall": "node scripts/postinstall.cjs",
     "prepublishOnly": "npm run build && npm --prefix dashboard run build"
   },
   "publishConfig": {
