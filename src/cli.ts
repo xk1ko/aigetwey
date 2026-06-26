@@ -271,12 +271,12 @@ function ensureSetup(): void {
   }
   if (!existsSync(join(root, "node_modules"))) {
     console.log("  installing gateway dependencies (first run)…");
-    execSync("npm install --omit=dev", { cwd: root, stdio: "inherit" });
+    execSync("npm install --omit=dev --no-fund --no-audit", { cwd: root, stdio: "inherit" });
   }
   if (existsSync(join(dashboardDir, "package.json"))) {
     if (!existsSync(join(dashboardDir, "node_modules"))) {
       console.log("  installing dashboard dependencies (first run)…");
-      execSync("npm install", { cwd: dashboardDir, stdio: "inherit" });
+      execSync("npm install --no-fund --no-audit", { cwd: dashboardDir, stdio: "inherit" });
     }
     if (!existsSync(join(dashboardDir, ".next", "BUILD_ID"))) {
       console.log("  building dashboard (first run)…");
