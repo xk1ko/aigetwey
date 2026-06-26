@@ -138,6 +138,9 @@ export function ProviderDetail({ id }: { id: string }) {
         <RichCard header={<CardTitle title="Connection" />}>
           {editingConn ? (
             <div className="space-y-3">
+              <Field label="Label" hint="display name in dashboard (optional, does not affect routing)">
+                <Input value={connLabel} onChange={(e) => setConnLabel(e.target.value)} placeholder={connPrefix || "e.g. My Provider"} className="text-[12.5px]" />
+              </Field>
               <Field label="ID / Prefix" hint="the call prefix (id/model) — changing this breaks CLI tools">
                 <Input value={connPrefix} onChange={(e) => setConnPrefix(e.target.value)} placeholder="e.g. openai" className="font-mono text-[12.5px]" />
               </Field>
@@ -151,9 +154,6 @@ export function ProviderDetail({ id }: { id: string }) {
                   </span>
                 </p>
               )}
-              <Field label="Label" hint="display name in dashboard (optional, does not affect routing)">
-                <Input value={connLabel} onChange={(e) => setConnLabel(e.target.value)} placeholder={connPrefix || "e.g. My Provider"} className="text-[12.5px]" />
-              </Field>
               <Field label="Base URL">
                 <Input value={connUrl} onChange={(e) => setConnUrl(e.target.value)} placeholder="https://..." className="font-mono text-[12.5px]" />
               </Field>
@@ -180,8 +180,8 @@ export function ProviderDetail({ id }: { id: string }) {
           ) : (
             <>
               <div className="space-y-2 text-[13px]">
-                <Row k="ID / Prefix" v={provider.id} />
                 {provider.name && <Row k="Label" v={provider.name} />}
+                <Row k="ID / Prefix" v={provider.id} />
                 <Row k="Base URL" v={provider.base_url} />
                 <Row k="Format" v={provider.format} />
                 <Row k="Cooldown base" v={`${provider.cooldown_base_ms}ms`} />

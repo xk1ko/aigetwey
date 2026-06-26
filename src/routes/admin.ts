@@ -241,6 +241,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
   app.post("/admin/providers", requireAdmin, (req, reply) => {
     const b = req.body as Partial<{
       id: string;
+      name: string;
       format: Provider["format"];
       base_url: string;
       api_key: string;
@@ -254,6 +255,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     applyMutation(reply, (c) =>
       addProvider(c, {
         id: b.id!,
+        name: b.name,
         format: b.format!,
         base_url: b.base_url!,
         api_key: b.api_key,
