@@ -62,9 +62,20 @@ export function EndpointView() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <RichCard header={<CardTitle title="Gateway URL" sub="one endpoint for every client" />}>
+        <RichCard className="lg:col-span-2" header={<CardTitle title="Gateway URL" sub="one endpoint for every client" />}>
           <div className="text-[13px]">
-            <CopyRow label="Gateway URL" value={baseUrl} />
+            <div className="flex items-center gap-3">
+              <span className="text-text-subtle">Local</span>
+              <button
+                onClick={() => {
+                  void navigator.clipboard.writeText(baseUrl);
+                }}
+                className="flex items-center gap-1.5 rounded-brand border border-border-subtle px-2.5 py-1 tnum text-[12.5px] text-text hover:border-text-subtle"
+              >
+                {baseUrl}
+                <Icon name="content_copy" size={13} />
+              </button>
+            </div>
           </div>
           <p className="mt-3 text-[12px] text-text-subtle">
             One gateway, both formats. Anthropic clients (Claude Code) use it as-is; OpenAI clients (opencode,

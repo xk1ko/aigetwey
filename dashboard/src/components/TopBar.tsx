@@ -8,8 +8,8 @@ import { ConfirmModal } from "./ConfirmModal";
 import { adminApi } from "@/lib/client";
 
 const LABELS: Record<string, string> = {
-  "": "Endpoint & Key",
-  endpoint: "Endpoint & Key",
+  "": "Endpoint",
+  endpoint: "Endpoint",
   keys: "Gateway Keys",
   providers: "Providers",
   combos: "Combos",
