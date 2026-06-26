@@ -273,6 +273,25 @@ export function ToolDetail({ id }: { id: string }) {
                       {savedBases.map((b) => <option key={b} value={b}>{b}</option>)}
                       <option value="__custom__">Custom URL…</option>
                     </Select>
+                    {savedBases.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {savedBases.map((b) => (
+                          <span key={b} className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] font-mono ${selectedBase === b ? "border-accent bg-accent-soft text-accent" : "border-border text-text-muted"}`}>
+                            <span className="max-w-[180px] truncate">{b}</span>
+                            <button
+                              onClick={() => {
+                                const next = savedBases.filter((x) => x !== b);
+                                setSavedBases(next);
+                                localStorage.setItem(`cli-saved-bases-${id}`, JSON.stringify(next));
+                                if (selectedBase === b) { setSelectedBase(""); localStorage.setItem(`cli-selected-base-${id}`, ""); }
+                              }}
+                              className="hover:text-danger"
+                              aria-label="remove"
+                            ><Icon name="close" size={11} /></button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     {showCustomBase && (
                       <div className="flex items-center gap-2">
                         <input
