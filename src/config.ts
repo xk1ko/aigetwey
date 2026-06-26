@@ -419,6 +419,7 @@ export function addProvider(
   config: Config,
   input: {
     id: string;
+    name?: string;
     format: Provider["format"];
     base_url: string;
     api_key?: string;
@@ -433,6 +434,7 @@ export function addProvider(
   }
   next.providers.push({
     id: input.id,
+    ...(input.name ? { name: input.name } : {}),
     format: input.format,
     base_url: input.base_url,
     free: input.free ?? false,

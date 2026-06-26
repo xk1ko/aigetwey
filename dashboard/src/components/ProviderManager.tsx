@@ -256,6 +256,7 @@ const PRESETS: Preset[] = [
 function AddProviderForm({ onDone, onClose }: { onDone: () => void; onClose: () => void }) {
   const [preset, setPreset] = useState<Preset | null>(null);
   const [id, setId] = useState("");
+  const [label, setLabel] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
@@ -326,7 +327,7 @@ function AddProviderForm({ onDone, onClose }: { onDone: () => void; onClose: () 
     }
     setBusy(true);
     setErr("");
-    const res = await adminApi.addProvider({ id, format: preset.format, base_url: baseUrl, api_key: apiKey || undefined, free: !apiKey.trim() });
+    const res = await adminApi.addProvider({ id, format: preset.format, base_url: baseUrl, api_key: apiKey || undefined, free: !apiKey.trim(), name: label.trim() || undefined });
     if (!res.ok) {
       setBusy(false);
       setErr(res.error ?? "failed");
@@ -359,8 +360,11 @@ function AddProviderForm({ onDone, onClose }: { onDone: () => void; onClose: () 
         </div>
 
         <div className="space-y-3">
-          <Field label="Name" hint="a friendly id — also the model prefix (name/model)">
-            <Input value={id} onChange={(e) => setId(e.target.value)} placeholder="e.g. openai, anthropic" />
+          <Field label="Label" hint="display name in dashboard (optional)">
+            <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. My OpenAI" />
+          </Field>
+          <Field label="ID / Prefix" hint="the call prefix (id/model) — used by CLI tools">
+            <Input value={id} onChange={(e) => setId(e.target.value)} placeholder="e.g. openai, anthropic" className="font-mono text-[12.5px]" />
           </Field>
           <Field label="Base URL" hint={preset.hint}>
             <Input value={baseUrl} onChange={(e) => { setBaseUrl(e.target.value); setCheckRes(null); }} placeholder={preset.base_url} className="font-mono text-[12.5px]" />

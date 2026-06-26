@@ -81,6 +81,7 @@ export const gateway = {
   // ---- provider mutations (reply carries the fresh masked config) ----
   addProvider: (p: {
     id: string;
+    name?: string;
     format: WireFormat;
     base_url: string;
     api_key?: string;

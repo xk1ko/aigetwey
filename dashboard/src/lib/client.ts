@@ -71,6 +71,7 @@ export const adminApi = {
 
   addProvider: (p: {
     id: string;
+    name?: string;
     format: WireFormat;
     base_url: string;
     api_key?: string;
