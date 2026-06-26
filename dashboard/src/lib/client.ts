@@ -120,6 +120,8 @@ export const adminApi = {
       `/admin/providers/${encodeURIComponent(id)}/connect`,
     ),
 
+  reorderProvider: (from: number, to: number) =>
+    api<ConfigReply>("PUT", "/admin/providers/reorder", { from, to }),
   reorderKey: (id: string, from: number, to: number) =>
     api<ConfigReply>("PUT", `/admin/providers/${encodeURIComponent(id)}/keys/reorder`, { from, to }),
   toggleKey: (id: string, index: number, enabled: boolean) =>

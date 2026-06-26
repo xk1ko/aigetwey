@@ -2,6 +2,21 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  arrayMove,
+  rectSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { adminApi } from "@/lib/client";
 import { Lamp } from "@/components/Lamp";
 import { Badge, FormatBadge } from "@/components/Badge";
@@ -20,6 +35,7 @@ export function ProviderManager() {
   const [data, setData] = useState<Loaded | null>(null);
   const [error, setError] = useState("");
   const [adding, setAdding] = useState(false);
+  const [providerOrder, setProviderOrder] = useState<string[]>([]);
 
   const reload = useCallback(async () => {
     const [cfg, prov] = await Promise.all([
@@ -31,20 +47,43 @@ export function ProviderManager() {
       return;
     }
     setError("");
-    setData({
+    const loaded: Loaded = {
       config: (await cfg.json()) as MaskedConfig,
       health: prov.data?.providers ?? [],
-    });
+    };
+    setData(loaded);
+    setProviderOrder(loaded.config.providers.map((p) => p.id));
   }, []);
 
   useEffect(() => {
     void reload();
   }, [reload]);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+  );
+
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !data) return;
+
+    const oldIndex = providerOrder.indexOf(active.id as string);
+    const newIndex = providerOrder.indexOf(over.id as string);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    setProviderOrder(arrayMove(providerOrder, oldIndex, newIndex));
+    await adminApi.reorderProvider(oldIndex, newIndex);
+    void reload();
+  }
+
   if (error) return <Empty>{error}</Empty>;
   if (!data) return <Empty>Loading…</Empty>;
 
   const healthById = new Map(data.health.map((h) => [h.id, h]));
+  const providerMap = new Map(data.config.providers.map((p) => [p.id, p]));
+  const orderedProviders = providerOrder
+    .map((id) => providerMap.get(id))
+    .filter(Boolean) as typeof data.config.providers;
 
   return (
     <div>
@@ -66,50 +105,104 @@ export function ProviderManager() {
         />
       )}
 
-      {data.config.providers.length === 0 ? (
+      {orderedProviders.length === 0 ? (
         <Empty>No providers yet. Add one to start routing.</Empty>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {data.config.providers.map((p) => {
-            const health = healthById.get(p.id);
-            const healthy = health ? health.keys.some((k) => k.healthy) : true;
-            const cooling = health?.keys.find((k) => !k.healthy && k.cooldown_ms > 0);
-            return (
-              <Link
-                key={p.id}
-                href={`/providers/${encodeURIComponent(p.id)}`}
-                className={`group rounded-brand-lg border bg-surface p-4 shadow-soft transition-colors ${
-                  p.disabled
-                    ? "border-danger/35 opacity-60 hover:opacity-100 hover:border-danger/60"
-                    : "border-border hover:border-text-subtle"
-                }`}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Lamp state={p.disabled ? "idle" : healthy ? "live" : "down"} />
-                    <div className="min-w-0">
-                      <span className="block truncate text-[14px] font-semibold text-text">{p.name || p.id}</span>
-                      {p.name && <span className="block truncate text-[11px] text-text-subtle">{p.id}/</span>}
-                    </div>
-                  </div>
-                  <FormatBadge format={p.format} />
-                </div>
-                <div className="mt-2 truncate text-[12px] text-text-subtle">{p.base_url}</div>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <ProviderToggle id={p.id} disabled={!!p.disabled} onDone={reload} />
-                  {p.free && <Badge tone="info">free</Badge>}
-                  {p.service_account && <Badge tone="info">service-account</Badge>}
-                  <Badge tone="neutral">
-                    {p.free || p.service_account ? `${(p.api_keys?.length ?? 0)} keys` : `${p.api_keys?.length ?? (p.api_key ? 1 : 0)} keys`}
-                  </Badge>
-                  <Badge tone="neutral">{p.models.length} models</Badge>
-                  {cooling && <CooldownTimer ms={cooling.cooldown_ms} />}
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={providerOrder} strategy={rectSortingStrategy}>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {orderedProviders.map((p) => {
+                const health = healthById.get(p.id);
+                const healthy = health ? health.keys.some((k) => k.healthy) : true;
+                const cooling = health?.keys.find((k) => !k.healthy && k.cooldown_ms > 0);
+                return (
+                  <SortableProviderCard
+                    key={p.id}
+                    p={p}
+                    healthy={healthy}
+                    cooling={cooling}
+                    onDone={reload}
+                  />
+                );
+              })}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
+    </div>
+  );
+}
+
+type ProviderConfig = MaskedConfig["providers"][number];
+
+function SortableProviderCard({
+  p,
+  healthy,
+  cooling,
+  onDone,
+}: {
+  p: ProviderConfig;
+  healthy: boolean;
+  cooling: { cooldown_ms: number } | undefined;
+  onDone: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: p.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`group relative rounded-brand-lg border bg-surface shadow-soft transition-colors ${
+        isDragging ? "opacity-50 border-accent shadow-elevated z-10" : ""
+      } ${
+        p.disabled
+          ? "border-danger/35 opacity-60 hover:opacity-100 hover:border-danger/60"
+          : isDragging ? "" : "border-border hover:border-text-subtle"
+      }`}
+    >
+      {/* drag pill — centered top, visible on hover */}
+      <div
+        {...attributes}
+        {...listeners}
+        className="absolute inset-x-0 top-0 flex h-5 cursor-grab items-center justify-center opacity-0 transition-opacity group-hover:opacity-100 active:cursor-grabbing"
+        onClick={(e) => e.preventDefault()}
+      >
+        <span className="h-[3px] w-8 rounded-full bg-border-subtle transition-colors group-hover:bg-text-subtle" />
+      </div>
+
+      <Link
+        href={`/providers/${encodeURIComponent(p.id)}`}
+        className="block p-4 pt-5"
+        draggable={false}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Lamp state={p.disabled ? "idle" : healthy ? "live" : "down"} />
+            <div className="min-w-0">
+              <span className="block truncate text-[14px] font-semibold text-text">{p.name || p.id}</span>
+              {p.name && <span className="block truncate text-[11px] text-text-subtle">{p.id}/</span>}
+            </div>
+          </div>
+          <FormatBadge format={p.format} />
+        </div>
+        <div className="mt-2 truncate text-[12px] text-text-subtle">{p.base_url}</div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <ProviderToggle id={p.id} disabled={!!p.disabled} onDone={onDone} />
+          {p.free && <Badge tone="info">free</Badge>}
+          {p.service_account && <Badge tone="info">service-account</Badge>}
+          <Badge tone="neutral">
+            {p.free || p.service_account ? `${(p.api_keys?.length ?? 0)} keys` : `${p.api_keys?.length ?? (p.api_key ? 1 : 0)} keys`}
+          </Badge>
+          <Badge tone="neutral">{p.models.length} models</Badge>
+          {cooling && <CooldownTimer ms={cooling.cooldown_ms} />}
+        </div>
+      </Link>
     </div>
   );
 }
