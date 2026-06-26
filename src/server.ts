@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import { resolve, join } from "node:path";
 import { loadConfig } from "./config.js";
+import { getDataDir, getConfigPath } from "./appDirs.js";
 import { registerRoutes } from "./routes/index.js";
 import { GatewayState } from "./core/state.js";
 import { UsageDB } from "./db.js";
@@ -8,7 +9,7 @@ import { AuthStore } from "./core/authStore.js";
 import { consoleBuffer } from "./core/console-buffer.js";
 
 async function main(): Promise<void> {
-  const configPath = resolve(process.env.AIGETWEY_CONFIG ?? "config.yaml");
+  const configPath = getConfigPath();
 
   let config;
   try {
@@ -47,8 +48,7 @@ async function main(): Promise<void> {
     bodyLimit: 32 * 1024 * 1024,
   });
 
-  // unified data dir (default ./data); usage tracking lives here.
-  const dataDir = resolve(process.env.AIGETWEY_DATA_DIR ?? "data");
+  const dataDir = getDataDir();
   const db = new UsageDB(join(dataDir, "usage.sqlite"));
 
   // holder enables runtime config edits (hot-reload) from the dashboard.

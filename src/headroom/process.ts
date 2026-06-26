@@ -8,8 +8,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { findHeadroomBinary } from "./detect.js";
+import { getDataDir } from "../appDirs.js";
 
-const DATA_DIR = path.resolve(process.env.AIGETWEY_DATA_DIR ?? "data");
+const DATA_DIR = getDataDir();
 const HEADROOM_DIR = path.join(DATA_DIR, "headroom");
 const PID_FILE = path.join(HEADROOM_DIR, "proxy.pid");
 const LOG_FILE = path.join(HEADROOM_DIR, "proxy.log");
