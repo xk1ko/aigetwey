@@ -14,7 +14,7 @@
  */
 import { spawn, execSync, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { existsSync, copyFileSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, copyFileSync, readFileSync, writeFileSync, mkdirSync, statSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createInterface } from "node:readline";
@@ -283,12 +283,16 @@ function ensureSetup(): void {
       }
     }
   }
-  // migrate auth.json + session-secret from old data/ dir if present
-  for (const f of ["auth.json", "session-secret"]) {
+  // migrate auth.json + session-secret + usage.sqlite from old data/ dir if present
+  for (const f of ["auth.json", "session-secret", "usage.sqlite"]) {
     const dest = join(dataDir, f);
     const old = join(root, "data", f);
-    if (!existsSync(dest) && existsSync(old)) {
+    if (!existsSync(old)) continue;
+    const shouldCopy = !existsSync(dest)
+      || (f === "usage.sqlite" && statSync(dest).size < 8192 && statSync(old).size > statSync(dest).size);
+    if (shouldCopy) {
       copyFileSync(old, dest);
+      if (f === "usage.sqlite") console.log(`  migrated usage data → ${dest}`);
     }
   }
 
