@@ -5,6 +5,18 @@ All notable changes to **aigetwey** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.3] — 2026-06-26
+
+### Fixed
+- **Default admin password** — password now defaults to `123456` (stable across
+  restarts) instead of a random hex string generated on every boot. Set
+  `AIGETWEY_ADMIN_PASSWORD` to override.
+- **Hide to Tray on first run** — option 3 (Hide to Tray) now runs `ensureSetup`
+  and pre-installs the tray runtime (`systray2`) in the foreground before
+  detaching. Previously the background process built the dashboard and installed
+  the tray silently with no output, leaving the tray icon never appearing and the
+  gateway unreachable until the build finished.
+
 ## [1.3.2] — 2026-06-26
 
 ### Fixed
