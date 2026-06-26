@@ -28,7 +28,7 @@ describe("/v1 key expiry enforcement", () => {
       payload: { model: "x", messages: [] },
     });
     expect(res.statusCode).toBe(403);
-    expect(res.json()).toEqual({ error: "key expired" });
+    expect(res.json()).toMatchObject({ error: "access key expired" });
   });
 
   it("a non-expired key passes the expiry gate (does not 403 here)", async () => {

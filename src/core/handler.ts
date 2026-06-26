@@ -18,6 +18,25 @@ import { adapterFor } from "../adapters/index.js";
 import type { UpstreamError } from "../upstream/client.js";
 import { parseSSE, encodeSSE } from "../stream/sse.js";
 import { streamAdapterFor } from "../stream/index.js";
+
+function humanDuration(ms: number): string {
+  if (ms <= 0) return "now";
+  const s = Math.ceil(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.ceil(s / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  const rm = m % 60;
+  return rm ? `${h}h ${rm}m` : `${h}h`;
+}
+
+function budgetErrorBody(resetMs: number): { error: string; reset_in_ms: number; reset_at: string } {
+  const resetAt = new Date(Date.now() + resetMs).toISOString();
+  const msg = resetMs > 0
+    ? `budget exceeded — resets in ${humanDuration(resetMs)}`
+    : "budget exceeded";
+  return { error: msg, reset_in_ms: resetMs, reset_at: resetAt };
+}
 import type { CanonicalChunk } from "../stream/chunk.js";
 import type { KeyPool } from "./keypool.js";
 import { executeWithFallback } from "./fallback.js";
@@ -139,15 +158,15 @@ export async function handle(
   // matching routes; if every candidate is barred, there's nothing to serve → 402.
   if (deps.budget) {
     const g = deps.budget.globalStatus();
-    if (g?.exhausted) throw new GatewayError(402, { error: "budget exceeded", reset_in_ms: g.reset_in_ms });
+    if (g?.exhausted) throw new GatewayError(402, budgetErrorBody(g.reset_in_ms));
     if (deps.clientKeyFp) {
       const kb = deps.budget.blocksKey(deps.clientKeyFp);
-      if (kb?.exhausted) throw new GatewayError(402, { error: "budget exceeded", reset_in_ms: kb.reset_in_ms });
+      if (kb?.exhausted) throw new GatewayError(402, budgetErrorBody(kb.reset_in_ms));
     }
     const eligible = routes.filter((r) => !deps.budget!.blocks(r.provider.id, r.model));
     if (eligible.length === 0) {
       const b = deps.budget.blocks(routes[0]!.provider.id, routes[0]!.model);
-      throw new GatewayError(402, { error: "budget exceeded", reset_in_ms: b?.reset_in_ms ?? 0 });
+      throw new GatewayError(402, budgetErrorBody(b?.reset_in_ms ?? 0));
     }
     routes = eligible;
   }

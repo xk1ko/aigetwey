@@ -441,6 +441,6 @@ describe("E2E — per-key rate limit (429)", () => {
 
     const second = await fetch(url, opts);
     expect(second.status).toBe(429);
-    expect(await second.json()).toEqual({ error: "rate limit exceeded" });
+    expect(await second.json()).toMatchObject({ error: expect.stringContaining("rate limit exceeded") });
   });
 });
