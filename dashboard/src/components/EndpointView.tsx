@@ -2,59 +2,19 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { adminApi } from "@/lib/client";
-import { Badge } from "@/components/Badge";
 import { RichCard, CardTitle } from "@/components/RichCard";
 import { Button, Input } from "@/components/Button";
 import { Icon } from "@/components/Icon";
-import { KeyReveal } from "@/components/KeyReveal";
-import { Empty, fmt } from "@/components/ui";
-import { ModelPicker, type ModelGroup } from "@/components/ModelPicker";
-import { ConfirmModal } from "@/components/ConfirmModal";
-import type { EndpointPayload, HeadroomStatusReply, InjectLevel, MaskedConfig } from "@/lib/gateway";
+import { Empty } from "@/components/ui";
+import type { EndpointPayload, HeadroomStatusReply, InjectLevel } from "@/lib/gateway";
 
 const LEVELS: InjectLevel[] = ["off", "lite", "full", "ultra"];
-
-/** Segment-pill style — matches the Budgets page pills. */
-const pill = (active: boolean): string =>
-  `rounded-brand px-3 py-1.5 text-[13px] font-medium transition-colors ${
-    active ? "bg-accent/12 text-accent" : "bg-surface-2 text-text-muted hover:text-text"
-  }`;
-
-const DAY_MS = 86_400_000;
-const EXPIRY_MS: Record<"24h" | "7day" | "30day", number> = {
-  "24h": DAY_MS,
-  "7day": 7 * DAY_MS,
-  "30day": 30 * DAY_MS,
-};
-
-/** Generate a random gateway key client-side (aigetwey's one-click create). */
-function generateKey(): string {
-  const bytes = new Uint8Array(24);
-  crypto.getRandomValues(bytes);
-  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-  return `aig-${hex}`;
-}
 
 export function EndpointView() {
   const [ep, setEp] = useState<EndpointPayload | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
-  const [keyName, setKeyName] = useState("");
-  const [created, setCreated] = useState<{ key: string; name: string } | null>(null);
-  const [pendingDelKey, setPendingDelKey] = useState<{ i: number; label: string } | null>(null);
   const [hr, setHr] = useState<HeadroomStatusReply | null>(null);
-  const [editKey, setEditKey] = useState<number | null>(null);
-  const [editKeyName, setEditKeyName] = useState("");
-  const [groups, setGroups] = useState<ModelGroup[]>([]);
-  const [scopeKey, setScopeKey] = useState<number | null>(null);
-  const [scopeModels, setScopeModels] = useState<string[]>([]);
-  const [scopeRpm, setScopeRpm] = useState("");
-  const [scopeExpiry, setScopeExpiry] = useState<"keep" | "never" | "24h" | "7day" | "30day" | "custom">("never");
-  const [scopeCustomDays, setScopeCustomDays] = useState("");
-  const [scopeLimit, setScopeLimit] = useState("");      // USD limit, "" = no cap
-  const [scopeWindow, setScopeWindow] = useState<"5h" | "24h" | "7day" | "30day">("30day");
-  const [keyBudgets, setKeyBudgets] = useState<Record<string, { limit: number; window: string }>>({});
-  const [pickerOpen, setPickerOpen] = useState(false);
 
   const reload = useCallback(async () => {
     const r = await adminApi.endpoint();
@@ -76,35 +36,7 @@ export function EndpointView() {
   useEffect(() => {
     void reload();
     void reloadHr();
-    // load the model catalog for the per-key scope picker (combos + provider/model refs).
-    void (async () => {
-      try {
-        const res = await fetch("/api/gw/admin/config");
-        if (!res.ok) return;
-        const cfg = (await res.json()) as MaskedConfig;
-        const grps: ModelGroup[] = [];
-        if (cfg.models.length) grps.push({ label: "Combos", items: cfg.models.map((m) => ({ value: m.alias, label: m.alias })) });
-        for (const p of cfg.providers) {
-          if (p.models.length) grps.push({ label: p.id, items: p.models.map((m) => ({ value: `${p.id}/${m.id}`, label: `${p.id}/${m.id}` })) });
-        }
-        setGroups(grps);
-      } catch { /* non-critical — picker will just be empty */ }
-    })();
-    // index existing key-scoped budgets by fingerprint so the modal can prefill.
-    void adminApi.budgets().then((r) => {
-      if (!r.ok || !r.data) return;
-      const map: Record<string, { limit: number; window: string }> = {};
-      for (const b of r.data.budgets) {
-        if (b.scope.type === "key") map[b.scope.id] = { limit: b.limit, window: b.window };
-      }
-      setKeyBudgets(map);
-    });
   }, [reload, reloadHr]);
-
-  if (error) return <Empty>{error}</Empty>;
-  if (!ep) return <Empty>Loading…</Empty>;
-
-  const baseUrl = `http://127.0.0.1:${ep.port}`;
 
   async function run(label: string, fn: () => Promise<{ ok: boolean; error?: string }>) {
     setBusy(label);
@@ -117,28 +49,16 @@ export function EndpointView() {
     }
   }
 
-  // Create a key (generated or pasted) with its label, then surface it once in a
-  // modal — aigetwey, where the full key is shown at creation time.
-  async function addKey(label: string, rawKey: string) {
-    const name = (label || "Gateway key").trim();
-    setBusy("genkey");
-    const r = await adminApi.addServerKey(rawKey, name);
-    setBusy("");
-    if (!r.ok) {
-      setError(r.error ?? "could not add key");
-      return;
-    }
-    setError("");
-    setKeyName("");
-    setCreated({ key: rawKey, name });
-    await reload();
-  }
+  if (error) return <Empty>{error}</Empty>;
+  if (!ep) return <Empty>Loading…</Empty>;
+
+  const baseUrl = `http://127.0.0.1:${ep.port}`;
 
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-[22px] font-semibold tracking-tight text-text">Endpoint &amp; Key</h1>
-        <p className="mt-1 text-[13px] text-text-muted">Gateway address, client keys, and the token-saver toggles.</p>
+        <h1 className="text-[22px] font-semibold tracking-tight text-text">Endpoint</h1>
+        <p className="mt-1 text-[13px] text-text-muted">Gateway address and token-saver toggles.</p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -151,226 +71,6 @@ export function EndpointView() {
             Cursor, Codex) append <span className="tnum">/v1</span>. The <span className="text-text-muted">CLI Tools</span>{" "}
             page has copy-ready env per tool.
           </p>
-        </RichCard>
-
-        <RichCard header={<CardTitle title="Gateway keys" sub={`${ep.keys.length} configured`} />}>
-          {ep.keys.length === 0 ? (
-            <Empty>No keys — auth is DISABLED (localhost only). Generate one below.</Empty>
-          ) : (
-            <div className="space-y-1.5">
-              {ep.keys.map((k, i) =>
-                editKey === i ? (
-                  <div key={i} className="space-y-2 rounded-brand border border-accent bg-accent-soft/40 px-3 py-2.5">
-                    <Input value={editKeyName} onChange={(e) => setEditKeyName(e.target.value)} placeholder="key name (e.g. Claude Code)" />
-                    <div className="flex justify-end gap-2">
-                      <Button variant="ghost" onClick={() => setEditKey(null)}>Cancel</Button>
-                      <Button
-                        disabled={busy === `editkey${i}`}
-                        onClick={() =>
-                          run(`editkey${i}`, async () => {
-                            const r = await adminApi.editServerKey(i, editKeyName.trim());
-                            if (r.ok) setEditKey(null);
-                            return r;
-                          })
-                        }
-                      >
-                        Save
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div key={i} className="space-y-0 rounded-brand border border-border-subtle">
-                    <div className="flex items-center justify-between gap-2 px-3 py-2">
-                      <div className="flex min-w-0 flex-col gap-0.5">
-                        {k.name && <span className="text-[12px] font-semibold text-text-muted">{k.name}</span>}
-                        <KeyReveal
-                          masked={k.key}
-                          reveal={async () => {
-                            const r = await adminApi.revealServerKey(i);
-                            return r.ok ? r.data?.key ?? null : null;
-                          }}
-                        />
-                        <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-text-subtle">
-                          <span>{k.models?.length ? `${k.models.length} model${k.models.length > 1 ? "s" : ""}` : "all models"}</span>
-                          <span>·</span>
-                          <span>{k.rpm ? `${k.rpm}/min` : "no rate limit"}</span>
-                          <span>·</span>
-                          <span>
-                            {k.expires
-                              ? (Date.now() > k.expires ? <span className="text-danger">expired</span> : `expires ${fmt.date(k.expires)}`)
-                              : "no expiry"}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex flex-none items-center gap-1">
-                        <button
-                          onClick={() => {
-                            setScopeKey(i);
-                            setScopeModels(k.models ?? []);
-                            setScopeRpm(k.rpm ? String(k.rpm) : "");
-                            setScopeExpiry(k.expires ? "keep" : "never");
-                            setScopeCustomDays("");
-                            const kb = keyBudgets[k.fingerprint];
-                            setScopeLimit(kb ? String(kb.limit) : "");
-                            setScopeWindow((kb?.window as "5h" | "24h" | "7day" | "30day") ?? "30day");
-                          }}
-                          className="text-text-subtle hover:text-text"
-                          aria-label="Edit key scope"
-                          title="Model allowlist + rate limit + budget + expiry"
-                        >
-                          <Icon name="tune" size={15} />
-                        </button>
-                        <button
-                          onClick={() => { setEditKey(i); setEditKeyName(k.name ?? ""); }}
-                          className="text-text-subtle hover:text-text"
-                          aria-label="Rename key"
-                          title="Rename key"
-                        >
-                          <Icon name="edit" size={15} />
-                        </button>
-                        <button onClick={() => setPendingDelKey({ i, label: k.name || k.key })} className="text-text-subtle hover:text-danger" aria-label="Remove key">
-                          <Icon name="delete" size={16} />
-                        </button>
-                      </div>
-                    </div>
-                    {scopeKey === i && (
-                      <div className="space-y-2 border-t border-border-subtle bg-accent-soft/40 px-3 py-2.5">
-                        <div>
-                          <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-text-subtle">Allowed models</div>
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            {scopeModels.length === 0 ? (
-                              <span className="text-[12px] text-text-subtle">All models (unrestricted)</span>
-                            ) : (
-                              scopeModels.map((m) => (
-                                <span key={m} className="inline-flex items-center gap-1 rounded border border-accent bg-accent-soft px-2 py-0.5 text-[12px] text-accent">
-                                  <span className="tnum">{m}</span>
-                                  <button onClick={() => setScopeModels((s) => s.filter((x) => x !== m))} className="hover:text-danger" aria-label={`Remove ${m}`}>
-                                    <Icon name="close" size={12} />
-                                  </button>
-                                </span>
-                              ))
-                            )}
-                          </div>
-                          <Button type="button" variant="ghost" className="mt-1.5" onClick={() => setPickerOpen(true)}>
-                            <Icon name="add" size={15} /> Pick models
-                          </Button>
-                        </div>
-                        <div>
-                          <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-text-subtle">Rate limit</div>
-                          <Input
-                            inputMode="numeric"
-                            value={scopeRpm}
-                            onChange={(e) => setScopeRpm(e.target.value.replace(/[^\d]/g, ""))}
-                            placeholder="req/min (blank = unlimited)"
-                          />
-                        </div>
-                        <div>
-                          <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-text-subtle">Access expiry</div>
-                          {k.expires && (
-                            <div className="mb-1.5 text-[11px] text-text-subtle">
-                              currently {Date.now() > k.expires ? <span className="text-danger">expired</span> : `expires ${fmt.date(k.expires)}`}
-                            </div>
-                          )}
-                          <div className="flex flex-wrap gap-1">
-                            {(k.expires
-                              ? (["keep", "never", "24h", "7day", "30day", "custom"] as const)
-                              : (["never", "24h", "7day", "30day", "custom"] as const)
-                            ).map((opt) => (
-                              <button
-                                key={opt}
-                                type="button"
-                                onClick={() => setScopeExpiry(opt)}
-                                className={pill(scopeExpiry === opt)}
-                              >
-                                {opt === "never" ? "no expiry" : opt}
-                              </button>
-                            ))}
-                          </div>
-                          {scopeExpiry === "custom" && (
-                            <div className="mt-1.5 flex items-center gap-1.5">
-                              <Input
-                                inputMode="numeric"
-                                value={scopeCustomDays}
-                                onChange={(e) => setScopeCustomDays(e.target.value.replace(/[^\d]/g, ""))}
-                                placeholder="days"
-                                className="w-24"
-                              />
-                              <span className="text-[11px] text-text-subtle">days from now</span>
-                            </div>
-                          )}
-                        </div>
-                        <div>
-                          <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-text-subtle">Spend cap (USD)</div>
-                          <Input
-                            inputMode="decimal"
-                            value={scopeLimit}
-                            onChange={(e) => setScopeLimit(e.target.value.replace(/[^\d.]/g, ""))}
-                            placeholder="USD (blank = no cap)"
-                          />
-                          {scopeLimit && (
-                            <div className="mt-1.5 flex items-center gap-1.5">
-                              <span className="text-[11px] text-text-subtle">resets every</span>
-                              {(["5h", "24h", "7day", "30day"] as const).map((w) => (
-                                <button
-                                  key={w}
-                                  type="button"
-                                  onClick={() => setScopeWindow(w)}
-                                  className={pill(scopeWindow === w)}
-                                >
-                                  {w}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          <Button variant="ghost" onClick={() => setScopeKey(null)}>Cancel</Button>
-                          <Button
-                            disabled={busy === `scope${i}`}
-                            onClick={() =>
-                              run(`scope${i}`, async () => {
-                                // "keep" leaves expiry untouched (omit); "never" clears; a duration sets now+N.
-                                const expires =
-                                  scopeExpiry === "keep" ? undefined
-                                  : scopeExpiry === "never" ? null
-                                  : scopeExpiry === "custom" ? (scopeCustomDays ? Date.now() + Number(scopeCustomDays) * DAY_MS : null)
-                                  : Date.now() + EXPIRY_MS[scopeExpiry];
-                                const r = await adminApi.setServerKeyScope(i, {
-                                  models: scopeModels,
-                                  rpm: scopeRpm ? Number(scopeRpm) : null,
-                                  expires,
-                                });
-                                if (!r.ok) return r;
-                                const limit = scopeLimit ? Number(scopeLimit) : 0;
-                                if (limit > 0) {
-                                  await adminApi.setBudget({ scope: { type: "key", id: k.fingerprint }, unit: "usd", limit, window: scopeWindow });
-                                } else if (keyBudgets[k.fingerprint]) {
-                                  await adminApi.clearBudget(`key:${k.fingerprint}`);
-                                }
-                                setScopeKey(null);
-                                return r;
-                              })
-                            }
-                          >
-                            Save
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ),
-              )}
-            </div>
-          )}
-          <div className="mt-3 space-y-2">
-            <div className="flex gap-2">
-              <Input value={keyName} onChange={(e) => setKeyName(e.target.value)} placeholder="key name (e.g. Claude Code)" className="flex-1" />
-              <Button disabled={busy === "genkey"} onClick={() => addKey(keyName, generateKey())}>
-                <Icon name="add" size={16} /> {busy === "genkey" ? "Adding…" : "Add key"}
-              </Button>
-            </div>
-            <p className="text-[11px] text-text-subtle">Name it, then click Add key — a key is generated and shown once. Configure its limits after.</p>
-          </div>
         </RichCard>
 
         <RichCard className="lg:col-span-2" header={<CardTitle title="Token savers" sub="applied to every request before routing" />}>
@@ -408,32 +108,6 @@ export function EndpointView() {
           }}
         />
       </div>
-
-      {created && <KeyCreatedModal name={created.name} value={created.key} onClose={() => setCreated(null)} />}
-      {pendingDelKey && (
-        <ConfirmModal
-          title="Remove gateway key"
-          message={`Delete "${pendingDelKey.label}"? Any client using this key stops working immediately.`}
-          confirmLabel="Remove"
-          busy={busy === `rmkey${pendingDelKey.i}`}
-          onCancel={() => setPendingDelKey(null)}
-          onConfirm={() => {
-            const i = pendingDelKey.i;
-            void run(`rmkey${i}`, () => adminApi.removeServerKey(i)).then(() => setPendingDelKey(null));
-          }}
-        />
-      )}
-      {pickerOpen && (
-        <ModelPicker
-          title="Allowed models"
-          note="Pick the models this key may call. None = all."
-          groups={groups}
-          selected={scopeModels}
-          onToggle={(v) => setScopeModels((s) => s.includes(v) ? s.filter((x) => x !== v) : [...s, v])}
-          onClose={() => setPickerOpen(false)}
-          showThinkingHint={false}
-        />
-      )}
     </div>
   );
 }
@@ -577,43 +251,6 @@ function HeadroomCard({
   );
 }
 
-/** Shows a freshly created key once (it's masked everywhere after), with copy. */
-function KeyCreatedModal({ name, value, onClose }: { name: string; value: string; onClose: () => void }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6" onClick={onClose}>
-      <div
-        className="w-full max-w-md rounded-brand-lg border border-border bg-surface p-5 shadow-elevated"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-1 flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent-soft text-accent">
-            <Icon name="key" size={16} />
-          </span>
-          <h2 className="text-[15px] font-semibold text-text">Key created</h2>
-        </div>
-        <p className="mb-3 text-[12px] text-text-muted">
-          Copy <span className="text-text">{name}</span> now. You can reveal it again later from this page.
-        </p>
-        <button
-          onClick={() => {
-            void navigator.clipboard.writeText(value);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1500);
-          }}
-          className="flex w-full items-center justify-between gap-2 rounded-brand border border-border-subtle bg-bg px-3 py-2.5 text-left hover:border-text-subtle"
-        >
-          <span className="tnum truncate text-[12.5px] text-text">{value}</span>
-          <Icon name={copied ? "check" : "content_copy"} size={15} />
-        </button>
-        <div className="mt-4 flex justify-end">
-          <Button onClick={onClose}>Done</Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function CopyRow({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -679,5 +316,33 @@ function LevelRow({ label, desc, value, busy, onChange }: { label: string; desc:
         ))}
       </div>
     </div>
+  );
+}
+
+type Tone = "live" | "down" | "warn" | "info" | "neutral";
+
+const TONES: Record<Tone, string> = {
+  live: "bg-success/12 text-success",
+  down: "bg-danger/12 text-danger",
+  warn: "bg-warning/12 text-warning",
+  info: "bg-info/12 text-info",
+  neutral: "bg-surface-2 text-text-muted",
+};
+
+function Badge({
+  tone = "neutral",
+  children,
+  className,
+}: {
+  tone?: Tone;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${TONES[tone]}${className ? ` ${className}` : ""}`}
+    >
+      {children}
+    </span>
   );
 }

@@ -10,6 +10,7 @@ import { adminApi } from "@/lib/client";
 const LABELS: Record<string, string> = {
   "": "Endpoint & Key",
   endpoint: "Endpoint & Key",
+  keys: "Gateway Keys",
   providers: "Providers",
   combos: "Combos",
   usage: "Usage",
