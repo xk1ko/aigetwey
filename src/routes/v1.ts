@@ -25,13 +25,15 @@ export function registerV1Routes(app: FastifyInstance, state: GatewayState, db?:
 
       const presented = extractKey(req);
       if (presented && isKeyExpired(state.config.server, presented, Date.now())) {
-        reply.code(403).send({ error: "key expired" });
+        const expAt = state.config.server.key_expires?.[presented];
+        const expDate = expAt ? new Date(expAt).toISOString() : undefined;
+        reply.code(403).send({ error: "access key expired", expired_at: expDate });
         return; // short-circuit
       }
 
       const rpm = presented ? state.config.server.key_rpm?.[presented] : undefined;
       if (presented && rpm && limiter.over(clientKeyFingerprint(presented), rpm)) {
-        reply.code(429).send({ error: "rate limit exceeded" });
+        reply.code(429).send({ error: `rate limit exceeded — max ${rpm} req/min`, retry_after_ms: 60000 });
         return; // short-circuit
       }
 
