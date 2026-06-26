@@ -62,11 +62,14 @@ export async function* streamToCanonical(events: AsyncIterable<SSEEvent>): Async
         state.model = message?.model ?? "";
         const u = message?.usage;
         if (u) {
-          state.promptTokens = u.input_tokens ?? 0;
+          const cacheRead = u.cache_read_input_tokens ?? 0;
+          const cacheCreate = u.cache_creation_input_tokens ?? 0;
+          // total input = non-cached + cache_read + cache_creation (all tokens model processed)
+          state.promptTokens = (u.input_tokens ?? 0) + cacheRead + cacheCreate;
           state.completionTokens = u.output_tokens ?? 0;
           state.reasoningTokens = u.thinking_tokens ?? 0;
-          state.cachedTokens = u.cache_read_input_tokens;
-          state.cacheCreationTokens = u.cache_creation_input_tokens;
+          state.cachedTokens = cacheRead || undefined;
+          state.cacheCreationTokens = cacheCreate || undefined;
         }
         const startChunk = baseChunk(state, { role: "assistant", content: "" }, null);
         startChunk.usage = {
