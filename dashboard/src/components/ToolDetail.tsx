@@ -21,6 +21,10 @@ export function ToolDetail({ id }: { id: string }) {
   const [combos, setCombos] = useState<string[]>([]);
   const [keyIdx, setKeyIdx] = useState(0);
   const [realKey, setRealKey] = useState("");
+  const [customBase, setCustomBase] = useState(() => localStorage.getItem(`cli-custom-base-${id}`) ?? "");
+  const [customKey, setCustomKey] = useState(() => localStorage.getItem(`cli-custom-key-${id}`) ?? "");
+  const [editBase, setEditBase] = useState(false);
+  const [editKey, setEditKey] = useState(false);
   const [error, setError] = useState("");
   const [cli, setCli] = useState<CliStatus | null>(null);
   const [cliBusy, setCliBusy] = useState<"" | "apply" | "reset">("");
@@ -62,11 +66,19 @@ export function ToolDetail({ id }: { id: string }) {
     }
   }, [cli, isAnthropic]);
 
+  function saveCustom(base: string, key: string) {
+    if (base.trim()) localStorage.setItem(`cli-custom-base-${id}`, base.trim());
+    else localStorage.removeItem(`cli-custom-base-${id}`);
+    if (key.trim()) localStorage.setItem(`cli-custom-key-${id}`, key.trim());
+    else localStorage.removeItem(`cli-custom-key-${id}`);
+  }
+
   async function applyCli() {
     if (!tool || !ep) return;
     setCliMsg("");
-    const baseUrl = `http://127.0.0.1:${ep.port}`; // gateway root; opencode route appends /v1
-    const key = ep.keys.length ? realKey || undefined : undefined;
+    saveCustom(customBase, customKey);
+    const baseUrl = customBase.trim() || `http://127.0.0.1:${ep.port}`;
+    const key = customKey.trim() || (ep.keys.length ? realKey || undefined : undefined);
     if (isAnthropic) {
       const m: Record<string, string> = {};
       if (slots.opus) m.opus = slots.opus;
@@ -139,8 +151,9 @@ export function ToolDetail({ id }: { id: string }) {
   if (error) return <Empty>{error}</Empty>;
   if (!ep) return <Empty>Loading…</Empty>;
 
-  const base = `http://127.0.0.1:${ep.port}`;
-  const env = tool.env(base, realKey);
+  const base = customBase.trim() || `http://127.0.0.1:${ep.port}`;
+  const effectiveKey = customKey.trim() || realKey;
+  const env = tool.env(base, effectiveKey);
   const block = env.map((e) => `export ${e.name}="${e.value}"`).join("\n");
 
   // opencode reads models from ~/.config/opencode/opencode.json, not shell env.
@@ -224,18 +237,58 @@ export function ToolDetail({ id }: { id: string }) {
             ) : (
               <div className="space-y-3">
                 <SetupRow label="Endpoint">
-                  <span className="tnum text-[12.5px] text-text">{isAnthropic ? base : `${base}/v1`}</span>
+                  {editBase ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        autoFocus
+                        value={customBase}
+                        onChange={(e) => setCustomBase(e.target.value)}
+                        placeholder={`http://127.0.0.1:${ep.port}`}
+                        className="flex-1 rounded-brand border border-accent bg-bg px-2.5 py-1.5 font-mono text-[12px] text-text outline-none placeholder:text-text-subtle"
+                      />
+                      <button onClick={() => setEditBase(false)} className="text-[11px] text-text-subtle hover:text-text">done</button>
+                      {customBase && <button onClick={() => { setCustomBase(""); localStorage.removeItem(`cli-custom-base-${id}`); }} className="text-[11px] text-text-subtle hover:text-danger">reset</button>}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="tnum text-[12.5px] text-text">{isAnthropic ? base : `${base}/v1`}</span>
+                      {customBase && <Badge tone="warn">custom</Badge>}
+                      <button onClick={() => setEditBase(true)} className="text-text-subtle hover:text-text"><Icon name="edit" size={13} /></button>
+                    </div>
+                  )}
                 </SetupRow>
 
-                {ep.keys.length > 0 && (
-                  <SetupRow label="API Key">
-                    <Select value={String(keyIdx)} onChange={(e) => setKeyIdx(Number(e.target.value))} className="max-w-[260px]">
-                      {ep.keys.map((k, i) => (
-                        <option key={i} value={i}>{k.name || `key ${i + 1}`}</option>
-                      ))}
-                    </Select>
-                  </SetupRow>
-                )}
+                <SetupRow label="API Key">
+                  {editKey ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        autoFocus
+                        value={customKey}
+                        onChange={(e) => setCustomKey(e.target.value)}
+                        placeholder="paste custom key…"
+                        className="flex-1 rounded-brand border border-accent bg-bg px-2.5 py-1.5 font-mono text-[12px] text-text outline-none placeholder:text-text-subtle"
+                      />
+                      <button onClick={() => setEditKey(false)} className="text-[11px] text-text-subtle hover:text-text">done</button>
+                      {customKey && <button onClick={() => { setCustomKey(""); localStorage.removeItem(`cli-custom-key-${id}`); }} className="text-[11px] text-text-subtle hover:text-danger">reset</button>}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      {customKey ? (
+                        <span className="tnum text-[12px] text-text-muted">{customKey.slice(0, 8)}…</span>
+                      ) : ep.keys.length > 0 ? (
+                        <Select value={String(keyIdx)} onChange={(e) => setKeyIdx(Number(e.target.value))} className="max-w-[220px]">
+                          {ep.keys.map((k, i) => (
+                            <option key={i} value={i}>{k.name || `key ${i + 1}`}</option>
+                          ))}
+                        </Select>
+                      ) : (
+                        <span className="text-[12px] text-text-subtle">no gateway keys</span>
+                      )}
+                      {customKey && <Badge tone="warn">custom</Badge>}
+                      <button onClick={() => setEditKey(true)} className="text-text-subtle hover:text-text"><Icon name="edit" size={13} /></button>
+                    </div>
+                  )}
+                </SetupRow>
 
                 {isAnthropic ? (
                   <SetupRow label="Models" top>
