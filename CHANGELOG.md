@@ -5,6 +5,14 @@ All notable changes to **aigetwey** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] — 2026-06-27
+
+### Fixed
+- **Usage data lost on upgrade** — `usage.sqlite` (providers, budgets, request
+  history) was not migrated from the old `data/` directory to `~/.aigetwey/`
+  when upgrading via `npm install -g`. Dashboard showed empty state. Now the
+  database is copied automatically on first run after upgrade.
+
 ## [1.4.0] — 2026-06-27
 
 ### Added
