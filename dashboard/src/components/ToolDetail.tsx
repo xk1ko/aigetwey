@@ -21,10 +21,14 @@ export function ToolDetail({ id }: { id: string }) {
   const [combos, setCombos] = useState<string[]>([]);
   const [keyIdx, setKeyIdx] = useState(0);
   const [realKey, setRealKey] = useState("");
-  const [customBase, setCustomBase] = useState(() => localStorage.getItem(`cli-custom-base-${id}`) ?? "");
-  const [customKey, setCustomKey] = useState(() => localStorage.getItem(`cli-custom-key-${id}`) ?? "");
+  const [customBase, setCustomBase] = useState("");
+  const [customKey, setCustomKey] = useState("");
   const [editBase, setEditBase] = useState(false);
   const [editKey, setEditKey] = useState(false);
+  useEffect(() => {
+    setCustomBase(localStorage.getItem(`cli-custom-base-${id}`) ?? "");
+    setCustomKey(localStorage.getItem(`cli-custom-key-${id}`) ?? "");
+  }, [id]);
   const [error, setError] = useState("");
   const [cli, setCli] = useState<CliStatus | null>(null);
   const [cliBusy, setCliBusy] = useState<"" | "apply" | "reset">("");
@@ -237,57 +241,61 @@ export function ToolDetail({ id }: { id: string }) {
             ) : (
               <div className="space-y-3">
                 <SetupRow label="Endpoint">
-                  {editBase ? (
-                    <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2">
+                    {editBase ? (
                       <input
                         autoFocus
                         value={customBase}
                         onChange={(e) => setCustomBase(e.target.value)}
+                        onBlur={() => { setEditBase(false); if (customBase.trim()) localStorage.setItem(`cli-custom-base-${id}`, customBase.trim()); else localStorage.removeItem(`cli-custom-base-${id}`); }}
+                        onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
                         placeholder={`http://127.0.0.1:${ep.port}`}
                         className="flex-1 rounded-brand border border-accent bg-bg px-2.5 py-1.5 font-mono text-[12px] text-text outline-none placeholder:text-text-subtle"
                       />
-                      <button onClick={() => setEditBase(false)} className="text-[11px] text-text-subtle hover:text-text">done</button>
-                      {customBase && <button onClick={() => { setCustomBase(""); localStorage.removeItem(`cli-custom-base-${id}`); }} className="text-[11px] text-text-subtle hover:text-danger">reset</button>}
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
+                    ) : (
                       <span className="tnum text-[12.5px] text-text">{isAnthropic ? base : `${base}/v1`}</span>
-                      {customBase && <Badge tone="warn">custom</Badge>}
-                      <button onClick={() => setEditBase(true)} className="text-text-subtle hover:text-text"><Icon name="edit" size={13} /></button>
-                    </div>
-                  )}
+                    )}
+                    {customBase && !editBase && <Badge tone="warn">custom</Badge>}
+                    {customBase && !editBase && (
+                      <button onClick={() => { setCustomBase(""); localStorage.removeItem(`cli-custom-base-${id}`); }} className="text-text-subtle hover:text-danger" title="reset to default"><Icon name="close" size={15} /></button>
+                    )}
+                    {!editBase && (
+                      <button onClick={() => setEditBase(true)} className="text-text-subtle hover:text-text" title="customize"><Icon name="edit" size={16} /></button>
+                    )}
+                  </div>
                 </SetupRow>
 
                 <SetupRow label="API Key">
-                  {editKey ? (
-                    <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2">
+                    {editKey ? (
                       <input
                         autoFocus
                         value={customKey}
                         onChange={(e) => setCustomKey(e.target.value)}
+                        onBlur={() => { setEditKey(false); if (customKey.trim()) localStorage.setItem(`cli-custom-key-${id}`, customKey.trim()); else localStorage.removeItem(`cli-custom-key-${id}`); }}
+                        onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
                         placeholder="paste custom key…"
                         className="flex-1 rounded-brand border border-accent bg-bg px-2.5 py-1.5 font-mono text-[12px] text-text outline-none placeholder:text-text-subtle"
                       />
-                      <button onClick={() => setEditKey(false)} className="text-[11px] text-text-subtle hover:text-text">done</button>
-                      {customKey && <button onClick={() => { setCustomKey(""); localStorage.removeItem(`cli-custom-key-${id}`); }} className="text-[11px] text-text-subtle hover:text-danger">reset</button>}
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      {customKey ? (
-                        <span className="tnum text-[12px] text-text-muted">{customKey.slice(0, 8)}…</span>
-                      ) : ep.keys.length > 0 ? (
-                        <Select value={String(keyIdx)} onChange={(e) => setKeyIdx(Number(e.target.value))} className="max-w-[220px]">
-                          {ep.keys.map((k, i) => (
-                            <option key={i} value={i}>{k.name || `key ${i + 1}`}</option>
-                          ))}
-                        </Select>
-                      ) : (
-                        <span className="text-[12px] text-text-subtle">no gateway keys</span>
-                      )}
-                      {customKey && <Badge tone="warn">custom</Badge>}
-                      <button onClick={() => setEditKey(true)} className="text-text-subtle hover:text-text"><Icon name="edit" size={13} /></button>
-                    </div>
-                  )}
+                    ) : customKey ? (
+                      <span className="tnum text-[12px] text-text-muted">{customKey.slice(0, 8)}…</span>
+                    ) : ep.keys.length > 0 ? (
+                      <Select value={String(keyIdx)} onChange={(e) => setKeyIdx(Number(e.target.value))} className="max-w-[220px]">
+                        {ep.keys.map((k, i) => (
+                          <option key={i} value={i}>{k.name || `key ${i + 1}`}</option>
+                        ))}
+                      </Select>
+                    ) : (
+                      <span className="text-[12px] text-text-subtle">no gateway keys</span>
+                    )}
+                    {customKey && !editKey && <Badge tone="warn">custom</Badge>}
+                    {customKey && !editKey && (
+                      <button onClick={() => { setCustomKey(""); localStorage.removeItem(`cli-custom-key-${id}`); }} className="text-text-subtle hover:text-danger" title="reset to default"><Icon name="close" size={15} /></button>
+                    )}
+                    {!editKey && (
+                      <button onClick={() => setEditKey(true)} className="text-text-subtle hover:text-text" title="customize"><Icon name="edit" size={16} /></button>
+                    )}
+                  </div>
                 </SetupRow>
 
                 {isAnthropic ? (
