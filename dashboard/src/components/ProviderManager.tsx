@@ -110,7 +110,7 @@ export function ProviderManager() {
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={providerOrder} strategy={rectSortingStrategy}>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {orderedProviders.map((p) => {
                 const health = healthById.get(p.id);
                 const healthy = health ? health.keys.some((k) => k.healthy) : true;
@@ -178,23 +178,23 @@ function SortableProviderCard({
 
       <Link
         href={`/providers/${encodeURIComponent(p.id)}`}
-        className="block p-4 pt-5"
+        className="block px-5 py-6"
         draggable={false}
       >
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <Lamp state={p.disabled ? "idle" : healthy ? "live" : "down"} />
+            <Lamp state={p.disabled ? "down" : healthy ? "live" : "down"} />
             <div className="min-w-0">
-              <span className="block truncate text-[14px] font-semibold text-text">{p.name || p.id}</span>
-              {p.name && <span className="block truncate text-[11px] text-text-subtle">{p.id}/</span>}
+              <span className="block truncate text-[15px] font-semibold text-text">{p.name || p.id}</span>
+              {p.name && <span className="block truncate text-[12px] text-text-subtle">{p.id}/</span>}
             </div>
           </div>
           <FormatBadge format={p.format} />
         </div>
-        <div className="mt-2 truncate text-[12px] text-text-subtle">{p.base_url}</div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="mt-3 truncate text-[13px] text-text-subtle">{p.base_url}</div>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
           <ProviderToggle id={p.id} disabled={!!p.disabled} onDone={onDone} />
-          {p.free && <Badge tone="info">free</Badge>}
+          {p.free && <Badge tone="info">no auth</Badge>}
           {p.service_account && <Badge tone="info">service-account</Badge>}
           <Badge tone="neutral">
             {p.free || p.service_account ? `${(p.api_keys?.length ?? 0)} keys` : `${p.api_keys?.length ?? (p.api_key ? 1 : 0)} keys`}
@@ -231,7 +231,6 @@ function ProviderToggle({ id, disabled, onDone }: { id: string; disabled: boolea
       <span className={`relative h-4 w-7 rounded-full transition-colors ${disabled ? "bg-danger" : "bg-accent"} ${busy ? "opacity-60" : ""}`}>
         <span className={`absolute left-0.5 top-0.5 h-3 w-3 rounded-full bg-white transition-transform ${disabled ? "translate-x-0" : "translate-x-[14px]"}`} />
       </span>
-      {disabled ? "disabled" : "enabled"}
     </button>
   );
 }
