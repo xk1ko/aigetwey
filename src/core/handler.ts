@@ -72,14 +72,14 @@ function recordUsage(
   const tokensOut = usage?.completion_tokens ?? 0;
   const reasoningTokens = usage?.reasoning_tokens ?? 0;
   const cachedTokens = usage?.cached_tokens ?? 0;
+  const cacheCreationTokens = usage?.cache_creation_tokens ?? 0;
   if (!deps.db) return;
-  // Cost: a combo/route may set explicit prices; otherwise fall back to the ported
-  // aigetwey pricing table so cost auto-resolves per model instead of showing $0.
   const pricing = getPricingForModel(route.provider.id, route.model);
   const priceIn = route.price_in ?? pricing?.input;
   const priceOut = route.price_out ?? pricing?.output;
   const priceCachedRead = pricing?.cached;
   const priceReasoning = pricing?.reasoning;
+  const priceCacheCreation = pricing?.cache_creation;
   deps.db.record({
     alias: route.alias,
     provider: route.provider.id,
@@ -88,7 +88,7 @@ function recordUsage(
     tokens_out: tokensOut,
     reasoning_tokens: reasoningTokens,
     cached_tokens: cachedTokens,
-    cost: computeCost(tokensIn, tokensOut, priceIn, priceOut, priceReasoning, priceCachedRead, cachedTokens, reasoningTokens),
+    cost: computeCost(tokensIn, tokensOut, priceIn, priceOut, priceReasoning, priceCachedRead, cachedTokens, reasoningTokens, cacheCreationTokens, priceCacheCreation),
     status,
     latency_ms: latencyMs,
     stream: stream ? 1 : 0,
