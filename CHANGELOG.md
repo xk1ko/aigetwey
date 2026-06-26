@@ -5,6 +5,17 @@ All notable changes to **aigetwey** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.4] — 2026-06-26
+
+### Changed
+- **Pre-built dashboard shipped in package** — `dashboard/.next/` (production
+  build artifacts) is now included in the npm tarball. First-run no longer
+  triggers a 1–2 minute silent dashboard build; only a fast `npm install` of
+  dashboard dependencies is needed instead.
+- **Tray runtime pre-installed via `postinstall`** — `systray2` is now installed
+  into `~/.aigetwey/runtime/` immediately after `npm install -g aigetwey`, so
+  option 3 (Hide to Tray) is ready on first launch without any extra wait.
+
 ## [1.3.3] — 2026-06-26
 
 ### Fixed

@@ -10,10 +10,9 @@ data/
 *.sqlite-journal
 *.log
 
-# Build output + caches — the dashboard is (re)built on first run by the
-# launcher's ensureSetup(), so we don't ship dashboard/.next (Next's nested
-# .gitignore excludes it anyway).
-dashboard/.next/
+# Ship dashboard/.next/ (pre-built) so first run skips the build step.
+# Only exclude the Turbopack dev cache (dev/) which is 680 MB and unused in prod.
+dashboard/.next/dev/
 tests/
 *.test.ts
 .claude/
