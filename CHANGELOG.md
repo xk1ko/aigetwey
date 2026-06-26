@@ -5,6 +5,11 @@ All notable changes to **aigetwey** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.5] — 2026-06-26
+
+### Added
+- **`--version` / `-v` flag** — prints the version and exits instead of showing the menu.
+
 ## [1.3.4] — 2026-06-26
 
 ### Changed
