@@ -257,10 +257,10 @@ export function ToolDetail({ id }: { id: string }) {
                     )}
                     {customBase && !editBase && <Badge tone="warn">custom</Badge>}
                     {customBase && !editBase && (
-                      <button onClick={() => { setCustomBase(""); localStorage.removeItem(`cli-custom-base-${id}`); }} className="text-text-subtle hover:text-danger" title="reset to default"><Icon name="close" size={15} /></button>
+                      <Button variant="ghost" className="px-2 py-1" onClick={() => { setCustomBase(""); localStorage.removeItem(`cli-custom-base-${id}`); }} title="reset to default"><Icon name="close" size={14} /></Button>
                     )}
                     {!editBase && (
-                      <button onClick={() => setEditBase(true)} className="text-text-subtle hover:text-text" title="customize"><Icon name="edit" size={16} /></button>
+                      <Button variant="ghost" className="px-2 py-1" onClick={() => setEditBase(true)} title="customize"><Icon name="edit" size={14} /></Button>
                     )}
                   </div>
                 </SetupRow>
@@ -290,10 +290,10 @@ export function ToolDetail({ id }: { id: string }) {
                     )}
                     {customKey && !editKey && <Badge tone="warn">custom</Badge>}
                     {customKey && !editKey && (
-                      <button onClick={() => { setCustomKey(""); localStorage.removeItem(`cli-custom-key-${id}`); }} className="text-text-subtle hover:text-danger" title="reset to default"><Icon name="close" size={15} /></button>
+                      <Button variant="ghost" className="px-2 py-1" onClick={() => { setCustomKey(""); localStorage.removeItem(`cli-custom-key-${id}`); }} title="reset to default"><Icon name="close" size={14} /></Button>
                     )}
                     {!editKey && (
-                      <button onClick={() => setEditKey(true)} className="text-text-subtle hover:text-text" title="customize"><Icon name="edit" size={16} /></button>
+                      <Button variant="ghost" className="px-2 py-1" onClick={() => setEditKey(true)} title="customize"><Icon name="edit" size={14} /></Button>
                     )}
                   </div>
                 </SetupRow>
