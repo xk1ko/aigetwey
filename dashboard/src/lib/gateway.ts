@@ -88,7 +88,7 @@ export const gateway = {
     auto_models?: boolean;
     service_account?: string;
   }) => call<ConfigReply>("POST", "/admin/providers", p),
-  editProvider: (id: string, patch: { base_url?: string; format?: WireFormat }) =>
+  editProvider: (id: string, patch: { base_url?: string; format?: WireFormat; name?: string }) =>
     call<ConfigReply>("PUT", `/admin/providers/${encodeURIComponent(id)}`, patch),
   removeProvider: (id: string) => call<ConfigReply>("DELETE", `/admin/providers/${encodeURIComponent(id)}`),
   addKey: (id: string, key: string) =>

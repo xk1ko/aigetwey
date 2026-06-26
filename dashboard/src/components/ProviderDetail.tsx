@@ -38,6 +38,7 @@ export function ProviderDetail({ id }: { id: string }) {
   const [editingConn, setEditingConn] = useState(false);
   const [connUrl, setConnUrl] = useState("");
   const [connPrefix, setConnPrefix] = useState("");
+  const [connLabel, setConnLabel] = useState("");
   const [revealedKeys, setRevealedKeys] = useState<Record<number, string>>({});
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -137,7 +138,7 @@ export function ProviderDetail({ id }: { id: string }) {
         <RichCard header={<CardTitle title="Connection" />}>
           {editingConn ? (
             <div className="space-y-3">
-              <Field label="Name" hint="the id — also the call prefix (name/model) & combos">
+              <Field label="ID / Prefix" hint="the call prefix (id/model) — changing this breaks CLI tools">
                 <Input value={connPrefix} onChange={(e) => setConnPrefix(e.target.value)} placeholder="e.g. openai" className="font-mono text-[12.5px]" />
               </Field>
               {connPrefix.trim() && connPrefix.trim() !== id && (
@@ -150,14 +151,15 @@ export function ProviderDetail({ id }: { id: string }) {
                   </span>
                 </p>
               )}
+              <Field label="Label" hint="display name in dashboard (optional, does not affect routing)">
+                <Input value={connLabel} onChange={(e) => setConnLabel(e.target.value)} placeholder={connPrefix || "e.g. My Provider"} className="text-[12.5px]" />
+              </Field>
               <Field label="Base URL">
                 <Input value={connUrl} onChange={(e) => setConnUrl(e.target.value)} placeholder="https://..." className="font-mono text-[12.5px]" />
               </Field>
               <div className="flex justify-end gap-2">
                 <Button variant="ghost" onClick={() => setEditingConn(false)}>Cancel</Button>
                 <Button disabled={busy === "editconn"} onClick={() => run("editconn", async () => {
-                  // One identifier: Name == id == call prefix. Rename it (cascades to
-                  // combos, moves this page to the new id) then apply base_url.
                   const newId = connPrefix.trim();
                   let activeId = id;
                   if (newId && newId !== id) {
@@ -165,7 +167,8 @@ export function ProviderDetail({ id }: { id: string }) {
                     if (!rr.ok) return rr;
                     activeId = newId;
                   }
-                  const r = await adminApi.editProvider(activeId, { base_url: connUrl.trim() || undefined });
+                  const newName = connLabel.trim() || undefined;
+                  const r = await adminApi.editProvider(activeId, { base_url: connUrl.trim() || undefined, name: newName });
                   if (r.ok) {
                     setEditingConn(false);
                     if (activeId !== id) { router.push(`/providers/${encodeURIComponent(activeId)}`); return r; }
@@ -177,13 +180,15 @@ export function ProviderDetail({ id }: { id: string }) {
           ) : (
             <>
               <div className="space-y-2 text-[13px]">
+                <Row k="ID / Prefix" v={provider.id} />
+                {provider.name && <Row k="Label" v={provider.name} />}
                 <Row k="Base URL" v={provider.base_url} />
                 <Row k="Format" v={provider.format} />
                 <Row k="Cooldown base" v={`${provider.cooldown_base_ms}ms`} />
                 <Row k="Max retries" v={String(provider.max_retries)} />
               </div>
               <div className="mt-4 flex items-center gap-2">
-                <Button variant="ghost" onClick={() => { setEditingConn(true); setConnUrl(provider.base_url); setConnPrefix(provider.id); }}>
+                <Button variant="ghost" onClick={() => { setEditingConn(true); setConnUrl(provider.base_url); setConnPrefix(provider.id); setConnLabel(provider.name ?? ""); }}>
                   <Icon name="edit" size={15} /> Edit
                 </Button>
                 <Button variant="ghost" disabled={busy === "test"} onClick={() => run("test", async () => {
