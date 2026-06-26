@@ -19,6 +19,20 @@ const LABELS: Record<string, string> = {
   config: "Settings",
 };
 
+function CopyUpdateCmd({ version }: { version: string }) {
+  const [copied, setCopied] = useState(false);
+  const cmd = `npm install -g aigetwey@${version}`;
+  return (
+    <button
+      onClick={() => { void navigator.clipboard.writeText(cmd).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1800); }); }}
+      className="flex h-6 w-6 items-center justify-center rounded-full text-warning/70 transition-colors hover:bg-warning/10 hover:text-warning"
+      title={`Copy: ${cmd}`}
+    >
+      <Icon name={copied ? "check" : "content_copy"} size={13} />
+    </button>
+  );
+}
+
 export function TopBar() {
   const path = usePathname();
   const { theme, toggle } = useTheme();
@@ -57,16 +71,19 @@ export function TopBar() {
       <div className="ml-auto flex items-center gap-2.5">
         {version && (
           version.updateAvailable ? (
-            <a
-              href="https://github.com/xk1ko/aigetwey/releases"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 rounded-full border border-warning/30 bg-warning/10 px-2.5 py-1 text-[11px] font-medium text-warning transition-colors hover:bg-warning/20"
-              title={`Update available — v${version.latest} is out (you have v${version.current})`}
-            >
-              <Icon name="arrow_upward" size={12} />
-              v{version.latest} available
-            </a>
+            <div className="flex items-center gap-1">
+              <a
+                href="https://github.com/xk1ko/aigetwey/releases"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 rounded-full border border-warning/30 bg-warning/10 px-2.5 py-1 text-[11px] font-medium text-warning transition-colors hover:bg-warning/20"
+                title={`Update available — v${version.latest} is out (you have v${version.current})`}
+              >
+                <Icon name="arrow_upward" size={12} />
+                v{version.latest} available
+              </a>
+              <CopyUpdateCmd version={version.latest!} />
+            </div>
           ) : (
             <span className="text-[11px] text-text-subtle" title="You're on the latest version">
               v{version.current}
