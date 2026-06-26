@@ -28,6 +28,7 @@ export function ToolDetail({ id }: { id: string }) {
   const [allModels, setAllModels] = useState<string[]>([]);
   const [groups, setGroups] = useState<ModelGroup[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerSlot, setPickerSlot] = useState<"opus" | "sonnet" | "haiku" | null>(null); // which slot the picker targets
   const [picked, setPicked] = useState<string[]>([]); // openai tools: chosen models
   const [active, setActive] = useState(""); // openai tools: default/active model
   const [slots, setSlots] = useState({ opus: "", sonnet: "", haiku: "" }); // claude
@@ -238,23 +239,23 @@ export function ToolDetail({ id }: { id: string }) {
 
                 {isAnthropic ? (
                   <SetupRow label="Models" top>
-                    <datalist id="cl-models">
-                      {allModels.map((m) => <option key={m} value={m} />)}
-                    </datalist>
                     <div className="flex flex-col gap-2">
                       {(["opus", "sonnet", "haiku"] as const).map((slot) => (
                         <div key={slot} className="flex items-center gap-2">
-                          <span className="w-16 text-[12px] capitalize text-text-subtle">{slot}</span>
-                          <input
-                            list="cl-models"
-                            value={slots[slot]}
-                            onChange={(e) => setSlots((s) => ({ ...s, [slot]: e.target.value }))}
-                            placeholder="type or pick a model…"
-                            className="flex-1 rounded-brand border border-border-subtle bg-bg px-2.5 py-1.5 font-mono text-[12.5px] text-text outline-none focus:border-accent placeholder:text-text-subtle"
-                          />
-                          {slots[slot] && (
-                            <button onClick={() => setSlots((s) => ({ ...s, [slot]: "" }))} className="text-text-subtle hover:text-danger" aria-label="clear">
-                              <Icon name="close" size={14} />
+                          <span className="w-16 flex-none text-[12px] capitalize text-text-subtle">{slot}</span>
+                          {slots[slot] ? (
+                            <span className="flex flex-1 items-center gap-1.5 rounded border border-accent bg-accent-soft px-2 py-1 font-mono text-[12px] text-accent">
+                              <span className="flex-1 truncate">{slots[slot]}</span>
+                              <button onClick={() => setSlots((s) => ({ ...s, [slot]: "" }))} className="flex-none hover:text-danger" aria-label="clear">
+                                <Icon name="close" size={12} />
+                              </button>
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => { setPickerSlot(slot); setPickerOpen(true); }}
+                              className="flex items-center gap-1 rounded border border-dashed border-border px-2.5 py-1 text-[12px] text-text-subtle hover:border-accent hover:text-accent"
+                            >
+                              <Icon name="add" size={13} /> Add model
                             </button>
                           )}
                         </div>
@@ -442,7 +443,21 @@ export function ToolDetail({ id }: { id: string }) {
         </RichCard>
       </div>
 
-      {pickerOpen && (
+      {pickerOpen && pickerSlot && (
+        <ModelPicker
+          title={`Pick model — ${pickerSlot}`}
+          note="Click a model to select it for this slot."
+          groups={groups}
+          selected={slots[pickerSlot] ? [slots[pickerSlot]] : []}
+          onToggle={(v) => {
+            setSlots((s) => ({ ...s, [pickerSlot]: s[pickerSlot] === v ? "" : v }));
+            setPickerOpen(false);
+            setPickerSlot(null);
+          }}
+          onClose={() => { setPickerOpen(false); setPickerSlot(null); }}
+        />
+      )}
+      {pickerOpen && !pickerSlot && (
         <ModelPicker
           title="Add models"
           note="Click a model to add it, click again to remove. Then hit Apply."
