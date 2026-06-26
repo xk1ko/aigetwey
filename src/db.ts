@@ -333,13 +333,14 @@ export function computeCost(
     if (rate) cost += (cacheCreationTokens / 1_000_000) * rate;
   }
 
-  // Output completion
-  if (priceOut) cost += (tokensOut / 1_000_000) * priceOut;
-
-  // Reasoning tokens — uses dedicated rate or falls back to output rate
-  if (reasoningTokens) {
-    if (priceReasoning) cost += (reasoningTokens / 1_000_000) * priceReasoning;
-    else if (priceOut) cost += (reasoningTokens / 1_000_000) * priceOut;
+  // Output: reasoning tokens are a subset of completion_tokens (providers include them).
+  // Bill non-reasoning at priceOut, reasoning at priceReasoning to avoid double-count.
+  const reasoning = reasoningTokens ?? 0;
+  const nonReasoningOut = Math.max(0, tokensOut - reasoning);
+  if (priceOut) cost += (nonReasoningOut / 1_000_000) * priceOut;
+  if (reasoning) {
+    const rate = priceReasoning ?? priceOut;
+    if (rate) cost += (reasoning / 1_000_000) * rate;
   }
 
   return cost;
