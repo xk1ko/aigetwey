@@ -302,18 +302,35 @@ export class UsageDB {
 }
 
 /** Compute USD cost from token counts and per-1M prices. Separate rates for input (non-cache), cache_read, output, reasoning. */
-export function computeCost(tokensIn: number, tokensOut: number, priceIn?: number, priceOut?: number, priceReasoning?: number, priceCachedRead?: number, cachedTokens?: number, reasoningTokens?: number): number {
+export function computeCost(
+  tokensIn: number,
+  tokensOut: number,
+  priceIn?: number,
+  priceOut?: number,
+  priceReasoning?: number,
+  priceCachedRead?: number,
+  cachedTokens?: number,
+  reasoningTokens?: number,
+  cacheCreationTokens?: number,
+  priceCacheCreation?: number,
+): number {
   let cost = 0;
 
-  // Non-cached input (input minus cache_read)
+  // Non-cached input (input minus cache_read; cache_creation is billed separately)
   const nonCachedInput = Math.max(0, tokensIn - (cachedTokens ?? 0));
   if (priceIn) cost += (nonCachedInput / 1_000_000) * priceIn;
 
-  // Cached read — uses separate rate or falls back to input rate
+  // Cache read — cheaper rate
   if (cachedTokens && priceCachedRead) {
     cost += (cachedTokens / 1_000_000) * priceCachedRead;
   } else if (cachedTokens && priceIn) {
     cost += (cachedTokens / 1_000_000) * priceIn;
+  }
+
+  // Cache creation — typically 1.25x regular input rate
+  if (cacheCreationTokens) {
+    const rate = priceCacheCreation ?? priceIn;
+    if (rate) cost += (cacheCreationTokens / 1_000_000) * rate;
   }
 
   // Output completion
