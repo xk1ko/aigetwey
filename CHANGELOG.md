@@ -5,6 +5,34 @@ All notable changes to **aigetwey** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.9] — 2026-06-26
+
+### Added
+- **Persistent data directory** — config, usage database, auth, and session
+  secret now live in `~/.aigetwey/` instead of the npm package directory.
+  Updating aigetwey with `npm install -g` no longer wipes providers or
+  settings. On first run after upgrading, existing `config.yaml` and auth
+  data are migrated automatically.
+- **Headroom PID survives restarts** — the headroom proxy PID file is now
+  stored in `~/.aigetwey/headroom/proxy.pid`, so the dashboard can detect and
+  stop a running headroom proxy even after the gateway restarts.
+
+### Fixed
+- **`tokens_in` now counts all input** — for Anthropic providers,
+  `tokens_in` now includes `cache_read` and `cache_creation` tokens (the
+  model processes all of them). Previously only non-cached input was counted.
+- **Reasoning token double-count in cost** — `completion_tokens` from both
+  Anthropic and OpenAI already includes reasoning/thinking tokens; we were
+  charging them twice. Cost now correctly bills non-reasoning output at
+  `priceOut` and reasoning at `priceReasoning`.
+- **Cache creation cost** — `cache_creation_tokens` are now billed at the
+  dedicated `cache_creation` rate (e.g. 1.25× input for Anthropic). Previously
+  cache writes were not included in cost at all.
+- **Update command copies `@latest`** — the clipboard copy next to the update
+  pill now writes `npm install -g aigetwey@latest` instead of a pinned version.
+- **Log table row hover** — increased hover background opacity in the Usage
+  request log for better visibility.
+
 ## [1.3.8] — 2026-06-26
 
 ### Changed
