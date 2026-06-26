@@ -1,8 +1,9 @@
-type Tone = "live" | "down" | "warn" | "info" | "neutral";
+type Tone = "live" | "down" | "warn" | "info" | "neutral" | "danger";
 
 const TONES: Record<Tone, string> = {
   live: "bg-success/12 text-success",
   down: "bg-danger/12 text-danger",
+  danger: "bg-danger/12 text-danger",
   warn: "bg-warning/12 text-warning",
   info: "bg-info/12 text-info",
   neutral: "bg-surface-2 text-text-muted",
