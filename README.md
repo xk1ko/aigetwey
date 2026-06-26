@@ -90,7 +90,12 @@ The dashboard's **CLI Tools** page detects installed tools and writes configs fo
 
 ## Configuration
 
-`config.yaml` is the source of truth and **hot-reloads** — edits via dashboard or API apply instantly.
+**Everything is configurable from the dashboard** — providers, combos, budgets, token savers, access keys, and settings. No need to edit files manually.
+
+Under the hood, `config.yaml` is the source of truth and **hot-reloads** — any change made in the dashboard writes to this file instantly. You can also edit it by hand if you prefer; changes apply without restart.
+
+<details>
+<summary><strong>config.yaml reference (click to expand)</strong></summary>
 
 ```yaml
 server:
@@ -127,6 +132,8 @@ budgets:
     limit: 50
     window: 30day
 ```
+
+</details>
 
 A **combo** is a `models` entry — an alias routed to a provider chain. Strategies: `fallback` (default, sequential) or `round-robin` (spread load).
 
