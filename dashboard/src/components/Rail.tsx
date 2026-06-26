@@ -10,7 +10,7 @@ import { Icon } from "./Icon";
 type NavItem = { href: string; label: string; icon: string };
 
 const MAIN: NavItem[] = [
-  { href: "/", label: "Endpoint & Key", icon: "api" },
+  { href: "/", label: "Endpoint", icon: "api" },
   { href: "/keys", label: "Gateway Keys", icon: "key" },
   { href: "/providers", label: "Providers", icon: "dns" },
   { href: "/combos", label: "Combos", icon: "layers" },
