@@ -217,6 +217,7 @@ html.light .rail-icon-active:hover {
   width: 100%;
   max-width: 1600px;
   margin: 0 auto;
+  zoom: 1.06;
 }
 
 /* circular icon buttons in the rail */
