@@ -208,7 +208,6 @@ export function ToolDetail({ id }: { id: string }) {
             hasCompletedOnboarding: true,
             env: {
               ANTHROPIC_BASE_URL: base,
-              API_TIMEOUT_MS: "600000",
               ...(realKey ? { ANTHROPIC_AUTH_TOKEN: realKey } : {}),
               ...(slots.opus ? { ANTHROPIC_DEFAULT_OPUS_MODEL: slots.opus } : {}),
               ...(slots.sonnet ? { ANTHROPIC_DEFAULT_SONNET_MODEL: slots.sonnet } : {}),

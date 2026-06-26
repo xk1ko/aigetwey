@@ -95,7 +95,6 @@ async function claudeApply(body: { base?: string; key?: string; models?: Record<
   }
   const env: Record<string, string> = {
     ANTHROPIC_BASE_URL: body.base,
-    API_TIMEOUT_MS: "600000",
   };
   if (body.key) env.ANTHROPIC_AUTH_TOKEN = body.key;
   if (body.models?.opus) env.ANTHROPIC_DEFAULT_OPUS_MODEL = body.models.opus;
