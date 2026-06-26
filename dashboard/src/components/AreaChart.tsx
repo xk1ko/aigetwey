@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 
 export interface SeriesPoint {
   ts: number;
@@ -35,9 +35,15 @@ function fmtTime(ts: number): string {
   return new Date(ts).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
-/** Inline-SVG area chart with a metric toggle. No charting dependency. */
+function fmtDate(ts: number): string {
+  return new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
+/** Inline-SVG area chart with metric toggle and hover tooltip. No charting dependency. */
 export function AreaChart({ series }: { series: SeriesPoint[] }) {
   const [metric, setMetric] = useState<Metric>("tokens");
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
 
   const W = 1000;
   const H = 240;
@@ -48,14 +54,29 @@ export function AreaChart({ series }: { series: SeriesPoint[] }) {
   const max = Math.max(1, ...vals);
   const n = series.length;
 
-  const x = (i: number) => (n <= 1 ? padX : padX + (i / (n - 1)) * (W - padX * 2));
-  const y = (v: number) => H - padY - (v / max) * (H - padY * 2);
+  const xPos = (i: number) => (n <= 1 ? padX : padX + (i / (n - 1)) * (W - padX * 2));
+  const yPos = (v: number) => H - padY - (v / max) * (H - padY * 2);
 
-  const line = vals.map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
-  const area = `${line} L${x(n - 1).toFixed(1)},${H - padY} L${x(0).toFixed(1)},${H - padY} Z`;
+  const line = vals.map((v, i) => `${i === 0 ? "M" : "L"}${xPos(i).toFixed(1)},${yPos(v).toFixed(1)}`).join(" ");
+  const area = `${line} L${xPos(n - 1).toFixed(1)},${H - padY} L${xPos(0).toFixed(1)},${H - padY} Z`;
 
   const peak = vals.length ? vals.indexOf(Math.max(...vals)) : -1;
   const total = vals.reduce((a, b) => a + b, 0);
+
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent<SVGSVGElement>) => {
+      if (n <= 1 || !svgRef.current) return;
+      const rect = svgRef.current.getBoundingClientRect();
+      const relX = (e.clientX - rect.left) / rect.width;
+      const idx = Math.round(relX * (n - 1));
+      setHoverIdx(Math.max(0, Math.min(n - 1, idx)));
+    },
+    [n],
+  );
+
+  const handleMouseLeave = useCallback(() => setHoverIdx(null), []);
+
+  const hp = hoverIdx !== null ? series[hoverIdx] : null;
 
   return (
     <div className="overflow-hidden rounded-brand-lg border border-border bg-surface shadow-soft">
@@ -79,25 +100,73 @@ export function AreaChart({ series }: { series: SeriesPoint[] }) {
         </div>
       </header>
 
-      <div className="px-2 py-3">
+      <div className="relative px-2 py-3">
         {n === 0 || total === 0 ? (
           <div className="flex h-[200px] items-center justify-center text-[13px] text-text-muted">
             No activity in this range.
           </div>
         ) : (
-          <svg viewBox={`0 0 ${W} ${H}`} className="h-[200px] w-full" preserveAspectRatio="none">
-            <defs>
-              <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.28" />
-                <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            <path d={area} fill="url(#areaFill)" />
-            <path d={line} fill="none" stroke="var(--color-accent)" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-            {peak >= 0 && (
-              <circle cx={x(peak)} cy={y(vals[peak]!)} r="3" fill="var(--color-accent)" vectorEffect="non-scaling-stroke" />
+          <>
+            <svg
+              ref={svgRef}
+              viewBox={`0 0 ${W} ${H}`}
+              className="h-[200px] w-full cursor-crosshair"
+              preserveAspectRatio="none"
+              onMouseMove={handleMouseMove}
+              onMouseLeave={handleMouseLeave}
+            >
+              <defs>
+                <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.28" />
+                  <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              <path d={area} fill="url(#areaFill)" />
+              <path d={line} fill="none" stroke="var(--color-accent)" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+              {peak >= 0 && hoverIdx === null && (
+                <circle cx={xPos(peak)} cy={yPos(vals[peak]!)} r="3" fill="var(--color-accent)" vectorEffect="non-scaling-stroke" />
+              )}
+              {hoverIdx !== null && (
+                <>
+                  <line
+                    x1={xPos(hoverIdx)}
+                    y1={padY}
+                    x2={xPos(hoverIdx)}
+                    y2={H - padY}
+                    stroke="var(--color-accent)"
+                    strokeWidth="1"
+                    strokeDasharray="4 3"
+                    vectorEffect="non-scaling-stroke"
+                    opacity="0.5"
+                  />
+                  <circle
+                    cx={xPos(hoverIdx)}
+                    cy={yPos(vals[hoverIdx]!)}
+                    r="4"
+                    fill="var(--color-accent)"
+                    stroke="var(--color-bg)"
+                    strokeWidth="2"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                </>
+              )}
+            </svg>
+            {hoverIdx !== null && hp && (
+              <div
+                className="pointer-events-none absolute top-2 z-10 rounded-lg border border-border bg-surface-2 px-3 py-2 shadow-lg"
+                style={{ left: `${Math.min(85, Math.max(5, (hoverIdx / (n - 1)) * 100))}%`, transform: "translateX(-50%)" }}
+              >
+                <div className="text-[11px] text-text-muted">{fmtDate(hp.ts)}</div>
+                <div className="mt-1 flex flex-col gap-0.5 tnum text-[12px]">
+                  <span className="text-text">{fmtVal(valueOf(hp, metric), metric)} <span className="text-text-muted">{metric}</span></span>
+                  {metric === "tokens" && (
+                    <span className="text-text-subtle text-[10px]">in: {fmtVal(hp.tokens_in, "tokens")} · out: {fmtVal(hp.tokens_out, "tokens")}</span>
+                  )}
+                  <span className="text-text-subtle text-[10px]">{hp.requests} req · ${hp.cost.toFixed(4)}</span>
+                </div>
+              </div>
             )}
-          </svg>
+          </>
         )}
       </div>
 
