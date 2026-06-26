@@ -238,14 +238,25 @@ export function ToolDetail({ id }: { id: string }) {
 
                 {isAnthropic ? (
                   <SetupRow label="Models" top>
+                    <datalist id="cl-models">
+                      {allModels.map((m) => <option key={m} value={m} />)}
+                    </datalist>
                     <div className="flex flex-col gap-2">
                       {(["opus", "sonnet", "haiku"] as const).map((slot) => (
                         <div key={slot} className="flex items-center gap-2">
                           <span className="w-16 text-[12px] capitalize text-text-subtle">{slot}</span>
-                          <Select value={slots[slot]} onChange={(e) => setSlots((s) => ({ ...s, [slot]: e.target.value }))} className="flex-1">
-                            <option value="">— none —</option>
-                            {allModels.map((m) => <option key={m} value={m}>{m}</option>)}
-                          </Select>
+                          <input
+                            list="cl-models"
+                            value={slots[slot]}
+                            onChange={(e) => setSlots((s) => ({ ...s, [slot]: e.target.value }))}
+                            placeholder="type or pick a model…"
+                            className="flex-1 rounded-brand border border-border-subtle bg-bg px-2.5 py-1.5 font-mono text-[12.5px] text-text outline-none focus:border-accent placeholder:text-text-subtle"
+                          />
+                          {slots[slot] && (
+                            <button onClick={() => setSlots((s) => ({ ...s, [slot]: "" }))} className="text-text-subtle hover:text-danger" aria-label="clear">
+                              <Icon name="close" size={14} />
+                            </button>
+                          )}
                         </div>
                       ))}
                     </div>
