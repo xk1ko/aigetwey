@@ -56,21 +56,22 @@ export function TopBar() {
 
       <div className="ml-auto flex items-center gap-2.5">
         {version && (
-          <span
-            className="flex items-center gap-1 text-[11px] text-text-subtle"
-            title={
-              version.updateAvailable
-                ? `Update available: v${version.latest}`
-                : "You're on the latest version"
-            }
-          >
-            v{version.current}
-            {version.updateAvailable && (
-              <span className="flex items-center gap-1 rounded-full bg-warning/12 px-1.5 py-0.5 text-warning">
-                <Icon name="arrow_upward" size={11} />v{version.latest}
-              </span>
-            )}
-          </span>
+          version.updateAvailable ? (
+            <a
+              href="https://github.com/xk1ko/aigetwey/releases"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 rounded-full border border-warning/30 bg-warning/10 px-2.5 py-1 text-[11px] font-medium text-warning transition-colors hover:bg-warning/20"
+              title={`Update available — v${version.latest} is out (you have v${version.current})`}
+            >
+              <Icon name="arrow_upward" size={12} />
+              v{version.latest} available
+            </a>
+          ) : (
+            <span className="text-[11px] text-text-subtle" title="You're on the latest version">
+              v{version.current}
+            </span>
+          )
         )}
 
         <button
