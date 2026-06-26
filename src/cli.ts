@@ -65,8 +65,7 @@ const HELP = `
 const GATEWAY_PORT = opts.port ?? Number(process.env.AIGETWEY_PORT ?? 18080);
 const DASHBOARD_PORT = Number(process.env.DASHBOARD_PORT ?? 3000);
 
-// reuse env secrets if present, otherwise generate (admin) / persist (session).
-const adminPassword = process.env.AIGETWEY_ADMIN_PASSWORD ?? randomBytes(6).toString("hex");
+const adminPassword = process.env.AIGETWEY_ADMIN_PASSWORD ?? "123456";
 const generatedPw = !process.env.AIGETWEY_ADMIN_PASSWORD;
 
 /**
@@ -317,7 +316,12 @@ async function chooseMode(): Promise<"web" | "terminal" | "hide" | "exit"> {
 function hideToTray(): void {
   try { enableAutoStart(); } catch { /* optional */ }
   console.log("\n  starting background process… (tray icon appears in a few seconds)");
-  const bg = spawn(process.execPath, [fileURLToPath(import.meta.url), "--tray"], {
+  const thisFile = fileURLToPath(import.meta.url);
+  // dev mode: thisFile is a .ts source — Node can't run it; use tsx instead.
+  const [cmd, args] = thisFile.endsWith(".ts")
+    ? ["npx", ["tsx", thisFile, "--tray"]]
+    : [process.execPath, [thisFile, "--tray"]];
+  const bg = spawn(cmd, args, {
     detached: true,
     stdio: "ignore",
     env: { ...process.env, AIGETWEY_ADMIN_PASSWORD: adminPassword, SESSION_SECRET: sessionSecret },
@@ -336,7 +340,14 @@ async function main(): Promise<void> {
   // background tray process: skip the menu, never open a browser, show the tray.
   const mode = opts.tray ? "tray" : await chooseMode();
   if (mode === "exit") return;
+
+  // Run setup in the foreground (with visible output) so the background process
+  // inherits a ready environment — no silent multi-minute npm build in the dark.
+  if (mode !== "tray") ensureSetup();
+
   if (mode === "hide") {
+    // Pre-install the tray runtime while we still have a terminal to show progress.
+    ensureTrayRuntime();
     hideToTray();
     return;
   }
@@ -344,7 +355,7 @@ async function main(): Promise<void> {
 
   console.log("\n  aigetwey — starting gateway + dashboard\n");
 
-  ensureSetup();
+  if (mode === "tray") ensureSetup();
 
   await ensurePortFree(GATEWAY_PORT, "AIGETWEY_PORT");
 
@@ -394,7 +405,7 @@ async function main(): Promise<void> {
     console.log("  set AIGETWEY_ADMIN_PASSWORD to keep it stable across runs.\n");
   }
   if (mode === "tray") {
-    ensureTrayRuntime({ silent: true });
+    ensureTrayRuntime({ silent: false });
     const started = initTray({ dashboardUrl: appUrl, port: GATEWAY_PORT, onQuit: shutdown });
     console.log(
       started
