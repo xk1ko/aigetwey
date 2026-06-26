@@ -21,13 +21,21 @@ export function ToolDetail({ id }: { id: string }) {
   const [combos, setCombos] = useState<string[]>([]);
   const [keyIdx, setKeyIdx] = useState(0);
   const [realKey, setRealKey] = useState("");
-  const [customBase, setCustomBase] = useState("");
+  const [savedBases, setSavedBases] = useState<string[]>([]);
+  const [selectedBase, setSelectedBase] = useState(""); // "" = auto-detected
+  const [customBaseInput, setCustomBaseInput] = useState("");
+  const [showCustomBase, setShowCustomBase] = useState(false);
   const [customKey, setCustomKey] = useState("");
-  const [editBase, setEditBase] = useState(false);
-  const [editKey, setEditKey] = useState(false);
+  const [showCustomKey, setShowCustomKey] = useState(false);
+  const [customKeyInput, setCustomKeyInput] = useState("");
+
   useEffect(() => {
-    setCustomBase(localStorage.getItem(`cli-custom-base-${id}`) ?? "");
-    setCustomKey(localStorage.getItem(`cli-custom-key-${id}`) ?? "");
+    const bases = JSON.parse(localStorage.getItem(`cli-saved-bases-${id}`) ?? "[]") as string[];
+    setSavedBases(bases);
+    const sel = localStorage.getItem(`cli-selected-base-${id}`) ?? "";
+    setSelectedBase(sel);
+    const key = localStorage.getItem(`cli-custom-key-${id}`) ?? "";
+    setCustomKey(key);
   }, [id]);
   const [error, setError] = useState("");
   const [cli, setCli] = useState<CliStatus | null>(null);
@@ -70,18 +78,26 @@ export function ToolDetail({ id }: { id: string }) {
     }
   }, [cli, isAnthropic]);
 
-  function saveCustom(base: string, key: string) {
-    if (base.trim()) localStorage.setItem(`cli-custom-base-${id}`, base.trim());
-    else localStorage.removeItem(`cli-custom-base-${id}`);
-    if (key.trim()) localStorage.setItem(`cli-custom-key-${id}`, key.trim());
-    else localStorage.removeItem(`cli-custom-key-${id}`);
+  function addCustomBase(url: string) {
+    const trimmed = url.trim();
+    if (!trimmed) return;
+    const next = [trimmed, ...savedBases.filter((b) => b !== trimmed)];
+    setSavedBases(next);
+    setSelectedBase(trimmed);
+    localStorage.setItem(`cli-saved-bases-${id}`, JSON.stringify(next));
+    localStorage.setItem(`cli-selected-base-${id}`, trimmed);
+    setCustomBaseInput("");
+    setShowCustomBase(false);
   }
 
   async function applyCli() {
     if (!tool || !ep) return;
     setCliMsg("");
-    saveCustom(customBase, customKey);
-    const baseUrl = customBase.trim() || `http://127.0.0.1:${ep.port}`;
+    localStorage.setItem(`cli-selected-base-${id}`, selectedBase);
+    if (customKey.trim()) localStorage.setItem(`cli-custom-key-${id}`, customKey.trim());
+    else localStorage.removeItem(`cli-custom-key-${id}`);
+    const autoBase = `http://127.0.0.1:${ep.port}`;
+    const baseUrl = selectedBase || autoBase;
     const key = customKey.trim() || (ep.keys.length ? realKey || undefined : undefined);
     if (isAnthropic) {
       const m: Record<string, string> = {};
@@ -155,7 +171,8 @@ export function ToolDetail({ id }: { id: string }) {
   if (error) return <Empty>{error}</Empty>;
   if (!ep) return <Empty>Loading…</Empty>;
 
-  const base = customBase.trim() || `http://127.0.0.1:${ep.port}`;
+  const autoBase = `http://127.0.0.1:${ep.port}`;
+  const base = selectedBase || autoBase;
   const effectiveKey = customKey.trim() || realKey;
   const env = tool.env(base, effectiveKey);
   const block = env.map((e) => `export ${e.name}="${e.value}"`).join("\n");
@@ -241,59 +258,74 @@ export function ToolDetail({ id }: { id: string }) {
             ) : (
               <div className="space-y-3">
                 <SetupRow label="Endpoint">
-                  <div className="flex items-center gap-2">
-                    {editBase ? (
-                      <input
-                        autoFocus
-                        value={customBase}
-                        onChange={(e) => setCustomBase(e.target.value)}
-                        onBlur={() => { setEditBase(false); if (customBase.trim()) localStorage.setItem(`cli-custom-base-${id}`, customBase.trim()); else localStorage.removeItem(`cli-custom-base-${id}`); }}
-                        onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-                        placeholder={`http://127.0.0.1:${ep.port}`}
-                        className="flex-1 rounded-brand border border-accent bg-bg px-2.5 py-1.5 font-mono text-[12px] text-text outline-none placeholder:text-text-subtle"
-                      />
-                    ) : (
-                      <span className="tnum text-[12.5px] text-text">{isAnthropic ? base : `${base}/v1`}</span>
-                    )}
-                    {customBase && !editBase && <Badge tone="warn">custom</Badge>}
-                    {customBase && !editBase && (
-                      <Button variant="ghost" className="px-2 py-1" onClick={() => { setCustomBase(""); localStorage.removeItem(`cli-custom-base-${id}`); }} title="reset to default"><Icon name="close" size={14} /></Button>
-                    )}
-                    {!editBase && (
-                      <Button variant="ghost" className="px-2 py-1" onClick={() => setEditBase(true)} title="customize"><Icon name="edit" size={14} /></Button>
+                  <div className="flex flex-col gap-1.5">
+                    <Select
+                      value={selectedBase || "__auto__"}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v === "__custom__") { setShowCustomBase(true); return; }
+                        const next = v === "__auto__" ? "" : v;
+                        setSelectedBase(next);
+                        localStorage.setItem(`cli-selected-base-${id}`, next);
+                      }}
+                    >
+                      <option value="__auto__">{autoBase} (auto)</option>
+                      {savedBases.map((b) => <option key={b} value={b}>{b}</option>)}
+                      <option value="__custom__">Custom URL…</option>
+                    </Select>
+                    {showCustomBase && (
+                      <div className="flex items-center gap-2">
+                        <input
+                          autoFocus
+                          value={customBaseInput}
+                          onChange={(e) => setCustomBaseInput(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && addCustomBase(customBaseInput)}
+                          placeholder="https://your-gateway.example.com"
+                          className="flex-1 rounded-brand border border-accent bg-bg px-2.5 py-1.5 font-mono text-[12px] text-text outline-none placeholder:text-text-subtle"
+                        />
+                        <Button variant="ghost" onClick={() => addCustomBase(customBaseInput)}>Add</Button>
+                        <Button variant="ghost" onClick={() => { setShowCustomBase(false); setCustomBaseInput(""); }}>Cancel</Button>
+                      </div>
                     )}
                   </div>
                 </SetupRow>
 
                 <SetupRow label="API Key">
-                  <div className="flex items-center gap-2">
-                    {editKey ? (
-                      <input
-                        autoFocus
-                        value={customKey}
-                        onChange={(e) => setCustomKey(e.target.value)}
-                        onBlur={() => { setEditKey(false); if (customKey.trim()) localStorage.setItem(`cli-custom-key-${id}`, customKey.trim()); else localStorage.removeItem(`cli-custom-key-${id}`); }}
-                        onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-                        placeholder="paste custom key…"
-                        className="flex-1 rounded-brand border border-accent bg-bg px-2.5 py-1.5 font-mono text-[12px] text-text outline-none placeholder:text-text-subtle"
-                      />
-                    ) : customKey ? (
-                      <span className="tnum text-[12px] text-text-muted">{customKey.slice(0, 8)}…</span>
-                    ) : ep.keys.length > 0 ? (
-                      <Select value={String(keyIdx)} onChange={(e) => setKeyIdx(Number(e.target.value))} className="max-w-[220px]">
-                        {ep.keys.map((k, i) => (
-                          <option key={i} value={i}>{k.name || `key ${i + 1}`}</option>
-                        ))}
-                      </Select>
-                    ) : (
-                      <span className="text-[12px] text-text-subtle">no gateway keys</span>
-                    )}
-                    {customKey && !editKey && <Badge tone="warn">custom</Badge>}
-                    {customKey && !editKey && (
-                      <Button variant="ghost" className="px-2 py-1" onClick={() => { setCustomKey(""); localStorage.removeItem(`cli-custom-key-${id}`); }} title="reset to default"><Icon name="close" size={14} /></Button>
-                    )}
-                    {!editKey && (
-                      <Button variant="ghost" className="px-2 py-1" onClick={() => setEditKey(true)} title="customize"><Icon name="edit" size={14} /></Button>
+                  <div className="flex flex-col gap-1.5">
+                    <Select
+                      value={customKey ? "__custom__" : String(keyIdx)}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v === "__custom__") { setShowCustomKey(true); return; }
+                        setCustomKey("");
+                        setKeyIdx(Number(v));
+                        localStorage.removeItem(`cli-custom-key-${id}`);
+                      }}
+                    >
+                      {ep.keys.map((k, i) => <option key={i} value={i}>{k.name || `key ${i + 1}`}</option>)}
+                      {customKey && <option value="__custom__">{customKey.slice(0, 12)}… (custom)</option>}
+                      {!customKey && <option value="__custom__">Custom key…</option>}
+                    </Select>
+                    {showCustomKey && (
+                      <div className="flex items-center gap-2">
+                        <input
+                          autoFocus
+                          value={customKeyInput}
+                          onChange={(e) => setCustomKeyInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              setCustomKey(customKeyInput.trim());
+                              localStorage.setItem(`cli-custom-key-${id}`, customKeyInput.trim());
+                              setShowCustomKey(false);
+                              setCustomKeyInput("");
+                            }
+                          }}
+                          placeholder="paste API key…"
+                          className="flex-1 rounded-brand border border-accent bg-bg px-2.5 py-1.5 font-mono text-[12px] text-text outline-none placeholder:text-text-subtle"
+                        />
+                        <Button variant="ghost" onClick={() => { setCustomKey(customKeyInput.trim()); localStorage.setItem(`cli-custom-key-${id}`, customKeyInput.trim()); setShowCustomKey(false); setCustomKeyInput(""); }}>Add</Button>
+                        <Button variant="ghost" onClick={() => { setShowCustomKey(false); setCustomKeyInput(""); }}>Cancel</Button>
+                      </div>
                     )}
                   </div>
                 </SetupRow>
