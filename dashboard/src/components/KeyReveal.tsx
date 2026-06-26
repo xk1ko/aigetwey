@@ -50,20 +50,20 @@ export function KeyReveal({
   return (
     <span className={`flex min-w-0 items-center gap-1.5${className ? ` ${className}` : ""}`}>
       <span className={`tnum truncate text-[12.5px] text-text${align === "right" ? " flex-1" : ""}`}>{display}</span>
-      {shown && real !== null && (
-        <button
-          type="button"
-          onClick={() => {
+      <button
+        type="button"
+        onClick={() => {
+          if (real) {
             void navigator.clipboard.writeText(real);
             setCopied(true);
             setTimeout(() => setCopied(false), 1200);
-          }}
-          className="flex-none text-text-subtle transition-colors hover:text-text"
-          aria-label="Copy key"
-        >
-          <Icon name={copied ? "check" : "content_copy"} size={14} />
-        </button>
-      )}
+          }
+        }}
+        className={`flex-none text-text-subtle transition-colors hover:text-text${!shown || real === null ? " invisible" : ""}`}
+        aria-label="Copy key"
+      >
+        <Icon name={copied ? "check" : "content_copy"} size={14} />
+      </button>
       <button
         type="button"
         onClick={toggle}
