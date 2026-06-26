@@ -138,7 +138,7 @@ export function ProviderDetail({ id }: { id: string }) {
           {editingConn ? (
             <div className="space-y-3">
               <Field label="Name" hint="the id — also the call prefix (name/model) & combos">
-                <Input value={connPrefix} onChange={(e) => setConnPrefix(e.target.value)} placeholder="e.g. huki" className="font-mono text-[12.5px]" />
+                <Input value={connPrefix} onChange={(e) => setConnPrefix(e.target.value)} placeholder="e.g. openai" className="font-mono text-[12.5px]" />
               </Field>
               {connPrefix.trim() && connPrefix.trim() !== id && (
                 <p className="flex items-start gap-1.5 rounded-brand border border-warning/40 bg-warning/8 px-2.5 py-2 text-[11.5px] text-warning">
