@@ -21,6 +21,7 @@ import { createInterface } from "node:readline";
 import { ensureTrayRuntime } from "./cli/tray/trayRuntime.js";
 import { initTray, killTray } from "./cli/tray/tray.js";
 import { enableAutoStart } from "./cli/tray/autostart.js";
+import { getDataDir, getConfigPath } from "./appDirs.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const dashboardDir = join(root, "dashboard");
@@ -79,7 +80,7 @@ const generatedPw = !process.env.AIGETWEY_ADMIN_PASSWORD;
  */
 function loadOrCreateSessionSecret(): string {
   if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
-  const dataDir = resolve(process.env.AIGETWEY_DATA_DIR ?? join(root, "data"));
+  const dataDir = getDataDir();
   const file = join(dataDir, "session-secret");
   try {
     const existing = readFileSync(file, "utf8").trim();
@@ -232,8 +233,8 @@ function spawnGateway(): ChildProcess {
       ...process.env,
       AIGETWEY_ADMIN_PASSWORD: adminPassword,
       AIGETWEY_PORT: String(GATEWAY_PORT),
-      // single-URL mode: the gateway reverse-proxies the dashboard, so the whole
-      // app lives on the gateway port.
+      AIGETWEY_DATA_DIR: getDataDir(),
+      AIGETWEY_CONFIG: getConfigPath(),
       AIGETWEY_DASHBOARD_PORT: String(DASHBOARD_PORT),
     },
   });
@@ -265,10 +266,32 @@ function spawnDashboard(): ChildProcess {
  * normal runs pay nothing.
  */
 function ensureSetup(): void {
-  if (!existsSync(join(root, "config.yaml")) && existsSync(join(root, "config.example.yaml"))) {
-    copyFileSync(join(root, "config.example.yaml"), join(root, "config.yaml"));
-    console.log("  seeded config.yaml from the example — add providers via the dashboard or edit it directly.");
+  const configPath = getConfigPath();
+  const dataDir = getDataDir();
+  mkdirSync(dataDir, { recursive: true });
+
+  // migrate: copy old config + auth from inside the npm package dir on first run
+  if (!existsSync(configPath)) {
+    const oldConfig = join(root, "config.yaml");
+    const src = existsSync(oldConfig) ? oldConfig : join(root, "config.example.yaml");
+    if (existsSync(src)) {
+      copyFileSync(src, configPath);
+      if (existsSync(oldConfig)) {
+        console.log(`  migrated config.yaml → ${configPath}`);
+      } else {
+        console.log("  seeded config.yaml — add providers via the dashboard or edit it directly.");
+      }
+    }
   }
+  // migrate auth.json + session-secret from old data/ dir if present
+  for (const f of ["auth.json", "session-secret"]) {
+    const dest = join(dataDir, f);
+    const old = join(root, "data", f);
+    if (!existsSync(dest) && existsSync(old)) {
+      copyFileSync(old, dest);
+    }
+  }
+
   if (!existsSync(join(root, "node_modules"))) {
     console.log("  installing gateway dependencies (first run)…");
     execSync("npm install --omit=dev --no-fund --no-audit", { cwd: root, stdio: "inherit" });
@@ -327,7 +350,13 @@ function hideToTray(): void {
   const bg = spawn(cmd, args, {
     detached: true,
     stdio: "ignore",
-    env: { ...process.env, AIGETWEY_ADMIN_PASSWORD: adminPassword, SESSION_SECRET: sessionSecret },
+    env: {
+      ...process.env,
+      AIGETWEY_ADMIN_PASSWORD: adminPassword,
+      SESSION_SECRET: sessionSecret,
+      AIGETWEY_DATA_DIR: getDataDir(),
+      AIGETWEY_CONFIG: getConfigPath(),
+    },
   });
   bg.unref();
   console.log(`  aigetwey now running in the background (pid ${bg.pid}).`);
