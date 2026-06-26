@@ -6,7 +6,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { spawn } from "node:child_process";
+import { spawn, execSync } from "node:child_process";
 import { findHeadroomBinary } from "./detect.js";
 import { getDataDir } from "../appDirs.js";
 
@@ -60,7 +60,8 @@ export function isPidAlive(pid: number | null): boolean {
 
 export function getManagedPid(): number | null {
   const pid = readPid();
-  return pid && isPidAlive(pid) ? pid : null;
+  if (pid && isPidAlive(pid)) return pid;
+  return findHeadroomPidByPort(DEFAULT_PORT);
 }
 
 export async function startHeadroomProxy({ port = DEFAULT_PORT }: { port?: number } = {}): Promise<{
@@ -131,11 +132,13 @@ export async function startHeadroomProxy({ port = DEFAULT_PORT }: { port?: numbe
 }
 
 export function stopHeadroomProxy(): { stopped: boolean; reason?: string; pid?: number } {
-  const pid = getManagedPid();
-  if (!pid) return { stopped: false, reason: "not_running" };
+  let pid = getManagedPid();
+  if (!pid) {
+    pid = findHeadroomPidByPort(DEFAULT_PORT);
+    if (!pid) return { stopped: false, reason: "not_running" };
+  }
   try {
     process.kill(pid, "SIGTERM");
-    // Give it a moment, then force if still alive.
     setTimeout(() => {
       if (isPidAlive(pid)) {
         try {
@@ -152,6 +155,17 @@ export function stopHeadroomProxy(): { stopped: boolean; reason?: string; pid?: 
     const err: CodedError = new Error(`Failed to stop headroom proxy: ${(e as Error).message}`);
     err.code = "STOP_FAILED";
     throw err;
+  }
+}
+
+function findHeadroomPidByPort(port: number): number | null {
+  try {
+    const out = execSync(`lsof -ti tcp:${port}`, { encoding: "utf8", timeout: 3000 }).trim();
+    if (!out) return null;
+    const pid = parseInt(out.split("\n")[0]!, 10);
+    return isNaN(pid) ? null : pid;
+  } catch {
+    return null;
   }
 }
 
