@@ -31,16 +31,18 @@ interface CliOpts {
   noBrowser: boolean;
   yes: boolean;
   help: boolean;
+  version: boolean;
   tray: boolean;
 }
 function parseArgs(argv: string[]): CliOpts {
-  const o: CliOpts = { noBrowser: false, yes: false, help: false, tray: false };
+  const o: CliOpts = { noBrowser: false, yes: false, help: false, version: false, tray: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "-p" || a === "--port") o.port = Number(argv[++i]);
     else if (a === "-n" || a === "--no-browser") o.noBrowser = true;
     else if (a === "-y" || a === "--yes") o.yes = true;
     else if (a === "-t" || a === "--tray") o.tray = true;
+    else if (a === "-v" || a === "--version") o.version = true;
     else if (a === "-h" || a === "--help") o.help = true;
   }
   return o;
@@ -57,6 +59,7 @@ const HELP = `
     -n, --no-browser  start without opening the browser (terminal logs only)
     -y, --yes         skip the interactive menu (just run; honors --no-browser)
     -t, --tray        run in the system tray (background, no terminal needed)
+    -v, --version     print version and exit
     -h, --help        show this help
 
   With a TTY and no --yes, a menu lets you pick: Web UI / Terminal / Hide to Tray / Exit.
@@ -332,6 +335,11 @@ function hideToTray(): void {
 }
 
 async function main(): Promise<void> {
+  if (opts.version) {
+    const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as { version: string };
+    console.log(pkg.version);
+    return;
+  }
   if (opts.help) {
     console.log(HELP);
     return;
