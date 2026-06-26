@@ -188,7 +188,7 @@ export function LogTable({ logs: initial }: { logs: UsageLog[] }) {
                   const ok = l.status >= 200 && l.status < 300;
                   const isExpanded = expandedIdx === i;
                   return (
-                    <tr key={i} onClick={() => setExpandedIdx(isExpanded ? null : i)} className={`border-t border-border-subtle cursor-pointer transition-colors ${isExpanded ? "bg-surface-2/60" : "hover:bg-surface-2/40"}`}>
+                    <tr key={i} onClick={() => setExpandedIdx(isExpanded ? null : i)} className={`border-t border-border-subtle cursor-pointer transition-colors ${isExpanded ? "bg-surface-2/60" : "hover:bg-surface-2/70"}`}>
                       <Td>
                         <Badge tone={ok ? "live" : "down"}>
                           <Lamp state={ok ? "live" : "down"} />
