@@ -5,6 +5,32 @@ All notable changes to **aigetwey** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.7] — 2026-06-26
+
+### Added
+- **CLI Tools — custom endpoint & API key** — each CLI tool now has a select
+  dropdown to pick the gateway endpoint (auto-detected or a saved custom URL)
+  and a separate API key override. Custom URLs persist across sessions and can
+  be deleted individually via a trash button next to the select.
+- **CLI Tools — Anthropic model slots** — instead of a free-text dropdown,
+  each slot (opus / sonnet / haiku) shows a chip with the selected model and an
+  "Add model" button that opens the model picker modal.
+
+### Fixed
+- **Multi-instance session conflict** — running a dev server alongside the
+  global install no longer invalidates each other's login. The session cookie
+  name is now scoped to the gateway port (`aigetwey_session_<port>`), so both
+  instances maintain independent sessions in the same browser.
+- **Dev / global data isolation** — `dev.sh` uses `data-dev/` as its data
+  directory (`AIGETWEY_DATA_DIR`), preventing SQLite write-lock contention and
+  session-secret conflicts when both instances run simultaneously.
+- **Headroom toggle** — the "Enable headroom" toggle is disabled while the
+  headroom proxy is not running, preventing accidental enable without a proxy.
+- **Start proxy button** — shows a spinner and is disabled while the proxy is
+  starting; auto-checks status after start.
+- **Provider name placeholder** — removed a stale placeholder value from the
+  provider name field.
+
 ## [1.3.6] — 2026-06-26
 
 ### Changed
