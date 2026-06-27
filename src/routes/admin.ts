@@ -401,8 +401,6 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
       free: !b.api_key,
       auto_models: false,
       models: [],
-      cooldown_base_ms: 1000,
-      max_retries: 0,
     } as unknown as Provider;
     reply.send(await pingProvider(probe, b.api_key));
   });

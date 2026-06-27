@@ -53,10 +53,6 @@ export const ProviderSchema = z
     disabled_keys: z.array(z.number().int().nonnegative()).optional(),
     strategy: z.enum(["fallback", "round-robin"]).optional(),
     sticky: z.number().int().positive().optional(),
-    // base cooldown after a retryable key failure, doubled per consecutive fail.
-    cooldown_base_ms: z.number().int().positive().default(1000),
-    // keys to try within this provider before falling through to the next.
-    max_retries: z.number().int().nonnegative().default(2),
   })
   .refine((p) => p.free || p.service_account || p.api_key || (p.api_keys?.length ?? 0) > 0, {
     message: "provider needs api_key/api_keys, or free: true, or service_account",
@@ -136,7 +132,7 @@ const BudgetScopeSchema = z.discriminatedUnion("type", [
 const LEGACY_WINDOW: Record<string, string> = { daily: "24h", weekly: "7day", monthly: "30day" };
 const WindowSchema = z.preprocess(
   (v) => (typeof v === "string" && v in LEGACY_WINDOW ? LEGACY_WINDOW[v] : v),
-  z.enum(["5h", "24h", "7day", "30day"]),
+  z.string().regex(/^\d+(h|day)$/, "window must be like 5h, 24h, 7day, 30day"),
 );
 
 const BudgetSchema = z.object({
@@ -332,8 +328,8 @@ export function serializeConfig(config: Config): string {
  */
 export function maskKey(key: string): string {
   if (!key) return "(none)";
-  if (key.length <= 8) return "…" + key.slice(-2);
-  return key.slice(0, 3) + "…" + key.slice(-4);
+  if (key.length <= 12) return "…" + key.slice(-4);
+  return key.slice(0, 7) + "…" + key.slice(-4);
 }
 
 function looksMasked(v: string): boolean {
@@ -436,8 +432,6 @@ export function addProvider(
     free: input.free ?? false,
     auto_models: input.auto_models ?? false,
     models: [],
-    cooldown_base_ms: 1000,
-    max_retries: 2,
     ...(input.api_key ? { api_keys: [input.api_key] } : {}),
     ...(input.service_account ? { service_account: input.service_account } : {}),
   });

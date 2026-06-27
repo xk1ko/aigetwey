@@ -200,7 +200,7 @@ export interface KeyUsageRow {
     limit: number;
     spent: number;
     pct: number;
-    window: "5h" | "24h" | "7day" | "30day";
+    window: string;
     reset_in_ms: number;
     exhausted: boolean;
     alert: boolean;

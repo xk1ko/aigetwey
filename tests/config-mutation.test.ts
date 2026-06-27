@@ -48,7 +48,6 @@ describe("provider mutations", () => {
   it("addProvider appends with defaults, rejects duplicates", () => {
     const c = addProvider(base(), { id: "groq", format: "openai", base_url: "https://groq.test/v1", api_key: "k" });
     const p = reval(c).getProvider("groq")!;
-    expect(p.cooldown_base_ms).toBe(1000);
     expect(p.api_keys).toEqual(["k"]);
     expect(() => addProvider(c, { id: "groq", format: "openai", base_url: "https://x.test/v1" })).toThrow(/already exists/);
   });
@@ -206,7 +205,7 @@ describe("mutations preserve maskability (secrets still real after mutate)", () 
     const c = addProviderKey(base(), "oa", "sk-brand-new-123456");
     const real = reval(c).getProvider("oa")!.api_keys!.at(-1)!;
     expect(real).toBe("sk-brand-new-123456");
-    expect(maskKey(real)).toBe("sk-…3456");
+    expect(maskKey(real)).toBe("sk-bran…3456");
   });
 });
 

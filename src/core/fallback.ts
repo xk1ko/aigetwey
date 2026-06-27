@@ -8,6 +8,8 @@
  * deliberately do NOT retry — fail clean, no duplicate output.
  */
 import type { ResolvedRoute } from "../config.js";
+
+const MAX_RETRIES = 2;
 import type { CanonicalRequest } from "./canonical.js";
 import type { ThinkingConfig } from "../translator/thinkingUnified.js";
 import type { KeyPool } from "./keypool.js";
@@ -54,7 +56,7 @@ export async function executeWithFallback(
   for (const route of routes) {
     const { provider } = route;
 
-    const attempts = provider.max_retries + 1;
+    const attempts = MAX_RETRIES + 1;
 
     for (let i = 0; i < attempts; i++) {
       const key = pool.pick(provider);

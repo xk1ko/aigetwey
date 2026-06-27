@@ -5,9 +5,8 @@ server:
   host: 0.0.0.0
   port: 18080
   # Gateway keys clients must present (Bearer or x-api-key).
-  # Empty => auth disabled (localhost only — set before exposing remotely).
-  api_keys:
-    - my-key
+  # Empty => auth disabled (localhost only). Add keys via the dashboard.
+  api_keys: []
 
 # Token-saver toggles, applied per request before routing.
 endpoint:

@@ -8,6 +8,8 @@
  */
 import { request } from "undici";
 import type { Provider, ResolvedRoute } from "../config.js";
+
+const MAX_RETRIES = 2;
 import type { KeyPool } from "./keypool.js";
 import type { UpstreamError } from "../upstream/client.js";
 import { buildHeaders } from "../upstream/client.js";
@@ -159,7 +161,7 @@ export async function handleEmbeddings(
       continue;
     }
 
-    const attempts = provider.max_retries + 1;
+    const attempts = MAX_RETRIES + 1;
     for (let i = 0; i < attempts; i++) {
       const key = pool.pick(provider);
       if (key === null) {

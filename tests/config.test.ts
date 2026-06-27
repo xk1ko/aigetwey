@@ -28,11 +28,9 @@ describe("validateConfig — defaults", () => {
     expect(c.listProviders()).toHaveLength(0);
   });
 
-  it("applies provider defaults (cooldown, retries, free flag)", () => {
+  it("applies provider defaults (free flag)", () => {
     const c = validateConfig({ providers: [baseProvider] });
     const p = c.getProvider("openai")!;
-    expect(p.cooldown_base_ms).toBe(1000);
-    expect(p.max_retries).toBe(2);
     expect(p.free).toBe(false);
   });
 });
@@ -141,10 +139,10 @@ describe("GatewayConfig.resolve", () => {
 
 describe("maskKey", () => {
   it("masks long keys keeping head and tail", () => {
-    expect(maskKey("sk-abcdEFGHijklMNOP")).toBe("sk-…MNOP");
+    expect(maskKey("sk-abcdEFGHijklMNOP")).toBe("sk-abcd…MNOP");
   });
   it("masks short keys", () => {
-    expect(maskKey("abcd")).toBe("…cd");
+    expect(maskKey("abcd")).toBe("…abcd");
   });
   it("renders empty as (none)", () => {
     expect(maskKey("")).toBe("(none)");

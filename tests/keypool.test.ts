@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { KeyPool } from "../src/core/keypool.js";
 import { validateConfig, type Provider } from "../src/config.js";
 
-/** A provider with the given keys and cooldown base, fully defaulted. */
-function provider(id: string, keys: string[], cooldownBase = 1000, maxRetries = 2): Provider {
+/** A provider with the given keys, fully defaulted. */
+function provider(id: string, keys: string[]): Provider {
   const cfg = validateConfig({
     providers: [
       {
@@ -11,8 +11,6 @@ function provider(id: string, keys: string[], cooldownBase = 1000, maxRetries = 
         format: "openai",
         base_url: "https://x.test/v1",
         api_keys: keys,
-        cooldown_base_ms: cooldownBase,
-        max_retries: maxRetries,
       },
     ],
   });
@@ -104,12 +102,12 @@ describe("KeyPool.snapshot — masked for the dashboard", () => {
   it("masks keys and reports health + cooldown", () => {
     const c = clock();
     const pool = new KeyPool(c.now);
-    const p = provider("p", ["sk-abcdefghijkl"], 2000);
+    const p = provider("p", ["sk-abcdefghijkl"]);
     pool.penalize(p, "sk-abcdefghijkl");
     const snap = pool.snapshot([p]);
     expect(snap[0]!.keys[0]!.key).not.toContain("abcdefghijkl"); // masked
     expect(snap[0]!.keys[0]!.healthy).toBe(false);
-    expect(snap[0]!.keys[0]!.cooldown_ms).toBe(2000);
+    expect(snap[0]!.keys[0]!.cooldown_ms).toBe(1000);
     expect(snap[0]!.keys[0]!.fail_count).toBe(1);
   });
 });
