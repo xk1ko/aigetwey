@@ -34,15 +34,17 @@ interface CliOpts {
   help: boolean;
   version: boolean;
   tray: boolean;
+  skipUpdate: boolean;
 }
 function parseArgs(argv: string[]): CliOpts {
-  const o: CliOpts = { noBrowser: false, yes: false, help: false, version: false, tray: false };
+  const o: CliOpts = { noBrowser: false, yes: false, help: false, version: false, tray: false, skipUpdate: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "-p" || a === "--port") o.port = Number(argv[++i]);
     else if (a === "-n" || a === "--no-browser") o.noBrowser = true;
     else if (a === "-y" || a === "--yes") o.yes = true;
     else if (a === "-t" || a === "--tray") o.tray = true;
+    else if (a === "--skip-update") o.skipUpdate = true;
     else if (a === "-v" || a === "--version") o.version = true;
     else if (a === "-h" || a === "--help") o.help = true;
   }

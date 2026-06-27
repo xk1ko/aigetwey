@@ -78,7 +78,7 @@ function enableMac(node: string, script: string): boolean {
 <plist version="1.0"><dict>
   <key>Label</key><string>${APP_LABEL}</string>
   <key>ProgramArguments</key><array>
-    <string>${node}</string><string>${script}</string><string>--tray</string>
+    <string>${node}</string><string>${script}</string><string>--tray</string><string>--skip-update</string>
   </array>
   <key>EnvironmentVariables</key><dict><key>PATH</key><string>${path}</string></dict>
   <key>RunAtLoad</key><true/>
@@ -100,7 +100,7 @@ function disableMac(): boolean {
 function enableWin(node: string, script: string): boolean {
   const dir = join(process.env.APPDATA || "", "Microsoft", "Windows", "Start Menu", "Programs", "Startup");
   if (!existsSync(dir)) return false;
-  const vbs = `Set WshShell = CreateObject("WScript.Shell")\nWshShell.Run """${node}"" ""${script}"" --tray", 0, False\n`;
+  const vbs = `Set WshShell = CreateObject("WScript.Shell")\nWshShell.Run """${node}"" ""${script}"" --tray --skip-update", 0, False\n`;
   writeFileSync(join(dir, `${APP_NAME}.vbs`), vbs);
   return true;
 }
@@ -118,7 +118,7 @@ function enableLinux(node: string, script: string): boolean {
 Type=Application
 Name=aigetwey
 Comment=Personal AI gateway
-Exec=${node} ${script} --tray
+Exec=${node} ${script} --tray --skip-update
 Hidden=false
 NoDisplay=false
 X-GNOME-Autostart-enabled=true

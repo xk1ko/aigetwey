@@ -757,6 +757,33 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     reply.send({ current, latest, updateAvailable: !!(latest && isNewerVersion(latest, current)) });
   });
 
+  // ---- autostart: query/toggle run-on-OS-startup ----
+  app.get("/admin/autostart", requireAdmin, (_req, reply) => {
+    try {
+      const { isAutoStartEnabled } = require("../cli/tray/autostart.js") as typeof import("../cli/tray/autostart.js");
+      reply.send({ enabled: isAutoStartEnabled() });
+    } catch {
+      reply.send({ enabled: false });
+    }
+  });
+
+  app.post("/admin/autostart", requireAdmin, (req, reply) => {
+    const { enabled } = (req.body ?? {}) as { enabled?: boolean };
+    try {
+      if (enabled) {
+        const { enableAutoStart } = require("../cli/tray/autostart.js") as typeof import("../cli/tray/autostart.js");
+        const ok = enableAutoStart();
+        reply.send({ enabled: ok });
+      } else {
+        const { disableAutoStart } = require("../cli/tray/autostart.js") as typeof import("../cli/tray/autostart.js");
+        disableAutoStart();
+        reply.send({ enabled: false });
+      }
+    } catch (e) {
+      reply.code(500).send({ error: String(e) });
+    }
+  });
+
   // ---- shutdown: stop the gateway process (dashboard power button) ----
   // Matches aigetwey's POST /api/shutdown: reply first, then exit after a short
   // delay so the response reaches the browser. Admin-gated like everything else;

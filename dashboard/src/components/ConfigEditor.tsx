@@ -8,6 +8,7 @@ import { Icon } from "@/components/Icon";
 import { Empty } from "@/components/ui";
 import { PricingEditor } from "@/components/PricingEditor";
 import { PasswordEditor } from "@/components/PasswordEditor";
+import { AutostartToggle } from "@/components/AutostartToggle";
 import { stringify } from "yaml";
 import type { MaskedConfig } from "@/lib/gateway";
 
@@ -123,6 +124,8 @@ export function ConfigEditor() {
         </RichCard>
 
         <PasswordEditor />
+
+        <AutostartToggle />
 
         <PricingEditor />
 
