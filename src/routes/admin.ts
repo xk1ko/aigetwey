@@ -20,6 +20,7 @@ import { buildKeyUsageRow } from "../core/keysUsage.js";
 import {
   maskKey,
   serializeConfig,
+  ProviderSchema,
   addProvider,
   editProvider,
   renameProvider,
@@ -49,10 +50,12 @@ import {
   setServerKeyScope,
   setBudget,
   clearBudget,
+  importProviders,
   type Config,
   type Provider,
   type EndpointSettings,
   type Budget,
+  type ImportResult,
 } from "../config.js";
 import { pingProvider } from "../upstream/client.js";
 import { handle, GatewayError } from "../core/handler.js";
@@ -477,6 +480,33 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     const have = new Set(provider.models.map((m) => m.id));
     const models = result.models.map((m) => ({ id: m.id, added: have.has(m.id) }));
     reply.send({ ok: true, models });
+  });
+
+  // Export providers as JSON (unmasked keys) for sharing/backup.
+  app.get("/admin/providers/export", requireAdmin, (_req, reply) => {
+    const providers = deps.state.config.raw.providers;
+    reply
+      .header("Content-Type", "application/json")
+      .header("Content-Disposition", 'attachment; filename="aigetwey-providers.json"')
+      .send(JSON.stringify({ providers }, null, 2));
+  });
+
+  // Import providers (merge): new providers added, existing get new keys merged.
+  app.post("/admin/providers/import", requireAdmin, (req, reply) => {
+    const body = req.body as { providers?: unknown };
+    if (!Array.isArray(body?.providers)) {
+      return reply.code(400).send({ error: "body must include a providers[] array" });
+    }
+    let parsed: Provider[];
+    try {
+      parsed = body.providers!.map((p) => ProviderSchema.parse(p));
+    } catch (e) {
+      return reply.code(400).send({ error: `invalid provider: ${(e as Error).message}` });
+    }
+    const { config: next, result } = importProviders(deps.state.config.raw, parsed);
+    deps.state.reload(serializeConfig(next));
+    app.log.warn(`[admin] imported providers — added: ${result.added.length}, merged: ${result.merged.length}, skipped: ${result.skipped.length}`);
+    reply.send({ ok: true, result });
   });
 
   // every callable model: provider/model catalog entries + routing aliases.

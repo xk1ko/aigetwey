@@ -137,6 +137,12 @@ export interface ConfigReply {
   config: MaskedConfig;
 }
 
+export interface ImportResult {
+  added: string[];
+  merged: { id: string; newKeys: number }[];
+  skipped: { id: string; reason: string }[];
+}
+
 export interface MaskedRoute {
   alias: string;
   target: string[];

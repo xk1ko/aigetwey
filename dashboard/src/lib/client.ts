@@ -11,6 +11,7 @@ import type {
   ConfigReply,
   EndpointPayload,
   HeadroomStatusReply,
+  ImportResult,
   InjectLevel,
   KeyUsageRow,
   ModelsPayload,
@@ -122,6 +123,9 @@ export const adminApi = {
       "POST",
       `/admin/providers/${encodeURIComponent(id)}/connect`,
     ),
+  exportProviders: () => "/api/gw/admin/providers/export",
+  importProviders: (providers: unknown[]) =>
+    api<{ ok: boolean; result: ImportResult }>("POST", "/admin/providers/import", { providers }),
 
   reorderProvider: (from: number, to: number) =>
     api<ConfigReply>("PUT", "/admin/providers/reorder", { from, to }),
