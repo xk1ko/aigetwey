@@ -153,7 +153,7 @@ export function ProviderManager() {
     <div>
       <div className="mb-6 flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-[22px] font-semibold tracking-tight text-text">Providers &amp; Keys</h1>
+          <h1 className="text-[22px] font-semibold tracking-tight text-text">Providers</h1>
           <p className="mt-1 text-[13px] text-text-muted">Upstream providers the gateway routes to.</p>
         </div>
         <div className="flex items-center gap-2">
@@ -168,10 +168,27 @@ export function ProviderManager() {
           </Button>
           {orderedProviders.length > 0 && (
             <>
-              {selectMode && selected.size > 0 && (
-                <Button variant="danger" onClick={() => setConfirmBulk(true)} disabled={busy}>
-                  <Icon name="delete" size={15} /> Delete {selected.size}
-                </Button>
+              {selectMode && (
+                <>
+                  {selected.size > 0 && (
+                    <Button variant="danger" onClick={() => setConfirmBulk(true)} disabled={busy}>
+                      <Icon name="delete" size={15} /> Delete {selected.size}
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    onClick={() =>
+                      setSelected((s) =>
+                        s.size === orderedProviders.length
+                          ? new Set()
+                          : new Set(orderedProviders.map((p) => p.id)),
+                      )
+                    }
+                  >
+                    <Icon name="checklist" size={16} />
+                    {selected.size === orderedProviders.length ? "Deselect" : "Select All"}
+                  </Button>
+                </>
               )}
               <Button
                 variant="ghost"
@@ -303,103 +320,112 @@ function SortableProviderCard({
     transition,
   };
 
+  const keyCount = p.free || p.service_account
+    ? (p.api_keys?.length ?? 0)
+    : (p.api_keys?.length ?? (p.api_key ? 1 : 0));
+
+  const lamp = <Lamp state={p.disabled ? "down" : healthy ? "live" : "down"} />;
+
+  const headerLeft = (
+    <div className="flex items-center gap-2.5 min-w-0">
+      {lamp}
+      <div className="min-w-0">
+        <span className="block truncate text-[15px] font-semibold text-text">{p.name || p.id}</span>
+        <span className="block truncate text-[12px] text-text-subtle">
+          {p.name ? `${p.id}/<model>` : "\u00A0"}
+        </span>
+      </div>
+    </div>
+  );
+
+  const pills = (
+    <div className="mt-auto flex flex-wrap items-center gap-2">
+      {p.free && <Badge tone="info">free</Badge>}
+      {p.service_account && <Badge tone="info">service-account</Badge>}
+      {(!p.free || keyCount > 0) && <Badge tone="neutral">{keyCount} keys</Badge>}
+      <Badge tone="neutral">{p.models.length} models</Badge>
+      {cooling && <CooldownTimer ms={cooling.cooldown_ms} />}
+    </div>
+  );
+
+  if (selectMode) {
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        onClick={onToggleSelect}
+        className={`group flex flex-col cursor-pointer rounded-brand-lg border bg-surface shadow-soft transition-colors ${
+          isSelected ? "border-accent bg-accent/5" : "border-border hover:border-text-subtle"
+        }`}
+      >
+        <div className="flex items-center justify-between border-b border-border-subtle px-5 py-3">
+          {headerLeft}
+          <FormatBadge format={p.format} />
+        </div>
+        <div className="flex flex-1 flex-col gap-3 p-5">
+          <div className="truncate text-[13px] text-text-subtle">{p.base_url}</div>
+          {pills}
+        </div>
+        <div className="flex items-center justify-end border-t border-border-subtle px-5 py-2.5">
+          <span className={`flex h-5 w-5 items-center justify-center rounded-full border-2 transition-colors ${
+            isSelected ? "border-accent bg-accent" : "border-border-subtle"
+          }`}>
+            {isSelected && <Icon name="check" size={13} className="text-accent-ink" />}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <>
-      {selectMode ? (
-        <div
-          ref={setNodeRef}
-          style={style}
-          onClick={onToggleSelect}
-          className={`group relative cursor-pointer rounded-brand-lg border bg-surface shadow-soft transition-colors ${
-            isSelected ? "border-accent bg-accent/5" : "border-border hover:border-text-subtle"
-          }`}
-        >
-          <div className="flex items-center justify-between px-5 py-6">
-            <div className="flex items-center gap-2 min-w-0">
-              <Lamp state={p.disabled ? "down" : healthy ? "live" : "down"} />
-              <div className="min-w-0">
-                <span className="block truncate text-[15px] font-semibold text-text">{p.name || p.id}</span>
-                {p.name && <span className="block truncate text-[12px] text-text-subtle">{p.id}/</span>}
-              </div>
-            </div>
-            <FormatBadge format={p.format} />
-          </div>
-          <div className="px-5 pb-5">
-            <div className="truncate text-[13px] text-text-subtle">{p.base_url}</div>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              {p.free && <Badge tone="info">no auth</Badge>}
-              {p.service_account && <Badge tone="info">service-account</Badge>}
-              <Badge tone="neutral">
-                {p.free || p.service_account ? `${(p.api_keys?.length ?? 0)} keys` : `${p.api_keys?.length ?? (p.api_key ? 1 : 0)} keys`}
-              </Badge>
-              <Badge tone="neutral">{p.models.length} models</Badge>
-              {cooling && <CooldownTimer ms={cooling.cooldown_ms} />}
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div
-          ref={setNodeRef}
-          style={style}
-          className={`group relative rounded-brand-lg border bg-surface shadow-soft transition-colors ${
-            isDragging ? "opacity-50 border-accent shadow-elevated z-10" : ""
-          } ${
-            p.disabled
-              ? "border-danger/35 opacity-60 hover:opacity-100 hover:border-danger/60"
-              : isDragging ? "" : "border-border hover:border-text-subtle"
-          }`}
-        >
-          {!selectMode && (
-            <div
-              {...attributes}
-              {...listeners}
-              className="absolute inset-x-0 top-0 flex h-5 cursor-grab items-center justify-center opacity-0 transition-opacity group-hover:opacity-100 active:cursor-grabbing"
-              onClick={(e) => e.preventDefault()}
-            >
-              <span className="h-[3px] w-8 rounded-full bg-border-subtle transition-colors group-hover:bg-text-subtle" />
-            </div>
-          )}
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`group relative flex flex-col rounded-brand-lg border bg-surface shadow-soft transition-colors ${
+        isDragging ? "border-accent shadow-elevated z-10 opacity-50" : ""
+      } ${
+        p.disabled
+          ? "border-danger/35 opacity-60 hover:opacity-100 hover:border-danger/60"
+          : isDragging ? "" : "border-border hover:border-text-subtle"
+      }`}
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        className="absolute inset-x-0 top-0 z-10 flex h-5 cursor-grab items-center justify-center opacity-0 transition-opacity group-hover:opacity-100 active:cursor-grabbing"
+        onClick={(e) => e.preventDefault()}
+      >
+        <span className="h-[3px] w-8 rounded-full bg-border-subtle transition-colors group-hover:bg-text-subtle" />
+      </div>
 
-          <Link
-            href={`/providers/${encodeURIComponent(p.id)}`}
-            className="block px-5 py-6"
-            draggable={false}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <Lamp state={p.disabled ? "down" : healthy ? "live" : "down"} />
-                <div className="min-w-0">
-                  <span className="block truncate text-[15px] font-semibold text-text">{p.name || p.id}</span>
-                  {p.name && <span className="block truncate text-[12px] text-text-subtle">{p.id}/</span>}
-                </div>
-              </div>
-              <FormatBadge format={p.format} />
-            </div>
-            <div className="mt-3 truncate text-[13px] text-text-subtle">{p.base_url}</div>
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <ProviderToggle id={p.id} disabled={!!p.disabled} onDone={onDone} />
-              {p.free && <Badge tone="info">no auth</Badge>}
-              {p.service_account && <Badge tone="info">service-account</Badge>}
-              <Badge tone="neutral">
-                {p.free || p.service_account ? `${(p.api_keys?.length ?? 0)} keys` : `${p.api_keys?.length ?? (p.api_key ? 1 : 0)} keys`}
-              </Badge>
-              <Badge tone="neutral">{p.models.length} models</Badge>
-              {cooling && <CooldownTimer ms={cooling.cooldown_ms} />}
-            </div>
-          </Link>
-
-          <button
-            type="button"
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(); }}
-            className="absolute bottom-4 right-4 flex h-7 w-7 items-center justify-center rounded-brand text-text-subtle opacity-0 transition-all hover:bg-danger/10 hover:text-danger group-hover:opacity-100"
-            aria-label="Remove provider"
-            title="Remove provider"
-          >
-            <Icon name="delete" size={15} />
-          </button>
+      <Link
+        href={`/providers/${encodeURIComponent(p.id)}`}
+        className="flex flex-1 flex-col"
+        draggable={false}
+      >
+        <div className="flex items-center justify-between border-b border-border-subtle px-5 py-3">
+          {headerLeft}
+          <FormatBadge format={p.format} />
         </div>
-      )}
-    </>
+        <div className="flex flex-1 flex-col gap-3 p-5">
+          <div className="truncate text-[13px] text-text-subtle">{p.base_url}</div>
+          {pills}
+        </div>
+      </Link>
+
+      <div className="flex items-center justify-between border-t border-border-subtle px-5 py-2.5">
+        <ProviderToggle id={p.id} disabled={!!p.disabled} onDone={onDone} />
+        <button
+          type="button"
+          onClick={onDelete}
+          className="flex h-7 w-7 items-center justify-center rounded-brand text-text-subtle opacity-0 transition-all hover:bg-danger/10 hover:text-danger group-hover:opacity-100"
+          aria-label="Remove provider"
+          title="Remove provider"
+        >
+          <Icon name="delete" size={15} />
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -477,7 +503,7 @@ function AddProviderForm({ onDone, onClose }: { onDone: () => void; onClose: () 
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-[14px] font-semibold text-text">Add a provider</h2>
-            <p className="mt-0.5 text-[12.5px] text-text-muted">Pick the API your endpoint speaks — the rest is prefilled.</p>
+            <p className="mt-0.5 text-[13px] text-text-muted">Pick the API your endpoint speaks — the rest is prefilled.</p>
           </div>
           <button type="button" onClick={onClose} className="flex-none text-text-subtle hover:text-text" aria-label="Cancel">
             <Icon name="close" size={18} />
@@ -495,9 +521,9 @@ function AddProviderForm({ onDone, onClose }: { onDone: () => void; onClose: () 
                 <Icon name={p.icon} size={20} />
               </span>
               <span className="min-w-0">
-                <span className="block text-[13.5px] font-semibold text-text">{p.label}</span>
-                <span className="block tnum text-[11.5px] text-text-subtle">{p.sub}</span>
-                <span className="mt-1 block text-[11.5px] text-text-muted">{p.hint}</span>
+                <span className="block text-[14px] font-semibold text-text">{p.label}</span>
+                <span className="block tnum text-[12px] text-text-subtle">{p.sub}</span>
+                <span className="mt-1 block text-[12px] text-text-muted">{p.hint}</span>
               </span>
             </button>
           ))}
@@ -543,13 +569,13 @@ function AddProviderForm({ onDone, onClose }: { onDone: () => void; onClose: () 
             <Icon name={preset.icon} size={17} />
           </span>
           <div>
-            <div className="text-[13.5px] font-semibold text-text">{preset.label}</div>
+            <div className="text-[14px] font-semibold text-text">{preset.label}</div>
             <div className="tnum text-[11px] text-text-subtle">{preset.sub}</div>
           </div>
           <button
             type="button"
             onClick={() => { setPreset(null); setCheckRes(null); }}
-            className="ml-auto inline-flex items-center gap-1 text-[12px] text-text-subtle hover:text-text"
+            className="ml-auto inline-flex items-center gap-1 rounded-brand border border-border bg-surface-2 px-2.5 py-1 text-[12px] font-medium text-text-muted transition-colors hover:border-text-subtle hover:bg-surface-3 hover:text-text"
           >
             <Icon name="arrow_back" size={14} /> change type
           </button>
@@ -560,10 +586,10 @@ function AddProviderForm({ onDone, onClose }: { onDone: () => void; onClose: () 
             <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. My OpenAI" />
           </Field>
           <Field label="ID / Prefix" hint="required — used as prefix when calling models (e.g. prefix/model-name)">
-            <Input value={id} onChange={(e) => setId(e.target.value)} placeholder="e.g. openai, anthropic" className="font-mono text-[12.5px]" />
+            <Input value={id} onChange={(e) => setId(e.target.value)} placeholder="e.g. openai, anthropic" className="font-mono text-[13px]" />
           </Field>
           <Field label="Base URL" hint={preset.hint}>
-            <Input value={baseUrl} onChange={(e) => { setBaseUrl(e.target.value); setCheckRes(null); }} placeholder={preset.base_url} className="font-mono text-[12.5px]" />
+            <Input value={baseUrl} onChange={(e) => { setBaseUrl(e.target.value); setCheckRes(null); }} placeholder={preset.base_url} className="font-mono text-[13px]" />
           </Field>
           <Field label="API Key" hint="used for Check and live requests — leave blank for a free / no-auth endpoint">
             <div className="flex gap-2">
@@ -573,7 +599,7 @@ function AddProviderForm({ onDone, onClose }: { onDone: () => void; onClose: () 
                   value={apiKey}
                   onChange={(e) => { setApiKey(e.target.value); setCheckRes(null); }}
                   placeholder="sk-…"
-                  className="pr-9 font-mono text-[12.5px]"
+                  className="pr-9 font-mono text-[13px]"
                 />
                 {apiKey && (
                   <button type="button" onClick={() => setShowKey((v) => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-text-subtle hover:text-text" aria-label={showKey ? "Hide key" : "Show key"}>
@@ -596,7 +622,7 @@ function AddProviderForm({ onDone, onClose }: { onDone: () => void; onClose: () 
             </div>
           )}
           <Field label="Model ID" hint="optional — seed one if the provider has no /models endpoint">
-            <Input value={modelId} onChange={(e) => setModelId(e.target.value)} placeholder={preset.modelHint} className="font-mono text-[12.5px]" />
+            <Input value={modelId} onChange={(e) => setModelId(e.target.value)} placeholder={preset.modelHint} className="font-mono text-[13px]" />
           </Field>
         </div>
 
