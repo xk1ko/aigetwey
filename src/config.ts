@@ -27,7 +27,7 @@ const ProviderModelSchema = z.object({
   price_out: z.number().nonnegative().optional(),
 });
 
-const ProviderSchema = z
+export const ProviderSchema = z
   .object({
     id: z.string().min(1),
     name: z.string().optional(),
@@ -494,6 +494,41 @@ export function removeProvider(config: Config, id: string): Config {
   }
   next.providers.splice(idx, 1);
   return next;
+}
+
+export interface ImportResult {
+  added: string[];
+  merged: { id: string; newKeys: number }[];
+  skipped: { id: string; reason: string }[];
+}
+
+export function importProviders(config: Config, incoming: Provider[]): { config: Config; result: ImportResult } {
+  const next = cloneConfig(config);
+  const result: ImportResult = { added: [], merged: [], skipped: [] };
+
+  for (const imp of incoming) {
+    const existing = next.providers.find((p) => p.id === imp.id);
+    if (!existing) {
+      next.providers.push(imp);
+      result.added.push(imp.id);
+      continue;
+    }
+
+    const existingKeys = new Set(realKeysOf(existing));
+    const impKeys = realKeysOf(imp);
+    const newKeys = impKeys.filter((k) => !existingKeys.has(k));
+
+    if (newKeys.length === 0) {
+      result.skipped.push({ id: imp.id, reason: "all keys already exist" });
+      continue;
+    }
+
+    existing.api_keys = [...realKeysOf(existing), ...newKeys];
+    delete existing.api_key;
+    result.merged.push({ id: imp.id, newKeys: newKeys.length });
+  }
+
+  return { config: next, result };
 }
 
 export function addProviderKey(config: Config, id: string, key: string, name?: string): Config {

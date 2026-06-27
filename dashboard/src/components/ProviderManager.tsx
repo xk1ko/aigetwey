@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import {
   DndContext,
@@ -25,7 +25,7 @@ import { Button, Input, Field } from "@/components/Button";
 import { Icon } from "@/components/Icon";
 import { Empty } from "@/components/ui";
 import { ConfirmModal } from "@/components/ConfirmModal";
-import type { MaskedConfig, PingResult, ProviderSnapshot, WireFormat } from "@/lib/gateway";
+import type { MaskedConfig, PingResult, ProviderSnapshot, WireFormat, ImportResult } from "@/lib/gateway";
 
 interface Loaded {
   config: MaskedConfig;
@@ -42,6 +42,8 @@ export function ProviderManager() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [confirmBulk, setConfirmBulk] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const importInput = useRef<HTMLInputElement>(null);
 
   const reload = useCallback(async () => {
     const [cfg, prov] = await Promise.all([
@@ -111,6 +113,33 @@ export function ProviderManager() {
     void reload();
   }
 
+  async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setBusy(true);
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      const providers = Array.isArray(parsed?.providers) ? parsed.providers : Array.isArray(parsed) ? parsed : [];
+      if (providers.length === 0) {
+        setImportResult({ added: [], merged: [], skipped: [{ id: "?", reason: "no providers found in file" }] });
+        setBusy(false);
+        return;
+      }
+      const r = await adminApi.importProviders(providers);
+      if (r.ok && r.data) {
+        setImportResult(r.data.result);
+        void reload();
+      } else {
+        setImportResult({ added: [], merged: [], skipped: [{ id: "?", reason: r.error ?? "import failed" }] });
+      }
+    } catch {
+      setImportResult({ added: [], merged: [], skipped: [{ id: "?", reason: "invalid JSON file" }] });
+    }
+    setBusy(false);
+  }
+
   if (error) return <Empty>{error}</Empty>;
   if (!data) return <Empty>Loading…</Empty>;
 
@@ -128,6 +157,15 @@ export function ProviderManager() {
           <p className="mt-1 text-[13px] text-text-muted">Upstream providers the gateway routes to.</p>
         </div>
         <div className="flex items-center gap-2">
+          <input ref={importInput} type="file" accept=".json,application/json" className="hidden" onChange={handleImport} />
+          {orderedProviders.length > 0 && (
+            <Button variant="ghost" onClick={() => window.open(adminApi.exportProviders(), "_blank")} title="Download providers as JSON">
+              <Icon name="download" size={15} /> Export
+            </Button>
+          )}
+          <Button variant="ghost" disabled={busy} onClick={() => importInput.current?.click()} title="Import providers from JSON (merge)">
+            <Icon name="upload" size={15} /> Import
+          </Button>
           {orderedProviders.length > 0 && (
             <>
               {selectMode && selected.size > 0 && (
@@ -208,6 +246,29 @@ export function ProviderManager() {
           onCancel={() => setConfirmBulk(false)}
           onConfirm={deleteSelected}
         />
+      )}
+
+      {importResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setImportResult(null)}>
+          <div className="mx-4 w-full max-w-sm rounded-brand-lg border border-border bg-surface p-5 shadow-elevated" onClick={(e) => e.stopPropagation()}>
+            <h3 className="mb-3 text-[15px] font-semibold text-text">Import result</h3>
+            <div className="space-y-2 text-[13px]">
+              {importResult.added.length > 0 && (
+                <div className="text-success">+ {importResult.added.length} new: {importResult.added.join(", ")}</div>
+              )}
+              {importResult.merged.length > 0 && (
+                <div className="text-info">↻ {importResult.merged.length} merged: {importResult.merged.map((m) => `${m.id} (+${m.newKeys} keys)`).join(", ")}</div>
+              )}
+              {importResult.skipped.length > 0 && (
+                <div className="text-text-subtle">○ {importResult.skipped.length} skipped: {importResult.skipped.map((s) => `${s.id} (${s.reason})`).join(", ")}</div>
+              )}
+              {importResult.added.length === 0 && importResult.merged.length === 0 && (
+                <div className="text-text-muted">Nothing to import.</div>
+              )}
+            </div>
+            <Button className="mt-4 w-full" onClick={() => setImportResult(null)}>Done</Button>
+          </div>
+        </div>
       )}
     </div>
   );
