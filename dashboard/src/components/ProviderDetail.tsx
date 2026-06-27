@@ -20,6 +20,7 @@ export function ProviderDetail({ id }: { id: string }) {
   const [provider, setProvider] = useState<MaskedProvider | null>(null);
   const [health, setHealth] = useState<ProviderSnapshot | null>(null);
   const [error, setError] = useState("");
+  const [actionErr, setActionErr] = useState("");
   const [ping, setPing] = useState<PingResult | null>(null);
   const [busy, setBusy] = useState("");
   const [newKey, setNewKey] = useState("");
@@ -105,11 +106,12 @@ export function ProviderDetail({ id }: { id: string }) {
 
   async function run(label: string, fn: () => Promise<{ ok: boolean; error?: string }>) {
     setBusy(label);
+    setActionErr("");
     const res = await fn();
     setBusy("");
-    if (!res.ok) setError(res.error ?? "action failed");
+    if (!res.ok) setActionErr(res.error ?? "action failed");
     else {
-      setError("");
+      setActionErr("");
       await reload();
     }
   }
@@ -212,6 +214,11 @@ export function ProviderDetail({ id }: { id: string }) {
                     {ping.ok ? `ok (${ping.status})` : ping.reachable ? `reachable (${ping.status})` : "unreachable"}
                   </Badge>
                   {ping.error && <span className="ml-2 text-text-subtle">{ping.error}</span>}
+                </div>
+              )}
+              {actionErr && (
+                <div className="mt-3 rounded-brand border border-danger/30 bg-danger/5 px-3 py-2 text-[12px] text-danger">
+                  {actionErr}
                 </div>
               )}
             </>
