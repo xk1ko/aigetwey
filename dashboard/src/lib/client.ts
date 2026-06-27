@@ -136,7 +136,7 @@ export const adminApi = {
 
   setRoute: (
     alias: string,
-    body: { target: string[]; model?: string | string[]; strategy?: "fallback" | "round-robin"; price_in?: number; price_out?: number },
+    body: { target: string[]; model?: string | string[]; strategy?: "fallback" | "round-robin"; sticky?: number; price_in?: number; price_out?: number },
   ) => api<ConfigReply>("PUT", `/admin/routes/${encodeURIComponent(alias)}`, body),
   removeRoute: (alias: string) => api<ConfigReply>("DELETE", `/admin/routes/${encodeURIComponent(alias)}`),
 

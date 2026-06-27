@@ -75,6 +75,8 @@ const ModelRouteSchema = z.object({
   // fallback: try targets in order. round-robin: rotate the first target tried
   // per request to spread load across the chain.
   strategy: z.enum(["fallback", "round-robin"]).default("fallback"),
+  // round-robin sticky: N consecutive requests to the same model before rotating.
+  sticky: z.number().int().positive().default(1),
   price_in: z.number().nonnegative().optional(),
   price_out: z.number().nonnegative().optional(),
 });
@@ -182,8 +184,8 @@ export class GatewayConfig {
   readonly raw: Config;
   private readonly providers: Map<string, Provider>;
   private readonly routes: Map<string, ModelRoute>;
-  /** per-alias rotation cursor for the round-robin strategy */
-  private readonly rrCursor: Map<string, number> = new Map();
+  /** per-alias rotation state for the round-robin strategy (index + sticky count) */
+  private readonly rrCursor: Map<string, { index: number; count: number }> = new Map();
 
   constructor(raw: Config) {
     this.raw = raw;
@@ -234,8 +236,15 @@ export class GatewayConfig {
         ];
       });
       if (route.strategy === "round-robin" && built.length > 1) {
-        const start = (this.rrCursor.get(name) ?? 0) % built.length;
-        this.rrCursor.set(name, start + 1);
+        const state = this.rrCursor.get(name) ?? { index: 0, count: 0 };
+        const sticky = route.sticky ?? 1;
+        const start = state.index % built.length;
+        const nextCount = state.count + 1;
+        if (nextCount >= sticky) {
+          this.rrCursor.set(name, { index: (state.index + 1) % built.length, count: 0 });
+        } else {
+          this.rrCursor.set(name, { index: state.index, count: nextCount });
+        }
         return [...built.slice(start), ...built.slice(0, start)];
       }
       return built;
@@ -716,6 +725,7 @@ export function setRoute(
     target: string[];
     model?: string | string[];
     strategy?: ModelRoute["strategy"];
+    sticky?: number;
     price_in?: number;
     price_out?: number;
   },
@@ -731,6 +741,7 @@ export function setRoute(
     alias,
     target: route.target,
     strategy: route.strategy ?? "fallback",
+    sticky: route.sticky && route.sticky > 0 ? route.sticky : 1,
     ...(route.model !== undefined ? { model: route.model } : {}),
     ...(route.price_in !== undefined ? { price_in: route.price_in } : {}),
     ...(route.price_out !== undefined ? { price_out: route.price_out } : {}),

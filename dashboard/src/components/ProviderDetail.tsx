@@ -292,9 +292,9 @@ export function ProviderDetail({ id }: { id: string }) {
                 const ks = health?.keys[i];
                 const test = keyTest[i];
                 const tested = test && test !== "testing" ? test : null;
-                const lamp = tested ? (tested.ok ? "live" : tested.reachable ? "idle" : "down") : ks ? (ks.healthy ? "live" : "down") : "idle";
-                const name = provider.key_names?.[k];
                 const disabled = provider.disabled_keys?.includes(i) ?? false;
+                const lamp = disabled ? "down" : tested ? (tested.ok ? "live" : tested.reachable ? "idle" : "down") : ks ? (ks.healthy ? "live" : "down") : "idle";
+                const name = provider.key_names?.[k];
                 if (editIdx === i) {
                   return (
                     <div key={i} className="space-y-2 rounded-brand border border-accent bg-accent-soft/40 px-3 py-2.5">
@@ -366,7 +366,7 @@ export function ProviderDetail({ id }: { id: string }) {
                         aria-label={disabled ? "Enable key" : "Disable key"}
                         title={disabled ? "Enable this key" : "Disable this key"}
                       >
-                        <Icon name={disabled ? "toggle_off" : "toggle_on"} size={20} className={disabled ? "text-text-subtle" : "text-success"} />
+                        <Icon name={disabled ? "toggle_off" : "toggle_on"} size={20} className={disabled ? "text-danger" : "text-success"} />
                       </button>
                       <button
                         onClick={() => testKey(i)}

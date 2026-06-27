@@ -532,6 +532,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
       target?: string[];
       model?: string | string[];
       strategy?: "fallback" | "round-robin";
+      sticky?: number;
       price_in?: number;
       price_out?: number;
     };
@@ -544,6 +545,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
         target: b.target!,
         model: b.model,
         strategy: b.strategy,
+        sticky: b.sticky,
         price_in: b.price_in,
         price_out: b.price_out,
       }),

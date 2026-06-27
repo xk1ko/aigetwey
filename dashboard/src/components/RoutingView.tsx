@@ -196,8 +196,7 @@ function RouteForm({ providers, onDone, initial, onCancel }: { providers: Provid
   });
   const [pickerOpen, setPickerOpen] = useState(false);
   const [strategy, setStrategy] = useState<"fallback" | "round-robin">(initial?.strategy ?? "fallback");
-  const [priceIn, setPriceIn] = useState(initial?.price_in?.toString() ?? "");
-  const [priceOut, setPriceOut] = useState(initial?.price_out?.toString() ?? "");
+  const [sticky, setSticky] = useState(initial?.sticky ?? 1);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [dragIdx, setDragIdx] = useState<number | null>(null);
@@ -236,8 +235,7 @@ function RouteForm({ providers, onDone, initial, onCancel }: { providers: Provid
       target,
       model,
       strategy,
-      price_in: priceIn ? Number(priceIn) : undefined,
-      price_out: priceOut ? Number(priceOut) : undefined,
+      sticky: strategy === "round-robin" ? sticky : undefined,
     });
     // rename: the new alias is saved above; drop the old one so it doesn't linger.
     if (r.ok && isEdit && initial!.alias !== alias) {
@@ -260,9 +258,21 @@ function RouteForm({ providers, onDone, initial, onCancel }: { providers: Provid
             <option value="round-robin">Round Robin — rotate to spread load</option>
           </Select>
         </Field>
-        <Field label="Price in" hint="per 1M, optional"><Input value={priceIn} onChange={(e) => setPriceIn(e.target.value)} placeholder="3" /></Field>
-        <Field label="Price out" hint="per 1M, optional"><Input value={priceOut} onChange={(e) => setPriceOut(e.target.value)} placeholder="15" /></Field>
       </div>
+
+      {strategy === "round-robin" && (
+        <div className="mt-3 flex items-center gap-2 text-[12px] text-text-muted">
+          <span>Sticky</span>
+          <button type="button" disabled={sticky <= 1} onClick={() => setSticky((s) => Math.max(1, s - 1))} className="flex h-6 w-6 items-center justify-center rounded-brand border border-border text-text-muted hover:bg-surface-2 disabled:opacity-40" aria-label="Decrease sticky">
+            <Icon name="remove" size={13} />
+          </button>
+          <span className="tnum w-6 text-center text-[11px] text-text">{sticky}</span>
+          <button type="button" onClick={() => setSticky((s) => s + 1)} className="flex h-6 w-6 items-center justify-center rounded-brand border border-border text-text-muted hover:bg-surface-2" aria-label="Increase sticky">
+            <Icon name="add" size={13} />
+          </button>
+          <span className="text-text-subtle">requests per model before rotating</span>
+        </div>
+      )}
 
       <div className="mt-3">
         <div className="flex items-center justify-between">

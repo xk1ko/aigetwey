@@ -114,7 +114,7 @@ export const gateway = {
   // ---- combos: alias + ordered provider chain + strategy ----
   setRoute: (
     alias: string,
-    body: { target: string[]; model?: string | string[]; strategy?: "fallback" | "round-robin"; price_in?: number; price_out?: number },
+    body: { target: string[]; model?: string | string[]; strategy?: "fallback" | "round-robin"; sticky?: number; price_in?: number; price_out?: number },
   ) => call<ConfigReply>("PUT", `/admin/routes/${encodeURIComponent(alias)}`, body),
   removeRoute: (alias: string) => call<ConfigReply>("DELETE", `/admin/routes/${encodeURIComponent(alias)}`),
 
@@ -142,6 +142,7 @@ export interface MaskedRoute {
   target: string[];
   model?: string | string[];
   strategy: "fallback" | "round-robin";
+  sticky?: number;
   price_in?: number;
   price_out?: number;
 }

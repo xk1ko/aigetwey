@@ -24,6 +24,7 @@ import { CooldownTimer } from "@/components/CooldownTimer";
 import { Button, Input, Field } from "@/components/Button";
 import { Icon } from "@/components/Icon";
 import { Empty } from "@/components/ui";
+import { ConfirmModal } from "@/components/ConfirmModal";
 import type { MaskedConfig, PingResult, ProviderSnapshot, WireFormat } from "@/lib/gateway";
 
 interface Loaded {
@@ -36,6 +37,11 @@ export function ProviderManager() {
   const [error, setError] = useState("");
   const [adding, setAdding] = useState(false);
   const [providerOrder, setProviderOrder] = useState<string[]>([]);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [confirmBulk, setConfirmBulk] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   const reload = useCallback(async () => {
     const [cfg, prov] = await Promise.all([
@@ -76,6 +82,35 @@ export function ProviderManager() {
     void reload();
   }
 
+  function toggleSelect(id: string) {
+    setSelected((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function deleteProvider(id: string) {
+    setBusy(true);
+    const r = await adminApi.removeProvider(id);
+    setBusy(false);
+    setConfirmDelete(null);
+    if (r.ok) void reload();
+  }
+
+  async function deleteSelected() {
+    setBusy(true);
+    for (const id of selected) {
+      await adminApi.removeProvider(id);
+    }
+    setBusy(false);
+    setConfirmBulk(false);
+    setSelected(new Set());
+    setSelectMode(false);
+    void reload();
+  }
+
   if (error) return <Empty>{error}</Empty>;
   if (!data) return <Empty>Loading…</Empty>;
 
@@ -92,10 +127,31 @@ export function ProviderManager() {
           <h1 className="text-[22px] font-semibold tracking-tight text-text">Providers &amp; Keys</h1>
           <p className="mt-1 text-[13px] text-text-muted">Upstream providers the gateway routes to.</p>
         </div>
-        <Button onClick={() => setAdding(true)}>
-          <Icon name="add" size={17} />
-          Add provider
-        </Button>
+        <div className="flex items-center gap-2">
+          {orderedProviders.length > 0 && (
+            <>
+              {selectMode && selected.size > 0 && (
+                <Button variant="danger" onClick={() => setConfirmBulk(true)} disabled={busy}>
+                  <Icon name="delete" size={15} /> Delete {selected.size}
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setSelectMode((s) => !s);
+                  setSelected(new Set());
+                }}
+              >
+                <Icon name={selectMode ? "check" : "checklist"} size={16} />
+                {selectMode ? "Done" : "Select"}
+              </Button>
+            </>
+          )}
+          <Button onClick={() => setAdding(true)}>
+            <Icon name="add" size={17} />
+            Add provider
+          </Button>
+        </div>
       </div>
 
       {adding && (
@@ -122,12 +178,36 @@ export function ProviderManager() {
                     healthy={healthy}
                     cooling={cooling}
                     onDone={reload}
+                    selectMode={selectMode}
+                    isSelected={selected.has(p.id)}
+                    onToggleSelect={() => toggleSelect(p.id)}
+                    onDelete={() => setConfirmDelete(p.id)}
                   />
                 );
               })}
             </div>
           </SortableContext>
         </DndContext>
+      )}
+
+      {confirmDelete && (
+        <ConfirmModal
+          title="Remove provider"
+          message={`Delete "${confirmDelete}"? All keys and model associations will be lost.`}
+          busy={busy}
+          onCancel={() => setConfirmDelete(null)}
+          onConfirm={() => deleteProvider(confirmDelete)}
+        />
+      )}
+
+      {confirmBulk && (
+        <ConfirmModal
+          title="Remove providers"
+          message={`Delete ${selected.size} provider${selected.size > 1 ? "s" : ""}? All keys and model associations will be lost.`}
+          busy={busy}
+          onCancel={() => setConfirmBulk(false)}
+          onConfirm={deleteSelected}
+        />
       )}
     </div>
   );
@@ -140,11 +220,19 @@ function SortableProviderCard({
   healthy,
   cooling,
   onDone,
+  selectMode,
+  isSelected,
+  onToggleSelect,
+  onDelete,
 }: {
   p: ProviderConfig;
   healthy: boolean;
   cooling: { cooldown_ms: number } | undefined;
   onDone: () => void;
+  selectMode: boolean;
+  isSelected: boolean;
+  onToggleSelect: () => void;
+  onDelete: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: p.id });
@@ -155,55 +243,102 @@ function SortableProviderCard({
   };
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={`group relative rounded-brand-lg border bg-surface shadow-soft transition-colors ${
-        isDragging ? "opacity-50 border-accent shadow-elevated z-10" : ""
-      } ${
-        p.disabled
-          ? "border-danger/35 opacity-60 hover:opacity-100 hover:border-danger/60"
-          : isDragging ? "" : "border-border hover:border-text-subtle"
-      }`}
-    >
-      {/* drag pill — centered top, visible on hover */}
-      <div
-        {...attributes}
-        {...listeners}
-        className="absolute inset-x-0 top-0 flex h-5 cursor-grab items-center justify-center opacity-0 transition-opacity group-hover:opacity-100 active:cursor-grabbing"
-        onClick={(e) => e.preventDefault()}
-      >
-        <span className="h-[3px] w-8 rounded-full bg-border-subtle transition-colors group-hover:bg-text-subtle" />
-      </div>
-
-      <Link
-        href={`/providers/${encodeURIComponent(p.id)}`}
-        className="block px-5 py-6"
-        draggable={false}
-      >
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <Lamp state={p.disabled ? "down" : healthy ? "live" : "down"} />
-            <div className="min-w-0">
-              <span className="block truncate text-[15px] font-semibold text-text">{p.name || p.id}</span>
-              {p.name && <span className="block truncate text-[12px] text-text-subtle">{p.id}/</span>}
+    <>
+      {selectMode ? (
+        <div
+          ref={setNodeRef}
+          style={style}
+          onClick={onToggleSelect}
+          className={`group relative cursor-pointer rounded-brand-lg border bg-surface shadow-soft transition-colors ${
+            isSelected ? "border-accent bg-accent/5" : "border-border hover:border-text-subtle"
+          }`}
+        >
+          <div className="flex items-center justify-between px-5 py-6">
+            <div className="flex items-center gap-2 min-w-0">
+              <Lamp state={p.disabled ? "down" : healthy ? "live" : "down"} />
+              <div className="min-w-0">
+                <span className="block truncate text-[15px] font-semibold text-text">{p.name || p.id}</span>
+                {p.name && <span className="block truncate text-[12px] text-text-subtle">{p.id}/</span>}
+              </div>
+            </div>
+            <FormatBadge format={p.format} />
+          </div>
+          <div className="px-5 pb-5">
+            <div className="truncate text-[13px] text-text-subtle">{p.base_url}</div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {p.free && <Badge tone="info">no auth</Badge>}
+              {p.service_account && <Badge tone="info">service-account</Badge>}
+              <Badge tone="neutral">
+                {p.free || p.service_account ? `${(p.api_keys?.length ?? 0)} keys` : `${p.api_keys?.length ?? (p.api_key ? 1 : 0)} keys`}
+              </Badge>
+              <Badge tone="neutral">{p.models.length} models</Badge>
+              {cooling && <CooldownTimer ms={cooling.cooldown_ms} />}
             </div>
           </div>
-          <FormatBadge format={p.format} />
         </div>
-        <div className="mt-3 truncate text-[13px] text-text-subtle">{p.base_url}</div>
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <ProviderToggle id={p.id} disabled={!!p.disabled} onDone={onDone} />
-          {p.free && <Badge tone="info">no auth</Badge>}
-          {p.service_account && <Badge tone="info">service-account</Badge>}
-          <Badge tone="neutral">
-            {p.free || p.service_account ? `${(p.api_keys?.length ?? 0)} keys` : `${p.api_keys?.length ?? (p.api_key ? 1 : 0)} keys`}
-          </Badge>
-          <Badge tone="neutral">{p.models.length} models</Badge>
-          {cooling && <CooldownTimer ms={cooling.cooldown_ms} />}
+      ) : (
+        <div
+          ref={setNodeRef}
+          style={style}
+          className={`group relative rounded-brand-lg border bg-surface shadow-soft transition-colors ${
+            isDragging ? "opacity-50 border-accent shadow-elevated z-10" : ""
+          } ${
+            p.disabled
+              ? "border-danger/35 opacity-60 hover:opacity-100 hover:border-danger/60"
+              : isDragging ? "" : "border-border hover:border-text-subtle"
+          }`}
+        >
+          {!selectMode && (
+            <div
+              {...attributes}
+              {...listeners}
+              className="absolute inset-x-0 top-0 flex h-5 cursor-grab items-center justify-center opacity-0 transition-opacity group-hover:opacity-100 active:cursor-grabbing"
+              onClick={(e) => e.preventDefault()}
+            >
+              <span className="h-[3px] w-8 rounded-full bg-border-subtle transition-colors group-hover:bg-text-subtle" />
+            </div>
+          )}
+
+          <Link
+            href={`/providers/${encodeURIComponent(p.id)}`}
+            className="block px-5 py-6"
+            draggable={false}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <Lamp state={p.disabled ? "down" : healthy ? "live" : "down"} />
+                <div className="min-w-0">
+                  <span className="block truncate text-[15px] font-semibold text-text">{p.name || p.id}</span>
+                  {p.name && <span className="block truncate text-[12px] text-text-subtle">{p.id}/</span>}
+                </div>
+              </div>
+              <FormatBadge format={p.format} />
+            </div>
+            <div className="mt-3 truncate text-[13px] text-text-subtle">{p.base_url}</div>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <ProviderToggle id={p.id} disabled={!!p.disabled} onDone={onDone} />
+              {p.free && <Badge tone="info">no auth</Badge>}
+              {p.service_account && <Badge tone="info">service-account</Badge>}
+              <Badge tone="neutral">
+                {p.free || p.service_account ? `${(p.api_keys?.length ?? 0)} keys` : `${p.api_keys?.length ?? (p.api_key ? 1 : 0)} keys`}
+              </Badge>
+              <Badge tone="neutral">{p.models.length} models</Badge>
+              {cooling && <CooldownTimer ms={cooling.cooldown_ms} />}
+            </div>
+          </Link>
+
+          <button
+            type="button"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(); }}
+            className="absolute bottom-4 right-4 flex h-7 w-7 items-center justify-center rounded-brand text-text-subtle opacity-0 transition-all hover:bg-danger/10 hover:text-danger group-hover:opacity-100"
+            aria-label="Remove provider"
+            title="Remove provider"
+          >
+            <Icon name="delete" size={15} />
+          </button>
         </div>
-      </Link>
-    </div>
+      )}
+    </>
   );
 }
 
