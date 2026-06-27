@@ -52,7 +52,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prepublishOnly": "npm run build && npm --prefix dashboard run build && node -e \"const{renameSync,existsSync}=require('fs');const p='dashboard/.next/standalone/node_modules';if(existsSync(p))renameSync(p,'dashboard/.next/standalone/vendor')\""
+    "prepublishOnly": "npm run build && npm --prefix dashboard run build && node -e \"const{renameSync,existsSync,cpSync}=require('fs');const p='dashboard/.next/standalone/node_modules';if(existsSync(p))renameSync(p,'dashboard/.next/standalone/vendor');cpSync('dashboard/.next/static','dashboard/.next/standalone/.next/static',{recursive:true})\""
   },
   "publishConfig": {
     "access": "public"
