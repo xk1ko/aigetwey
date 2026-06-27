@@ -57,7 +57,7 @@ export const CLI_TOOLS: CliTool[] = [
   },
   {
     id: "opencode",
-    name: "opencode",
+    name: "OpenCode",
     icon: "code_blocks",
     format: "openai",
     blurb: "OpenAI-compatible provider. Set base_url to /v1.",

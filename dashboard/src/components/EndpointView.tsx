@@ -196,6 +196,7 @@ function HeadroomCard({
           desc="Also squeeze user turns, not just tool/assistant context."
           on={h.compress_user_messages}
           busy={localBusy === "cum"}
+          disabled={!hr?.running && !h.enabled}
           onChange={(v) => act("cum", () => adminApi.setHeadroom({ compress_user_messages: v }))}
         />
 
