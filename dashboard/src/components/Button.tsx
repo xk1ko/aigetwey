@@ -54,10 +54,15 @@ export function Select({
   Children.forEach(children as ReactNode, (child) => {
     if (isValidElement(child) && child.type === "option") {
       const el = child as ReactElement<{ value?: string; children?: ReactNode }>;
-      options.push({
-        value: String(el.props.value ?? ""),
-        label: typeof el.props.children === "string" ? el.props.children : String(el.props.value ?? ""),
-      });
+      let label: string;
+      if (typeof el.props.children === "string") {
+        label = el.props.children;
+      } else if (Array.isArray(el.props.children)) {
+        label = el.props.children.map((c) => (c == null ? "" : String(c))).join("");
+      } else {
+        label = String(el.props.value ?? "");
+      }
+      options.push({ value: String(el.props.value ?? ""), label });
     }
   });
 
