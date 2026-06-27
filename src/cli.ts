@@ -243,13 +243,35 @@ function spawnGateway(): ChildProcess {
 }
 
 function spawnDashboard(): ChildProcess {
-  // serve the optimized build when present, else dev mode (HMR live-reload).
+  const standaloneDir = join(dashboardDir, ".next", "standalone");
+  const standaloneServer = join(standaloneDir, "server.js");
+
+  // Standalone build ships pre-bundled deps in vendor/ (renamed from node_modules
+  // to survive npm pack which strips node_modules/). NODE_PATH resolves them.
+  if (existsSync(standaloneServer)) {
+    return spawn("node", [standaloneServer], {
+      cwd: standaloneDir,
+      stdio: "inherit",
+      detached: true,
+      env: {
+        ...process.env,
+        PORT: String(DASHBOARD_PORT),
+        HOSTNAME: "127.0.0.1",
+        NODE_PATH: join(standaloneDir, "vendor"),
+        GATEWAY_URL: `http://127.0.0.1:${GATEWAY_PORT}`,
+        ADMIN_PASSWORD: adminPassword,
+        SESSION_SECRET: sessionSecret,
+      },
+    });
+  }
+
+  // Fallback: dev mode or legacy non-standalone build
   const prod = existsSync(join(dashboardDir, ".next", "BUILD_ID"));
   const args = prod ? ["run", "start"] : ["run", "dev"];
   return spawn("npm", args, {
     cwd: dashboardDir,
     stdio: "inherit",
-    detached: true, // own process group → killTree reaps the next-server grandchild
+    detached: true,
     env: {
       ...process.env,
       PORT: String(DASHBOARD_PORT),
@@ -303,11 +325,12 @@ function ensureSetup(): void {
     execSync("npm install --omit=dev --no-fund --no-audit", { cwd: root, stdio: "inherit" });
   }
   if (existsSync(join(dashboardDir, "package.json"))) {
-    if (!existsSync(join(dashboardDir, "node_modules"))) {
+    const hasStandalone = existsSync(join(dashboardDir, ".next", "standalone", "server.js"));
+    if (!hasStandalone && !existsSync(join(dashboardDir, "node_modules"))) {
       console.log("  installing dashboard dependencies (first run)…");
       execSync("npm install --no-fund --no-audit", { cwd: dashboardDir, stdio: "inherit" });
     }
-    if (!existsSync(join(dashboardDir, ".next", "BUILD_ID"))) {
+    if (!hasStandalone && !existsSync(join(dashboardDir, ".next", "BUILD_ID"))) {
       console.log("  building dashboard (first run)…");
       execSync("npm run build", { cwd: dashboardDir, stdio: "inherit" });
     }
