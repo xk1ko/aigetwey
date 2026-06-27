@@ -44,8 +44,31 @@ async function main(): Promise<void> {
 
   const app = Fastify({
     logger: { level: process.env.LOG_LEVEL ?? "info", stream: logStream },
-    // gateway proxies large prompts; raise the JSON body cap.
     bodyLimit: 32 * 1024 * 1024,
+  });
+
+  // Security headers — safe defaults for all responses.
+  app.addHook("onSend", (_req, reply, payload, done) => {
+    reply.header("X-Content-Type-Options", "nosniff");
+    reply.header("X-Frame-Options", "DENY");
+    reply.header("X-XSS-Protection", "0");
+    reply.header("Referrer-Policy", "no-referrer");
+    if (!reply.hasHeader("Cache-Control")) {
+      reply.header("Cache-Control", "no-store");
+    }
+    done(null, payload);
+  });
+
+  // CORS — allow any origin for /v1 (LLM clients), block dashboard from foreign origins.
+  app.addHook("onRequest", (req, reply, done) => {
+    const origin = req.headers.origin;
+    if (req.url?.startsWith("/v1")) {
+      reply.header("Access-Control-Allow-Origin", origin ?? "*");
+      reply.header("Access-Control-Allow-Headers", "Authorization, Content-Type, x-api-key, anthropic-version");
+      reply.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      if (req.method === "OPTIONS") { reply.code(204).send(); return; }
+    }
+    done();
   });
 
   const dataDir = getDataDir();
@@ -91,11 +114,16 @@ async function main(): Promise<void> {
   process.on("SIGTERM", close);
 
   try {
-    // AIGETWEY_PORT (set by the CLI launcher) overrides the config port so the
-    // launcher can pin the gateway port without editing config.yaml.
     const port = process.env.AIGETWEY_PORT ? Number(process.env.AIGETWEY_PORT) : config.server.port;
-    await app.listen({ host: config.server.host, port });
-    app.log.info(`aigetwey listening on http://${config.server.host}:${port}`);
+    const host = config.server.host;
+
+    if (host !== "127.0.0.1" && host !== "localhost" && config.server.api_keys.length === 0) {
+      app.log.warn("⚠ SECURITY: binding on %s with NO api_keys — all requests unauthenticated!", host);
+      app.log.warn("⚠ Set server.api_keys in config.yaml or AIGETWEY_ADMIN_PASSWORD to secure the gateway.");
+    }
+
+    await app.listen({ host, port });
+    app.log.info(`aigetwey listening on http://${host}:${port}`);
   } catch (e) {
     app.log.error(e);
     process.exit(1);

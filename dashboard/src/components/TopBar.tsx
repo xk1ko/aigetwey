@@ -20,7 +20,7 @@ const LABELS: Record<string, string> = {
   config: "Settings",
 };
 
-const CMD = "npm install -g aigetwey@latest";
+const CMD = "npm i -g aigetwey@latest --prefer-online";
 
 function UpdateModal({
   current,
