@@ -9,6 +9,7 @@
 import type { Provider } from "../config.js";
 import { maskKey } from "../config.js";
 
+const COOLDOWN_BASE_MS = 1000;
 const COOLDOWN_CAP_MS = 5 * 60_000; // 5 minutes
 
 export interface KeyError {
@@ -53,7 +54,7 @@ export class KeyPool {
     let pool = this.pools.get(provider.id);
     if (!pool) {
       pool = {
-        baseMs: provider.cooldown_base_ms,
+        baseMs: COOLDOWN_BASE_MS,
         cursor: 0,
         states: keysOf(provider).map((key) => ({ key, cooldownUntil: 0, failCount: 0 })),
       };

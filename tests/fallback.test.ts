@@ -12,8 +12,8 @@ function routes(): ResolvedRoute[] {
   // alias "smart" -> [primary, backup]; each provider has its own keys.
   const cfg = validateConfig({
     providers: [
-      { id: "primary", format: "openai", base_url: "https://p.test/v1", api_keys: ["pk1", "pk2"], max_retries: 1 },
-      { id: "backup", format: "openai", base_url: "https://b.test/v1", api_key: "bk1", max_retries: 0 },
+      { id: "primary", format: "openai", base_url: "https://p.test/v1", api_keys: ["pk1", "pk2"] },
+      { id: "backup", format: "openai", base_url: "https://b.test/v1", api_key: "bk1" },
     ],
     models: [{ alias: "smart", target: ["primary", "backup"], model: "m" }],
   });
@@ -60,7 +60,7 @@ describe("executeWithFallback", () => {
   });
 
   it("falls through to the backup provider when the primary is exhausted", async () => {
-    // primary has 2 keys + max_retries 1 => 2 attempts, both 429; then backup ok
+    // primary has 2 keys, both 429; then backup ok
     requestMock.mockResolvedValueOnce(fail(429)).mockResolvedValueOnce(fail(429)).mockResolvedValueOnce(ok(REPLY));
     const won = await executeWithFallback(routes(), new KeyPool(), REQ, { stream: false });
     expect(won.route.provider.id).toBe("backup");

@@ -64,7 +64,7 @@ describe("BudgetTracker (scoped)", () => {
 
   it("token-unit budget: est_converse is the usd estimate; null when no tokens", () => {
     const withTokens = new BudgetTracker(() => [B({ scope: { type: "global" }, unit: "tokens", limit: 1000 })], fakeDb(() => ({ tokens_in: 500, tokens_out: 300, cost: 4 })), () => 0);
-    expect(withTokens.statuses()[0]!.est_converse).toBeCloseTo(5); // rate 0.005 * 1000
+    expect(withTokens.statuses()[0]!.est_converse).toBeCloseTo(1); // rate 0.005 * 200 remaining tokens
     const noTokens = new BudgetTracker(() => [B({ scope: { type: "global" }, unit: "usd", limit: 10 })], fakeDb(() => ({ tokens_in: 0, tokens_out: 0, cost: 0 })), () => 0);
     expect(noTokens.statuses()[0]!.est_converse).toBeNull();
   });

@@ -107,7 +107,8 @@ export class BudgetTracker {
     const limit = spec.limit;
     const pct = limit > 0 ? Math.min(1, spent / limit) : 0;
     const alertAt = spec.alert_at ?? 0.8;
-    const est_converse = rate === undefined ? null : spec.unit === "usd" ? limit / rate : limit * rate;
+    const remaining = Math.max(0, limit - spent);
+    const est_converse = rate === undefined ? null : spec.unit === "usd" ? remaining / rate : remaining * rate;
     return {
       scope: spec.scope,
       key: budgetKey(spec.scope),
@@ -121,7 +122,7 @@ export class BudgetTracker {
       alert_at: alertAt,
       exhausted: spent >= limit,
       est_converse,
-      reset_in_ms: Math.max(0, nextResetAt(spec, windowStart, t) - t),
+      reset_in_ms: Math.max(0, nextResetAt(spec, windowStart) - t),
       window: spec.window,
     };
   }

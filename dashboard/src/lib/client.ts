@@ -64,7 +64,7 @@ export const adminApi = {
     scope: { type: "global" } | { type: "provider"; id: string } | { type: "model"; id: string } | { type: "key"; id: string };
     unit: "usd" | "tokens";
     limit: number;
-    window: "5h" | "24h" | "7day" | "30day";
+    window: string;
     alert_at?: number;
     note?: string;
   }) => api<ConfigReply>("PUT", "/admin/budgets", body),
@@ -210,7 +210,7 @@ export const account = {
 
 export const cliConfig = {
   status: (tool: string) => appApi<CliStatus>("GET", `/api/cli-detect/${encodeURIComponent(tool)}`),
-  apply: (tool: string, body: { base: string; key?: string; models?: string[] | Record<string, string>; active?: string }) =>
+  apply: (tool: string, body: { base: string; key?: string; models?: string[] | Record<string, string>; active?: string; modalities?: Record<string, { input: string[]; output: string[] }> }) =>
     appApi<{ success?: boolean; path?: string }>("POST", `/api/cli-detect/${encodeURIComponent(tool)}`, body),
   reset: (tool: string) => appApi<{ success?: boolean }>("DELETE", `/api/cli-detect/${encodeURIComponent(tool)}`),
 };

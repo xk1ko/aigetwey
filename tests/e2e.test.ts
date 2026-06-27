@@ -122,9 +122,9 @@ beforeAll(async () => {
     },
     endpoint: { rtk: true },
     providers: [
-      { id: "oa-ok", format: "openai", base_url: `${up}/oa-ok/v1`, api_key: "sk-oa", max_retries: 0 },
-      { id: "an-ok", format: "anthropic", base_url: `${up}/an-ok/v1`, api_key: "sk-an", max_retries: 0 },
-      { id: "flaky", format: "openai", base_url: `${up}/flaky/v1`, api_key: "sk-fl", max_retries: 0 },
+      { id: "oa-ok", format: "openai", base_url: `${up}/oa-ok/v1`, api_key: "sk-oa" },
+      { id: "an-ok", format: "anthropic", base_url: `${up}/an-ok/v1`, api_key: "sk-an" },
+      { id: "flaky", format: "openai", base_url: `${up}/flaky/v1`, api_key: "sk-fl" },
     ],
     models: [
       { alias: "smart", target: ["oa-ok"], model: "gpt" },
@@ -409,7 +409,7 @@ describe("E2E — per-key rate limit (429)", () => {
         key_rpm: { "sk-rl": 1 },
       },
       providers: [
-        { id: "rl-prov", format: "openai", base_url: `http://127.0.0.1:${rlUpPort}/v1`, api_key: "sk-up", max_retries: 0 },
+        { id: "rl-prov", format: "openai", base_url: `http://127.0.0.1:${rlUpPort}/v1`, api_key: "sk-up" },
       ],
       models: [{ alias: "m", target: ["rl-prov"], model: "gpt" }],
     });

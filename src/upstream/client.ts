@@ -18,14 +18,17 @@ export interface UpstreamError extends Error {
 
 /**
  * Retryable = an availability problem another key/provider could clear: rate
- * limits (429), server errors (5xx), network/timeout (no status). Non-retryable
- * = the request itself is bad (400/401/403/404/422) — falling back just wastes
- * time and spams other providers.
+ * limits (429), server errors (5xx), network/timeout (no status), or quota/
+ * billing errors (another provider could still serve the request).
+ * Non-retryable = the request itself is bad (400/401/403/404/422) — falling
+ * back just wastes time and spams other providers.
  */
-function classifyRetryable(status: number | undefined): boolean {
-  if (status === undefined) return true; // network error / timeout / abort
+const RETRYABLE_BODY_RE = /quota|exhausted|payment|billing|free.?tier|insufficient|credit|limit.*exceed|eligible|denied|not.?available|not.?supported|not.*access/i;
+function classifyRetryable(status: number | undefined, body?: string): boolean {
+  if (status === undefined) return true;
   if (status === 429) return true;
   if (status >= 500) return true;
+  if (body && RETRYABLE_BODY_RE.test(body)) return true;
   return false;
 }
 
@@ -125,7 +128,7 @@ export async function callUpstream(
     const err = new Error(`upstream ${provider.id} returned ${res.statusCode}`) as UpstreamError;
     err.status = res.statusCode;
     err.body = text;
-    err.retryable = classifyRetryable(res.statusCode);
+    err.retryable = classifyRetryable(res.statusCode, text);
     throw err;
   }
 
