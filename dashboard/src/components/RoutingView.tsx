@@ -1,6 +1,21 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  arrayMove,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { adminApi } from "@/lib/client";
 import { Lamp } from "@/components/Lamp";
 import { Badge } from "@/components/Badge";
@@ -19,6 +34,54 @@ function modelFor(route: MaskedRoute, i: number): string {
   return route.alias;
 }
 
+const COLLAPSE_AT = 5;
+
+function ChainList({
+  route,
+  healthy,
+  chainTest,
+  chainBusy,
+}: {
+  route: MaskedRoute;
+  healthy: (pid: string) => boolean;
+  chainTest: Record<string, Record<number, "testing" | "ok" | "fail">>;
+  chainBusy: string | null;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const total = route.target.length;
+  const show = expanded || total <= COLLAPSE_AT ? total : COLLAPSE_AT;
+
+  return (
+    <div>
+      <ol className="space-y-1.5">
+        {route.target.slice(0, show).map((pid, i) => {
+          const ct = chainTest[route.alias]?.[i];
+          const testLamp = ct === "ok" ? "live" : ct === "fail" ? "down" : ct === "testing" ? "idle" : null;
+          return (
+            <li key={pid + i} className="flex items-center gap-2.5 rounded-brand border border-border-subtle px-3 py-2">
+              <span className="tnum text-[11px] text-text-subtle">#{i + 1}</span>
+              <Lamp state={testLamp ?? (healthy(pid) ? "live" : "down")} />
+              <span className="text-[13px] text-text">{pid}</span>
+              <span className="ml-auto tnum text-[12px] text-text-muted">{modelFor(route, i)}</span>
+              {ct === "ok" && <Icon name="check_circle" size={14} className="text-success" />}
+              {ct === "fail" && <Icon name="cancel" size={14} className="text-danger" />}
+              {ct === "testing" && <Icon name="progress_activity" size={14} className="text-text-subtle" />}
+            </li>
+          );
+        })}
+      </ol>
+      {total > COLLAPSE_AT && (
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-1.5 w-full rounded-brand py-1.5 text-[12px] font-medium text-text-muted transition-colors hover:bg-surface-2 hover:text-text"
+        >
+          {expanded ? "Show less" : `Show all ${total}`}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function RoutingView() {
   const [config, setConfig] = useState<MaskedConfig | null>(null);
   const [health, setHealth] = useState<ProviderSnapshot[]>([]);
@@ -29,6 +92,7 @@ export function RoutingView() {
   const [chainBusy, setChainBusy] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [editing, setEditing] = useState<MaskedRoute | null>(null);
+  const [showInfo, setShowInfo] = useState(false);
 
   const reload = useCallback(async () => {
     const [cfgRes, prov] = await Promise.all([fetch("/api/gw/admin/config"), adminApi.providers()]);
@@ -78,16 +142,42 @@ export function RoutingView() {
     <div>
       <div className="mb-5 flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-[22px] font-semibold tracking-tight text-text">Combos &amp; Routing</h1>
+          <h1 className="text-[22px] font-semibold tracking-tight text-text">Combos</h1>
           <p className="mt-1 text-[13px] text-text-muted">
-            A combo is an alias your CLI tool calls, routed to a chain of providers. Fallback tries them in order; round-robin spreads load.
+            Aliases your CLI tools call, routed across a chain of providers.
           </p>
         </div>
-        <Button onClick={() => setAdding((v) => !v)}>
-          <Icon name={adding ? "close" : "add"} size={17} />
-          {adding ? "Cancel" : "Add combo"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setShowInfo((v) => !v)} className="flex h-8 w-8 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-surface-2 hover:text-text" aria-label="Strategy info">
+            <Icon name="info" size={18} />
+          </button>
+          <Button onClick={() => setAdding((v) => !v)}>
+            <Icon name={adding ? "close" : "add"} size={17} />
+            {adding ? "Cancel" : "Add combo"}
+          </Button>
+        </div>
       </div>
+
+      {showInfo && (
+        <div className="mb-5 rounded-brand-lg border border-border bg-surface p-4 shadow-soft">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <h3 className="text-[13px] font-semibold text-text">Fallback</h3>
+              <p className="mt-1.5 text-[13px] leading-relaxed text-text-muted">
+                Always starts from #1 in the chain. If it fails (quota, rate-limit, error), moves to #2, then #3, until one succeeds. Every new request starts from #1 again.
+              </p>
+              <p className="mt-1.5 text-[11.5px] text-text-subtle">Best when you have a preferred primary provider and others as backup.</p>
+            </div>
+            <div>
+              <h3 className="text-[13px] font-semibold text-text">Round-robin</h3>
+              <p className="mt-1.5 text-[13px] leading-relaxed text-text-muted">
+                Rotates the starting provider each request to spread load. With sticky, N consecutive requests go to the same provider before rotating. If a provider fails, falls back to the next in chain.
+              </p>
+              <p className="mt-1.5 text-[11.5px] text-text-subtle">Best when all providers are equal and you want to distribute traffic.</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {adding && (
         <RouteForm
@@ -119,7 +209,7 @@ export function RoutingView() {
                     <button
                       onClick={() => testChain(route)}
                       disabled={chainBusy === route.alias}
-                      className="flex items-center gap-1 rounded px-2 py-1 text-[11px] text-text-subtle transition-colors hover:bg-surface-2 hover:text-text disabled:opacity-60"
+                      className="inline-flex items-center gap-1 rounded-brand border border-border bg-surface-2 px-2.5 py-1 text-[12px] font-medium text-text-muted transition-colors hover:bg-surface-3 hover:text-text disabled:opacity-60"
                       title="Test each provider in this chain"
                     >
                       <Icon name={chainBusy === route.alias ? "progress_activity" : "sync"} size={14} />
@@ -131,33 +221,22 @@ export function RoutingView() {
                         {fmt.cost(route.price_in ?? 0)}/{fmt.cost(route.price_out ?? 0)} per 1M
                       </Badge>
                     )}
-                    <button onClick={() => setEditing(route)} className="text-text-subtle hover:text-text" aria-label="Edit combo">
+                    <button onClick={() => { setEditing(route); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="flex h-7 w-7 items-center justify-center rounded-brand text-text-muted transition-colors hover:bg-surface-2 hover:text-text" aria-label="Edit combo">
                       <Icon name="edit" size={16} />
                     </button>
-                    <button onClick={() => setPendingDelete(route.alias)} disabled={busy === route.alias} className="text-text-subtle hover:text-danger" aria-label="Remove alias">
+                    <button onClick={() => setPendingDelete(route.alias)} disabled={busy === route.alias} className="flex h-7 w-7 items-center justify-center rounded-brand text-text-muted transition-colors hover:bg-surface-2 hover:text-danger" aria-label="Remove alias">
                       <Icon name="delete" size={16} />
                     </button>
                   </div>
                 </>
               }
             >
-              <ol className="space-y-1.5">
-                {route.target.map((pid, i) => {
-                  const ct = chainTest[route.alias]?.[i];
-                  const testLamp = ct === "ok" ? "live" : ct === "fail" ? "down" : ct === "testing" ? "idle" : null;
-                  return (
-                    <li key={pid + i} className="flex items-center gap-2.5 rounded-brand border border-border-subtle px-3 py-2">
-                      <span className="tnum text-[11px] text-text-subtle">{i === 0 ? "primary" : `#${i + 1}`}</span>
-                      <Lamp state={testLamp ?? (healthy(pid) ? "live" : "down")} />
-                      <span className="text-[13px] text-text">{pid}</span>
-                      <span className="ml-auto tnum text-[12px] text-text-muted">{modelFor(route, i)}</span>
-                      {ct === "ok" && <Icon name="check_circle" size={14} className="text-success" />}
-                      {ct === "fail" && <Icon name="cancel" size={14} className="text-danger" />}
-                      {ct === "testing" && <Icon name="progress_activity" size={14} className="text-text-subtle" />}
-                    </li>
-                  );
-                })}
-              </ol>
+              <ChainList
+                route={route}
+                healthy={healthy}
+                chainTest={chainTest}
+                chainBusy={chainBusy}
+              />
             </RichCard>
           ))}
         </div>
@@ -199,7 +278,6 @@ function RouteForm({ providers, onDone, initial, onCancel }: { providers: Provid
   const [sticky, setSticky] = useState(initial?.sticky ?? 1);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const [dragIdx, setDragIdx] = useState<number | null>(null);
 
   // aigetwey-style picker: provider-grouped, click a model to add/remove it.
   const groups: ModelGroup[] = providers
@@ -211,13 +289,15 @@ function RouteForm({ providers, onDone, initial, onCancel }: { providers: Provid
     setEntries((e) => (e.includes(v) ? e.filter((x) => x !== v) : [...e, v]));
   }
 
-  // reorder fallback priority: dropping entry #from onto slot #to
-  function move(from: number, to: number) {
-    setEntries((e) => {
-      const next = [...e];
-      const [moved] = next.splice(from, 1);
-      next.splice(to, 0, moved);
-      return next;
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  function handleDragEnd(e: DragEndEvent) {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    setEntries((items) => {
+      const oldI = items.indexOf(String(active.id));
+      const newI = items.indexOf(String(over.id));
+      return arrayMove(items, oldI, newI);
     });
   }
 
@@ -250,7 +330,7 @@ function RouteForm({ providers, onDone, initial, onCancel }: { providers: Provid
     <form onSubmit={submit} className="mb-5 rounded-brand-lg border border-border bg-surface p-4 shadow-soft">
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Alias" hint="the name your CLI requests as a model">
-          <Input value={alias} onChange={(e) => setAlias(e.target.value)} placeholder="my-claude" />
+          <Input value={alias} onChange={(e) => setAlias(e.target.value)} placeholder="my-combo" />
         </Field>
         <Field label="Strategy" hint="how the chain is tried">
           <Select value={strategy} onChange={(e) => setStrategy(e.target.value as "fallback" | "round-robin")}>
@@ -261,17 +341,17 @@ function RouteForm({ providers, onDone, initial, onCancel }: { providers: Provid
       </div>
 
       {strategy === "round-robin" && (
-        <div className="mt-3 flex items-center gap-2 text-[12px] text-text-muted">
-          <span>Sticky</span>
-          <button type="button" disabled={sticky <= 1} onClick={() => setSticky((s) => Math.max(1, s - 1))} className="flex h-6 w-6 items-center justify-center rounded-brand border border-border text-text-muted hover:bg-surface-2 disabled:opacity-40" aria-label="Decrease sticky">
-            <Icon name="remove" size={13} />
-          </button>
-          <span className="tnum w-6 text-center text-[11px] text-text">{sticky}</span>
-          <button type="button" onClick={() => setSticky((s) => s + 1)} className="flex h-6 w-6 items-center justify-center rounded-brand border border-border text-text-muted hover:bg-surface-2" aria-label="Increase sticky">
-            <Icon name="add" size={13} />
-          </button>
-          <span className="text-text-subtle">requests per model before rotating</span>
-        </div>
+        <Field label="Sticky" hint="requests per model before rotating">
+          <div className="flex items-center gap-2">
+            <button type="button" disabled={sticky <= 1} onClick={() => setSticky((s) => Math.max(1, s - 1))} className="flex h-9 w-9 items-center justify-center rounded-brand border border-border bg-bg text-text-muted transition-colors hover:bg-surface-2 hover:text-text disabled:opacity-40" aria-label="Decrease sticky">
+              <Icon name="remove" size={16} />
+            </button>
+            <span className="tnum w-10 text-center text-[14px] font-medium text-text">{sticky}</span>
+            <button type="button" onClick={() => setSticky((s) => s + 1)} className="flex h-9 w-9 items-center justify-center rounded-brand border border-border bg-bg text-text-muted transition-colors hover:bg-surface-2 hover:text-text" aria-label="Increase sticky">
+              <Icon name="add" size={16} />
+            </button>
+          </div>
+        </Field>
       )}
 
       <div className="mt-3">
@@ -289,36 +369,15 @@ function RouteForm({ providers, onDone, initial, onCancel }: { providers: Provid
             No models yet. Click <span className="text-text-muted">Add models</span> and pick from your providers.
           </div>
         ) : (
-          <ul className="mt-2 space-y-1.5">
-            {entries.map((entry, i) => (
-              <li
-                key={entry}
-                draggable
-                onDragStart={() => setDragIdx(i)}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => {
-                  if (dragIdx !== null && dragIdx !== i) move(dragIdx, i);
-                  setDragIdx(null);
-                }}
-                onDragEnd={() => setDragIdx(null)}
-                className={`flex cursor-grab items-center gap-2.5 rounded-brand border px-3 py-2 active:cursor-grabbing ${
-                  dragIdx === i ? "border-accent bg-accent-soft" : "border-border-subtle"
-                }`}
-              >
-                <Icon name="drag_indicator" size={16} className="text-text-subtle" />
-                <span className="tnum text-[11px] text-text-subtle">{i === 0 ? "primary" : `#${i + 1}`}</span>
-                <span className="tnum truncate text-[13px] text-text">{entry}</span>
-                <button
-                  type="button"
-                  onClick={() => setEntries((e) => e.filter((_, idx) => idx !== i))}
-                  className="ml-auto flex-none text-text-subtle hover:text-danger"
-                  aria-label={`Remove ${entry}`}
-                >
-                  <Icon name="close" size={14} />
-                </button>
-              </li>
-            ))}
-          </ul>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={entries} strategy={verticalListSortingStrategy}>
+              <ul className="mt-2 max-h-[280px] space-y-1.5 overflow-y-auto">
+                {entries.map((entry, i) => (
+                  <SortableEntry key={entry} entry={entry} index={i} onRemove={() => setEntries((e) => e.filter((_, idx) => idx !== i))} />
+                ))}
+              </ul>
+            </SortableContext>
+          </DndContext>
         )}
       </div>
 
@@ -339,5 +398,37 @@ function RouteForm({ providers, onDone, initial, onCancel }: { providers: Provid
         />
       )}
     </form>
+  );
+}
+
+function SortableEntry({ entry, index, onRemove }: { entry: string; index: number; onRemove: () => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: entry });
+  const style = {
+    transform: `translate3d(0, ${transform?.y ?? 0}px, 0)`,
+    transition,
+  };
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={`flex cursor-grab items-center gap-2.5 rounded-brand border px-3 py-2 active:cursor-grabbing ${
+        isDragging ? "border-accent bg-accent-soft opacity-80 shadow-elevated z-10" : "border-border-subtle"
+      }`}
+    >
+      <Icon name="drag_indicator" size={16} className="flex-none text-text-subtle" />
+      <span className="tnum text-[11px] text-text-subtle">#{index + 1}</span>
+      <span className="tnum truncate text-[13px] text-text">{entry}</span>
+      <button
+        type="button"
+        onClick={onRemove}
+        onPointerDown={(e) => e.stopPropagation()}
+        className="ml-auto flex-none text-text-subtle hover:text-danger"
+        aria-label={`Remove ${entry}`}
+      >
+        <Icon name="close" size={14} />
+      </button>
+    </li>
   );
 }

@@ -155,7 +155,7 @@ async function opencodeStatus() {
   };
 }
 
-async function opencodeApply(body: { base?: string; key?: string; models?: string[]; active?: string }) {
+async function opencodeApply(body: { base?: string; key?: string; models?: string[]; active?: string; modalities?: Record<string, { input: string[]; output: string[] }> }) {
   const models = (body.models ?? []).filter(Boolean);
   if (!body.base || models.length === 0) return { error: "base and at least one model are required" };
   const p = ocPath();
@@ -174,8 +174,8 @@ async function opencodeApply(body: { base?: string; key?: string; models?: strin
     models: {},
   };
   existing.options = { ...((existing.options as Json) ?? {}), baseURL, apiKey: body.key || "aigetwey" };
-  const modelMap = (existing.models as Json) ?? {};
-  for (const m of models) modelMap[m] = { name: m, modalities: modalitiesForModel(m) };
+  const modelMap: Json = {};
+  for (const m of models) modelMap[m] = { name: m, modalities: body.modalities?.[m] ?? modalitiesForModel(m) };
   existing.models = modelMap;
   provider[OC_PROVIDER] = existing;
   cfg.provider = provider;
@@ -200,7 +200,7 @@ async function opencodeReset() {
   return { success: true };
 }
 
-type ApplyBody = { base?: string; key?: string; models?: string[] | Record<string, string>; active?: string };
+type ApplyBody = { base?: string; key?: string; models?: string[] | Record<string, string>; active?: string; modalities?: Record<string, { input: string[]; output: string[] }> };
 const HANDLERS: Record<
   string,
   { status: () => Promise<unknown>; apply: (b: ApplyBody) => Promise<unknown>; reset: () => Promise<unknown> }
