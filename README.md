@@ -84,7 +84,7 @@ export OPENAI_API_KEY=my-key
 
 The dashboard's **CLI Tools** page detects installed tools and writes configs for you.
 
-**Model resolution** (in order): combo alias → `provider/model` → bare model id (auto-detected from catalogs).
+**Model resolution** (in order): combo alias → `provider/model`.
 
 ---
 

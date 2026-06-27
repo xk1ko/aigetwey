@@ -6,7 +6,7 @@
  *   - Authorization: Bearer <key>   (OpenAI-style clients)
  *   - x-api-key: <key>              (Anthropic-style clients)
  *
- * Empty `server.api_keys` disables auth (localhost dev mode).
+ * Empty `server.api_keys` allows loopback only — remote requests get 403.
  */
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { FastifyRequest } from "fastify";
@@ -52,7 +52,14 @@ export interface AuthResult {
 }
 
 export function checkAuth(req: FastifyRequest, validKeys: string[]): AuthResult {
-  if (validKeys.length === 0) return { ok: true }; // auth disabled
+  if (validKeys.length === 0) {
+    // No keys configured — allow loopback only, block external requests.
+    const ip = req.ip;
+    if (ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1") {
+      return { ok: true };
+    }
+    return { ok: false, status: 403, error: "no api_keys configured — remote access blocked. Set server.api_keys in config." };
+  }
   const key = extractKey(req);
   if (!key) return { ok: false, status: 401, error: "missing API key" };
   const matched = matchKey(key, validKeys);
