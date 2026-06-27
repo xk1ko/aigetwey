@@ -5,6 +5,51 @@ All notable changes to **aigetwey** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] — 2026-06-28
+
+### Added
+- **Custom budget windows** — any `Nh` or `Nday` value works (e.g. `3h`, `90day`);
+  custom text input next to preset pills in Budget and Key Scope forms
+- **Quota/billing fallback** — quota, exhausted, payment, billing, free-tier,
+  insufficient, credit errors now trigger fallback to next provider
+- **Access-denied fallback** — eligible, denied, not-available, not-supported,
+  not-access errors also trigger fallback
+- **Usage breakdown pagination** — 8 rows per page with nav + page counter
+- **Strategy info button** — toggles explanation panel in combos page
+- **Combo chain collapse** — max 5 visible with show-all/show-less toggle
+- **ModelPicker select all** — per-group select all/deselect + global select all/clear
+
+### Changed
+- **Combo modalities = union** — any model supports image → combo supports image;
+  user manages fallback chain (was intersection of all models)
+- **Combo form drag** — replaced native drag with dnd-kit (vertical-only, smooth)
+- **Provider card rombak** — header/body/footer split; toggle separated from info
+  pills; delete in-flow in footer (was absolute); subtitle shows `id/<model>`
+- **Budget card alignment** — bar+spending+est pinned to bottom as group; space
+  reserved for note+est even when absent
+- **RichCard body** — `flex flex-col` so `h-full` children stretch properly across
+  all card-based pages
+- **Today usage chart** — 15min buckets (was 1h) for finer granularity
+- **Usage window pills** — segmented control matching Endpoint design
+- **Access key pills** — vertical background pills (bg-bg/bg-accent-soft)
+- **'no key' → 'free' badge** — skip '0 keys' when provider is free (was contradictory)
+- **Global font cleanup** — `text-[12.5px]`→`text-[13px]` globally, minimum font
+  size bumped, dim text colors brightened
+
+### Fixed
+- **Per-provider cooldown/retries removed** — replaced with global constants
+  `COOLDOWN_BASE_MS=1000`, `MAX_RETRIES=2` (matches 9router approach)
+- **est_converse shows remaining** — `(limit - spent) / rate` = tokens/USD left
+  (was showing spent or limit)
+- **Key scope save refresh** — budgets refetched in `reload()` so spend cap
+  changes appear immediately (was only fetched on mount)
+- **opencodeApply replaces models** — fresh modelMap, deleted models stay deleted
+- **GLM-5.2 vision capability** — marked as vision-capable in provider overrides
+- **Key mask shows 7+4 chars** — was 3+4, easier identification
+- **RichCard overflow-hidden removed** — Select dropdowns extend beyond card
+- **Single data point chart** — shows message instead of empty dot
+- **Lamp pulse removed** — red lamp stays solid like green
+
 ## [1.4.8] — 2026-06-27
 
 ### Added
