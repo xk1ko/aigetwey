@@ -5,6 +5,18 @@ All notable changes to **aigetwey** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.6] — 2026-06-27
+
+### Changed
+- **Default bind `0.0.0.0`** — VPS/Docker deploys work out of the box without
+  manual host config; security warning fires when no api_keys are set
+
+### Fixed
+- **Tunnel UX** — spinner during connect, badge labels (Local/Tunnel), security
+  warnings for missing API keys or default password, dismiss button on warning
+- **Display URLs use `localhost`** — cleaner than raw `127.0.0.1` in CLI output
+  and dashboard
+
 ## [1.4.5] — 2026-06-27
 
 ### Fixed
