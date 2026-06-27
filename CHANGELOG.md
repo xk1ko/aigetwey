@@ -5,6 +5,21 @@ All notable changes to **aigetwey** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.4] — 2026-06-27
+
+### Fixed
+- **Autostart toggle now works** — was using `require()` in ESM project (silent
+  fail); switched to dynamic `import()`
+- **Fetch models error inline** — "models endpoint returned 404" now shows as a
+  red banner below the button instead of replacing the entire page
+- **Provider validation message** — says "ID / Prefix is required" instead of
+  misleading "name and base URL are required"
+
+### Changed
+- **Dashboard standalone build** — Next.js `output: "standalone"` bundles only
+  traced deps; eliminates "installing dashboard dependencies" on every update.
+  Package size 4→12 MB, but saves 379 MB runtime install + 30-60s wait.
+
 ## [1.4.3] — 2026-06-27
 
 ### Added
