@@ -107,6 +107,8 @@ export const adminApi = {
   testProvider: (id: string) => api<PingResult>("POST", `/admin/providers/${encodeURIComponent(id)}/test`),
   testKey: (id: string, index: number) =>
     api<PingResult>("POST", `/admin/providers/${encodeURIComponent(id)}/keys/${index}/test`),
+  checkKey: (id: string, key: string) =>
+    api<PingResult>("POST", `/admin/providers/${encodeURIComponent(id)}/keys/check`, { key }),
   testModel: (id: string, model: string) =>
     api<{ ok: boolean; status?: number; error?: string }>(
       "POST",

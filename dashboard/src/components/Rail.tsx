@@ -20,7 +20,7 @@ const MAIN: NavItem[] = [
 ];
 
 const SYSTEM: NavItem[] = [
-  { href: "/console", label: "Server Console", icon: "terminal" },
+  { href: "/console", label: "Server Console", icon: "receipt_long" },
   { href: "/config", label: "Settings", icon: "settings" },
 ];
 

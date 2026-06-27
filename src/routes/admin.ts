@@ -429,6 +429,15 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     reply.send(await pingProvider(provider, keys[i]));
   });
 
+  app.post("/admin/providers/:id/keys/check", requireAdmin, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const provider = deps.state.config.raw.providers.find((p) => p.id === id);
+    if (!provider) return reply.code(404).send({ error: `provider "${id}" not found` });
+    const { key } = req.body as { key?: string };
+    if (!key?.trim()) return reply.code(400).send({ error: "key is required" });
+    reply.send(await pingProvider(provider, key.trim()));
+  });
+
   // Test ONE model end-to-end (aigetwey's per-model science button). Routes through
   // the real pipeline via handle(), so the ping lands in usage exactly like
   // a normal call — and it catches "model not found / not entitled" a /models
