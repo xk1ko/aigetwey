@@ -63,9 +63,12 @@ export function EndpointView() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <RichCard className="lg:col-span-2" header={<CardTitle title="Gateway URL" sub="one endpoint for every client" />}>
-          <div className="text-[13px]">
+          <div className="text-[13px] space-y-2.5">
             <div className="flex items-center gap-3">
-              <span className="text-text-subtle">Local</span>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-medium text-emerald-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                Local
+              </span>
               <button
                 onClick={() => {
                   void navigator.clipboard.writeText(baseUrl);
@@ -385,10 +388,28 @@ function TunnelRow() {
   }
 
   return (
-    <div className="mt-2.5">
+    <div>
       <div className="flex items-center gap-3">
-        <span className="text-text-subtle">Tunnel</span>
-        {status?.enabled && status.url ? (
+        {status?.enabled ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 px-2.5 py-0.5 text-[11px] font-medium text-blue-400">
+            <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+            Tunnel
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-alt px-2.5 py-0.5 text-[11px] font-medium text-text-muted">
+            <span className="h-1.5 w-1.5 rounded-full bg-text-muted" />
+            Tunnel
+          </span>
+        )}
+        {busy ? (
+          <span className="flex items-center gap-2 text-[12px] text-text-muted">
+            <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            {status?.enabled ? "Disconnecting…" : "Starting tunnel…"}
+          </span>
+        ) : status?.enabled && status.url ? (
           <button
             onClick={() => void navigator.clipboard.writeText(status.url!)}
             className="flex items-center gap-1.5 rounded-brand border border-border-subtle px-2.5 py-1 tnum text-[12.5px] text-text hover:border-text-subtle"
@@ -397,14 +418,16 @@ function TunnelRow() {
             <Icon name="content_copy" size={13} />
           </button>
         ) : null}
-        <Button
-          variant={status?.enabled ? "ghost" : "primary"}
-          disabled={busy}
-          onClick={toggle}
-        >
-          <Icon name={status?.enabled ? "link_off" : "link"} size={14} />
-          {busy ? "…" : status?.enabled ? "Disable" : "Enable"}
-        </Button>
+        {!busy && (
+          <Button
+            variant={status?.enabled ? "ghost" : "primary"}
+            disabled={busy}
+            onClick={toggle}
+          >
+            <Icon name={status?.enabled ? "link_off" : "link"} size={14} />
+            {status?.enabled ? "Disable" : "Enable"}
+          </Button>
+        )}
       </div>
       {err && <p className="mt-1.5 text-[11px] text-danger">{err}</p>}
     </div>
