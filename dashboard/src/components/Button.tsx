@@ -1,4 +1,5 @@
-import type { ButtonHTMLAttributes } from "react";
+import type { ButtonHTMLAttributes, ReactElement, ReactNode } from "react";
+import { useState, useEffect, useRef, Children, isValidElement } from "react";
 
 type Variant = "primary" | "ghost" | "danger";
 
@@ -30,12 +31,69 @@ export function Input({ className, ...props }: React.InputHTMLAttributes<HTMLInp
   );
 }
 
-export function Select({ className, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
+export function Select({
+  className,
+  value,
+  onChange,
+  children,
+  ...props
+}: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const options: { value: string; label: string }[] = [];
+  Children.forEach(children as ReactNode, (child) => {
+    if (isValidElement(child) && child.type === "option") {
+      const el = child as ReactElement<{ value?: string; children?: ReactNode }>;
+      options.push({
+        value: String(el.props.value ?? ""),
+        label: typeof el.props.children === "string" ? el.props.children : String(el.props.value ?? ""),
+      });
+    }
+  });
+
+  const selected = options.find((o) => o.value === String(value ?? ""));
+  const display = selected?.label ?? "";
+
   return (
-    <select
-      className={`w-full rounded-brand border border-border bg-bg px-3 py-2 text-[13px] text-text focus:border-accent focus:outline-none transition-colors${className ? ` ${className}` : ""}`}
-      {...props}
-    />
+    <div className={`relative${className ? ` ${className}` : ""}`} ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between rounded-brand border border-border bg-bg px-3 py-2 text-left text-[13px] text-text transition-colors focus:border-accent focus:outline-none"
+      >
+        <span className="truncate">{display}</span>
+        <svg className={`ml-2 h-4 w-4 shrink-0 text-text-subtle transition-transform ${open ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+      </button>
+      {open && (
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-brand border border-border bg-surface shadow-lg">
+          {options.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => {
+                onChange?.({ target: { value: o.value } } as React.ChangeEvent<HTMLSelectElement>);
+                setOpen(false);
+              }}
+              className={`flex w-full items-center gap-2 px-3 py-2 text-left text-[12.5px] transition-colors ${
+                o.value === String(value ?? "") ? "bg-accent/10 text-accent" : "text-text-muted hover:bg-surface-2 hover:text-text"
+              }`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
