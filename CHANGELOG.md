@@ -5,6 +5,23 @@ All notable changes to **aigetwey** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.8] — 2026-06-27
+
+### Added
+- **`/v1/embeddings` endpoint** — gateway serves embedding requests with
+  provider fallback (same combo routing as chat); Gemini embedding format
+  translated to OpenAI-compatible response
+- **Copy button for model names** — click-to-copy model id in provider detail
+  for quick `provider/model` usage in any app
+
+### Fixed
+- **GLM-5.2 vision capability** — marked as vision-capable in provider
+  overrides so image input routes correctly
+- **CLI Tools endpoint dropdown** — shows `__auto__` label instead of raw URL
+  when endpoint is auto-detected
+- **Token saver toggle selected state** — uses accent color for clear visual
+  distinction between on/off states
+
 ## [1.4.7] — 2026-06-27
 
 ### Added
