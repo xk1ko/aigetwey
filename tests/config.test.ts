@@ -22,7 +22,7 @@ describe("validateConfig — defaults", () => {
   it("fills server/endpoint defaults from an empty object", () => {
     const c = validateConfig({});
     expect(c.server.port).toBe(18080);
-    expect(c.server.host).toBe("127.0.0.1");
+    expect(c.server.host).toBe("0.0.0.0");
     expect(c.endpoint.rtk).toBe(false);
     expect(c.endpoint.caveman).toBe("off");
     expect(c.listProviders()).toHaveLength(0);
@@ -113,7 +113,7 @@ describe("GatewayConfig.resolve", () => {
     expect(cfg.resolve("nope")).toEqual([]);
   });
 
-  it("auto-detects a bare model id across provider catalogs", () => {
+  it("auto-detects provider/model format from provider catalogs", () => {
     const c = validateConfig({
       providers: [
         { id: "p1", format: "openai", base_url: "https://a", api_key: "k1", models: [{ id: "shared-m" }] },
@@ -127,18 +127,14 @@ describe("GatewayConfig.resolve", () => {
       ],
     });
 
-    // listed by both providers => fallback chain in config order
-    const chain = c.resolve("shared-m");
-    expect(chain.map((r) => r.provider.id)).toEqual(["p1", "p2"]);
-    expect(chain.every((r) => r.model === "shared-m")).toBe(true);
-
-    // listed by one => single route, carries that catalog entry's price
-    const single = c.resolve("only-2");
+    // provider/model syntax picks price from that provider's catalog
+    const single = c.resolve("p2/only-2");
     expect(single).toHaveLength(1);
     expect(single[0]!.provider.id).toBe("p2");
     expect(single[0]!.price_in).toBe(1);
 
-    // not in any catalog => still nothing
+    // bare model without prefix => nothing (no auto-detect)
+    expect(c.resolve("shared-m")).toEqual([]);
     expect(c.resolve("ghost")).toEqual([]);
   });
 });

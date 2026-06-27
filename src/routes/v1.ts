@@ -6,6 +6,7 @@ import { handle, GatewayError, type HandleDeps } from "../core/handler.js";
 import type { WireFormat } from "../core/canonical.js";
 import type { UsageDB } from "../db.js";
 import { RateLimiter } from "../core/ratelimit.js";
+import { handleEmbeddings, type EmbeddingsRequest } from "../core/embeddings.js";
 
 /**
  * /v1 proxy surface. Auth-gates on the gateway's own keys (read from state each
@@ -57,6 +58,7 @@ export function registerV1Routes(app: FastifyInstance, state: GatewayState, db?:
 
   app.post("/v1/chat/completions", requireAuth, (req, reply) => dispatch(depsNow(req), "openai", req, reply));
   app.post("/v1/messages", requireAuth, (req, reply) => dispatch(depsNow(req), "anthropic", req, reply));
+  app.post("/v1/embeddings", requireAuth, (req, reply) => dispatchEmbeddings(state, depsNow(req), req, reply));
 }
 
 const SSE_HEADERS = {
@@ -108,4 +110,47 @@ async function dispatch(
   }
 
   reply.code(result.status).send(result.json);
+}
+
+async function dispatchEmbeddings(
+  state: GatewayState,
+  deps: HandleDeps,
+  req: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const body = req.body as Record<string, unknown> | undefined;
+  if (!body?.model) { reply.code(400).send({ error: "missing 'model'" }); return; }
+  if (!body.input) { reply.code(400).send({ error: "missing 'input'" }); return; }
+
+  const model = String(body.model);
+  const routes = deps.config.resolve(model);
+  if (routes.length === 0) {
+    reply.code(404).send({ error: `unknown model "${model}"` });
+    return;
+  }
+
+  if (deps.budget) {
+    const g = deps.budget.globalStatus();
+    if (g?.exhausted) { reply.code(402).send({ error: "budget exceeded" }); return; }
+    if (deps.clientKeyFp) {
+      const kb = deps.budget.blocksKey(deps.clientKeyFp);
+      if (kb?.exhausted) { reply.code(402).send({ error: "budget exceeded" }); return; }
+    }
+  }
+
+  try {
+    const result = await handleEmbeddings(routes, state.pool, body as unknown as EmbeddingsRequest, {
+      signal: undefined,
+      log: (msg) => req.log.info(msg),
+    });
+    reply.code(result.status).send(result.json);
+  } catch (e) {
+    const err = e as { status?: number; body?: string; message?: string };
+    const status = err.status ?? 502;
+    let payload: unknown = { error: err.message };
+    if (err.body) {
+      try { payload = JSON.parse(err.body); } catch { payload = { error: err.body }; }
+    }
+    reply.code(status).send(payload);
+  }
 }

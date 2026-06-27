@@ -2,9 +2,8 @@ import { describe, it, expect } from "vitest";
 import { isValidKey, extractKey, checkAuth, checkAdminAuth, clientKeyFingerprint, matchKey } from "../src/middleware/auth.js";
 import type { FastifyRequest } from "fastify";
 
-/** Minimal FastifyRequest stand-in carrying just the headers auth reads. */
-function reqWith(headers: Record<string, string>): FastifyRequest {
-  return { headers } as unknown as FastifyRequest;
+function reqWith(headers: Record<string, string>, ip = "127.0.0.1"): FastifyRequest {
+  return { headers, ip } as unknown as FastifyRequest;
 }
 
 describe("isValidKey", () => {
@@ -70,7 +69,7 @@ describe("matchKey", () => {
 });
 
 describe("checkAuth keyFp", () => {
-  const req = (key: string) => ({ headers: { authorization: `Bearer ${key}` } }) as never;
+  const req = (key: string) => ({ headers: { authorization: `Bearer ${key}` }, ip: "127.0.0.1" }) as never;
   it("surfaces the matched key's fingerprint", () => {
     const r = checkAuth(req("k2"), ["k1", "k2"]);
     expect(r.ok).toBe(true);
