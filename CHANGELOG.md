@@ -13,6 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   translated to OpenAI-compatible response
 - **Copy button for model names** — click-to-copy model id in provider detail
   for quick `provider/model` usage in any app
+- **Combo sticky round-robin** — N consecutive requests to the same model before
+  rotating; adjustable via +/- counter in combo form
+- **Provider card quick delete** — hover trash icon on provider card for
+  one-click removal without navigating to detail page
+- **Provider bulk select** — select mode toggles multiple providers at once;
+  click card to select, bulk delete button in header
+
+### Changed
+- **Combo pricing auto-detected** — removed manual price_in/price_out fields
+  from combo form; pricing now resolves from model patterns automatically
+- **Key toggle indicator** — disabled keys now show red lamp + red toggle icon
+  (was gray), matching provider disabled state styling
 
 ### Fixed
 - **GLM-5.2 vision capability** — marked as vision-capable in provider
