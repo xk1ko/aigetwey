@@ -19,6 +19,7 @@ export function ToolDetail({ id }: { id: string }) {
   const tool = toolById(id);
   const [ep, setEp] = useState<EndpointPayload | null>(null);
   const [combos, setCombos] = useState<string[]>([]);
+  const [comboModels, setComboModels] = useState<Record<string, string[]>>({});
   const [keyIdx, setKeyIdx] = useState(0);
   const [realKey, setRealKey] = useState("");
   const [savedBases, setSavedBases] = useState<string[]>([]);
@@ -113,7 +114,8 @@ export function ToolDetail({ id }: { id: string }) {
     }
     if (picked.length === 0) { setCliMsg("add at least one model"); return; }
     setCliBusy("apply");
-    const r = await cliConfig.apply(tool.id, { base: baseUrl, key, models: picked, active });
+    const modalities = Object.fromEntries(picked.map((m) => [m, modalitiesFor(m)]));
+    const r = await cliConfig.apply(tool.id, { base: baseUrl, key, models: picked, active, modalities });
     setCliBusy("");
     setCliMsg(r.ok ? "Wrote config ✓" : r.error ?? "failed");
     if (r.ok) void loadCli();
@@ -125,7 +127,7 @@ export function ToolDetail({ id }: { id: string }) {
     setCliMsg("");
     const r = await cliConfig.reset(tool.id);
     setCliBusy("");
-    if (r.ok) { setCliMsg("Removed gateway config ✓"); void loadCli(); }
+    if (r.ok) { setCliMsg("Removed gateway config ✓"); setPicked([]); setActive(""); setSlots({ opus: "", sonnet: "", haiku: "" }); void loadCli(); }
     else setCliMsg(r.error ?? "failed");
   }
 
@@ -144,6 +146,18 @@ export function ToolDetail({ id }: { id: string }) {
         const cfg = (await cfgRes.json()) as MaskedConfig;
         const aliases = cfg.models.map((m) => m.alias);
         setCombos(aliases);
+        const cm: Record<string, string[]> = {};
+        for (const m of cfg.models) {
+          const providers = m.target ?? [];
+          const models = Array.isArray(m.model) ? m.model : m.model ? [m.model] : [m.alias];
+          const refs: string[] = [];
+          for (let i = 0; i < providers.length; i++) {
+            const model = models[i] ?? models[0] ?? m.alias;
+            refs.push(`${providers[i]}/${model}`);
+          }
+          if (refs.length) cm[m.alias] = refs;
+        }
+        setComboModels(cm);
         // disabled providers are skipped in routing, so hide their models here.
         const liveProviders = cfg.providers.filter((p) => !p.disabled);
         // everything callable: combo aliases + every (enabled) provider/model ref.
@@ -181,6 +195,15 @@ export function ToolDetail({ id }: { id: string }) {
   // Show the exact JSON the auto-apply would MERGE — so the models are visible and
   // it's clear nothing else gets replaced (other providers + your other keys stay).
   const ocModels = picked.length ? picked : cli?.models ?? [];
+  const modalitiesFor = (m: string) => {
+    const refs = comboModels[m];
+    if (!refs || refs.length === 0) return modalitiesForModel(m);
+    const all = refs.map((r) => modalitiesForModel(r));
+    return {
+      input: [...new Set(all.flatMap((a) => a.input))],
+      output: [...new Set(all.flatMap((a) => a.output))],
+    };
+  };
   const opencodeJson =
     tool.id === "opencode"
       ? JSON.stringify(
@@ -189,7 +212,7 @@ export function ToolDetail({ id }: { id: string }) {
               aigetwey: {
                 npm: "@ai-sdk/openai-compatible",
                 options: { baseURL: `${base}/v1`, apiKey: realKey || "aigetwey" },
-                models: Object.fromEntries(ocModels.map((m) => [m, { name: m, modalities: modalitiesForModel(m) }])),
+                models: Object.fromEntries(ocModels.map((m) => [m, { name: m, modalities: modalitiesFor(m) }])),
               },
             },
             model: `aigetwey/${active || ocModels[0] || ""}`,
@@ -221,8 +244,8 @@ export function ToolDetail({ id }: { id: string }) {
 
   return (
     <div>
-      <button onClick={() => router.push("/tools")} className="mb-4 inline-flex items-center gap-1 text-[12px] text-text-muted hover:text-text">
-        <Icon name="arrow_back" size={15} /> CLI Tools
+      <button onClick={() => router.push("/tools")} className="mb-4 inline-flex items-center gap-1 rounded-brand border border-border bg-surface-2 px-2.5 py-1 text-[12px] font-medium text-text-muted transition-colors hover:border-text-subtle hover:bg-surface-3 hover:text-text">
+        <Icon name="arrow_back" size={14} /> CLI Tools
       </button>
 
       <div className="mb-6 flex items-center gap-3">
@@ -249,9 +272,9 @@ export function ToolDetail({ id }: { id: string }) {
             }
           >
             {!cli ? (
-              <p className="text-[12.5px] text-text-subtle">Checking your machine…</p>
+              <p className="text-[13px] text-text-subtle">Checking your machine…</p>
             ) : !cli.installed ? (
-              <p className="text-[12.5px] text-text-muted">
+              <p className="text-[13px] text-text-muted">
                 Not found on this machine. Install it (above) or paste the manual env below — then re-open this page.
               </p>
             ) : (
@@ -452,10 +475,22 @@ export function ToolDetail({ id }: { id: string }) {
             <>
               <CardTitle title="Environment" sub="copy into your shell" />
               {ep.keys.length > 1 && (
-                <Select value={String(keyIdx)} onChange={(e) => setKeyIdx(Number(e.target.value))} className="max-w-[180px]">
+                <Select
+                  value={customKey ? "__custom__" : String(keyIdx)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === "__custom__") { setShowCustomKey(true); return; }
+                    setCustomKey("");
+                    setKeyIdx(Number(v));
+                    localStorage.removeItem(`cli-custom-key-${id}`);
+                  }}
+                  className="max-w-[180px]"
+                >
                   {ep.keys.map((k, i) => (
                     <option key={i} value={i}>{k.name || `key ${i + 1}`}</option>
                   ))}
+                  {customKey && <option value="__custom__">{customKey.slice(0, 12)}… (custom)</option>}
+                  {!customKey && <option value="__custom__">Custom key…</option>}
                 </Select>
               )}
             </>
@@ -468,7 +503,7 @@ export function ToolDetail({ id }: { id: string }) {
             </p>
           ) : (
             <p className="mt-3 text-[12px] text-text-subtle">
-              Using key <span className="text-text-muted">{ep.keys[keyIdx]?.name || `#${keyIdx + 1}`}</span>. The real value is filled in above.
+              Using {customKey ? "custom key" : <>key <span className="text-text-muted">{ep.keys[keyIdx]?.name || `#${keyIdx + 1}`}</span></>}. The real value is filled in above.
             </p>
           )}
         </RichCard>
@@ -479,7 +514,7 @@ export function ToolDetail({ id }: { id: string }) {
             header={<CardTitle title="Manual config" sub="merge into ~/.config/opencode/opencode.json — every model listed" />}
           >
             {ocModels.length === 0 ? (
-              <p className="text-[12.5px] text-text-muted">Add models above to see them listed here.</p>
+              <p className="text-[13px] text-text-muted">Add models above to see them listed here.</p>
             ) : (
               <CopyBlock text={opencodeJson} />
             )}
@@ -568,6 +603,7 @@ export function ToolDetail({ id }: { id: string }) {
             setPickerSlot(null);
           }}
           onClose={() => { setPickerOpen(false); setPickerSlot(null); }}
+          singleSelect
         />
       )}
       {pickerOpen && !pickerSlot && (
@@ -598,7 +634,7 @@ function CopyBlock({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="relative">
-      <pre className="overflow-x-auto rounded-brand border border-border-subtle bg-bg px-3 py-2.5 font-mono text-[12.5px] leading-relaxed text-text">
+      <pre className="whitespace-pre-wrap break-words rounded-brand border border-border-subtle bg-bg px-3 py-2.5 font-mono text-[13px] leading-relaxed text-text">
         {text}
       </pre>
       <button

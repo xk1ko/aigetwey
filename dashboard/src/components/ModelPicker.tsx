@@ -22,7 +22,8 @@ export function ModelPicker({
   selected,
   onToggle,
   onClose,
-  showThinkingHint = true,
+  showThinkingHint = false,
+  singleSelect = false,
 }: {
   title?: string;
   note?: string;
@@ -34,6 +35,9 @@ export function ModelPicker({
   /** The "reasoning models accept a thinking suffix" footer only makes sense when
    *  picking MODELS. Provider/key pickers reuse this component, so they hide it. */
   showThinkingHint?: boolean;
+  /** Single-select mode: hides Select all / Done / count — picker closes on
+   *  first click (budget scope picker uses this). */
+  singleSelect?: boolean;
 }) {
   const [q, setQ] = useState("");
   const needle = q.trim().toLowerCase();
@@ -74,55 +78,86 @@ export function ModelPicker({
 
         <div className="flex-1 overflow-y-auto px-4 py-3">
           {filtered.length === 0 ? (
-            <p className="py-6 text-center text-[12.5px] text-text-subtle">No models match “{q}”.</p>
+            <p className="py-6 text-center text-[13px] text-text-subtle">No models match "{q}".</p>
           ) : (
             <div className="space-y-4">
-              {filtered.map((g) => (
-                <div key={g.label}>
-                  <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-text-subtle">
-                    {g.label} <span className="tnum text-text-subtle/70">({g.items.length})</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {g.items.map((it) => {
-                      const on = sel.has(it.value);
-                      return (
+              {filtered.map((g) => {
+                const allOn = g.items.length > 0 && g.items.every((it) => sel.has(it.value));
+                const someOn = g.items.some((it) => sel.has(it.value));
+                return (
+                  <div key={g.label}>
+                    <div className="mb-1.5 flex items-center gap-2">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-text-subtle">
+                        {g.label} <span className="tnum text-text-subtle">({g.items.length})</span>
+                      </span>
+                      {!singleSelect && (
                         <button
-                          key={it.value}
                           type="button"
-                          onClick={() => onToggle(it.value)}
-                          className={`inline-flex items-center gap-1 rounded-brand border px-2 py-1 text-[12px] transition-colors ${
-                            on ? "border-accent bg-accent-soft text-accent" : "border-border bg-bg text-text-muted hover:border-text-subtle hover:text-text"
-                          }`}
+                          onClick={() => g.items.forEach((it) => {
+                            if (allOn) onToggle(it.value);
+                            else if (!sel.has(it.value)) onToggle(it.value);
+                          })}
+                          className="text-[11px] font-medium text-text-muted transition-colors hover:text-accent"
                         >
-                          {on && <Icon name="check" size={12} />}
-                          <span className="tnum">{it.label}</span>
-                          <CapacityBadges model={it.value} size={13} />
-                          {it.tag && <span className="rounded bg-surface-2 px-1 text-[10px] text-text-subtle">{it.tag}</span>}
+                          {allOn ? "Deselect all" : someOn ? "Select rest" : "Select all"}
                         </button>
-                      );
-                    })}
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {g.items.map((it) => {
+                        const on = sel.has(it.value);
+                        return (
+                          <button
+                            key={it.value}
+                            type="button"
+                            onClick={() => onToggle(it.value)}
+                            className={`inline-flex items-center gap-1 rounded-brand border px-2 py-1 text-[12px] transition-colors ${
+                              on ? "border-accent bg-accent-soft text-accent" : "border-border bg-bg text-text-muted hover:border-text-subtle hover:text-text"
+                            }`}
+                          >
+                            {on && <Icon name="check" size={12} />}
+                            <span className="tnum">{it.label}</span>
+                            <CapacityBadges model={it.value} size={13} />
+                            {it.tag && <span className="rounded bg-surface-2 px-1 text-[11px] text-text-subtle">{it.tag}</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
 
-        {showThinkingHint && (
-          <div className="border-t border-border-subtle px-4 py-2 text-[11px] text-text-subtle">
-            <Icon name="neurology" size={12} className="mr-1 inline align-text-bottom text-warning" />
-            Reasoning models accept a thinking suffix — call{" "}
-            <code className="rounded bg-surface-2 px-1 text-text-muted">model(high)</code> or{" "}
-            <code className="rounded bg-surface-2 px-1 text-text-muted">model(none)</code> (high·low·medium·minimal·auto·none·or a token budget).
+        {showThinkingHint && null}
+
+        {!singleSelect && (
+          <div className="flex items-center justify-between border-t border-border-subtle px-4 py-3">
+            <div className="flex items-center gap-3">
+              <span className="tnum text-[12px] text-text-subtle">{selected.length} selected</span>
+              {filtered.flatMap((g) => g.items).length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const all = filtered.flatMap((g) => g.items.map((it) => it.value));
+                    const allOn = all.every((v) => sel.has(v));
+                    all.forEach((v) => {
+                      if (allOn && sel.has(v)) onToggle(v);
+                      else if (!allOn && !sel.has(v)) onToggle(v);
+                    });
+                  }}
+                  className="text-[12px] font-medium text-text-muted transition-colors hover:text-accent"
+                >
+                  {filtered.flatMap((g) => g.items).every((it) => sel.has(it.value)) ? "Clear all" : "Select all"}
+                </button>
+              )}
+            </div>
+            <button onClick={onClose} className="rounded-brand bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-accent-ink hover:bg-accent-hover">
+              Done
+            </button>
           </div>
         )}
-
-        <div className="flex items-center justify-between border-t border-border-subtle px-4 py-3">
-          <span className="tnum text-[12px] text-text-subtle">{selected.length} selected</span>
-          <button onClick={onClose} className="rounded-brand bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-accent-ink hover:bg-accent-hover">
-            Done
-          </button>
-        </div>
       </div>
     </div>
   );
