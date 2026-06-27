@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Icon } from "./Icon";
 import { useTheme } from "./ThemeProvider";
 import { ConfirmModal } from "./ConfirmModal";
+import { ChangelogModal } from "./ChangelogModal";
 import { adminApi } from "@/lib/client";
 
 const LABELS: Record<string, string> = {
@@ -112,6 +113,7 @@ export function TopBar() {
 
   const [version, setVersion] = useState<{ current: string; latest: string | null; updateAvailable: boolean } | null>(null);
   const [showUpdate, setShowUpdate] = useState(false);
+  const [showChangelog, setShowChangelog] = useState(false);
   const [confirmShutdown, setConfirmShutdown] = useState(false);
   const [stopped, setStopped] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -150,9 +152,13 @@ export function TopBar() {
               v{version.current} → {version.latest}
             </button>
           ) : (
-            <span className="text-[11px] text-text-subtle" title="You're on the latest version">
+            <button
+              onClick={() => setShowChangelog(true)}
+              className="rounded-full px-2 py-1 text-[11px] text-text-subtle transition-colors hover:text-text hover:bg-surface-2"
+              title="View changelog"
+            >
               v{version.current}
-            </span>
+            </button>
           )
         )}
 
@@ -221,6 +227,10 @@ export function TopBar() {
           onClose={() => setShowUpdate(false)}
           onShutdown={doShutdown}
         />
+      )}
+
+      {showChangelog && (
+        <ChangelogModal onClose={() => setShowChangelog(false)} />
       )}
 
       {confirmShutdown && (
