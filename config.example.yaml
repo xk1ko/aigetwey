@@ -2,7 +2,7 @@
 # Hot-reloaded: edits via the dashboard apply without a restart.
 
 server:
-  host: 127.0.0.1
+  host: 0.0.0.0
   port: 18080
   # Gateway keys clients must present (Bearer or x-api-key).
   # Empty => auth disabled (localhost only — set before exposing remotely).

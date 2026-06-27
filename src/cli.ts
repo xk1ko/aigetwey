@@ -442,7 +442,7 @@ async function main(): Promise<void> {
 
   // the dashboard is optional: skip it cleanly if it hasn't been scaffolded yet.
   if (!existsSync(join(dashboardDir, "package.json"))) {
-    console.log(`\n  gateway   http://127.0.0.1:${GATEWAY_PORT}`);
+    console.log(`\n  gateway   http://localhost:${GATEWAY_PORT}`);
     console.log("  dashboard not found (dashboard/ not scaffolded) — running gateway only.\n");
     if (generatedPw) console.log(`  admin password (generated): ${adminPassword}\n`);
     return;
@@ -463,7 +463,7 @@ async function main(): Promise<void> {
   // its own port (not through the proxy) and require a non-5xx answer: a proxy
   // hit during boot returns 500 (ECONNREFUSED upstream), which a bare "port up"
   // check would mistake for ready and open the browser into a wall of 500s.
-  const appUrl = `http://127.0.0.1:${GATEWAY_PORT}`;
+  const appUrl = `http://localhost:${GATEWAY_PORT}`;
   await waitForGateway(`http://127.0.0.1:${DASHBOARD_PORT}/login`, 30000, (s) => s > 0 && s < 500);
   console.log(`\n  aigetwey   ${appUrl}   (dashboard + API, one URL)`);
   if (generatedPw) {

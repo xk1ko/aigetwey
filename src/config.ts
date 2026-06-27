@@ -100,7 +100,7 @@ const EndpointSchema = z
 
 const ServerSchema = z
   .object({
-    host: z.string().default("127.0.0.1"),
+    host: z.string().default("0.0.0.0"),
     port: z.number().int().positive().default(18080),
     // gateway-level keys clients must present. Empty => auth disabled (localhost).
     api_keys: z.array(z.string().min(1)).default([]),
@@ -114,7 +114,7 @@ const ServerSchema = z
     // per-key access expiry, epoch ms, keyed by the RAW key. Absent → never expires.
     key_expires: z.record(z.number().int().positive()).optional(),
   })
-  .default({ host: "127.0.0.1", port: 18080, api_keys: [] });
+  .default({ host: "0.0.0.0", port: 18080, api_keys: [] });
 
 /**
  * A spend budget scoped to the whole gateway, one provider, or one upstream

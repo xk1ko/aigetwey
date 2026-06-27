@@ -55,7 +55,7 @@ npm install -g aigetwey
 aigetwey
 ```
 
-The CLI seeds `config.yaml`, builds the dashboard, opens your browser. One URL serves everything — dashboard, API, and admin: `http://127.0.0.1:18080`.
+The CLI seeds `config.yaml`, builds the dashboard, opens your browser. One URL serves everything — dashboard, API, and admin: `http://localhost:18080`.
 
 A terminal menu offers: **Web UI** / **Terminal** (logs) / **Hide to Tray** (macOS + Linux) / **Exit**.
 Flags: `-p/--port`, `-n/--no-browser`, `-y/--yes`, `-t/--tray`.
@@ -74,11 +74,11 @@ npm install --prefix dashboard
 
 ```bash
 # Claude Code (Anthropic format)
-export ANTHROPIC_BASE_URL=http://127.0.0.1:18080
+export ANTHROPIC_BASE_URL=http://localhost:18080
 export ANTHROPIC_API_KEY=my-key
 
 # opencode / Cursor / Cline / Codex (OpenAI format)
-export OPENAI_BASE_URL=http://127.0.0.1:18080/v1
+export OPENAI_BASE_URL=http://localhost:18080/v1
 export OPENAI_API_KEY=my-key
 ```
 
@@ -99,7 +99,7 @@ Under the hood, `config.yaml` is the source of truth and **hot-reloads** — any
 
 ```yaml
 server:
-  host: 127.0.0.1
+  host: 0.0.0.0
   port: 18080
   api_keys: [my-key]        # empty = auth OFF (localhost only)
 
@@ -186,17 +186,17 @@ npm install -g aigetwey
 aigetwey
 ```
 
-Run pertama bootstrap otomatis — buat `config.yaml`, build dashboard, buka browser. Satu URL untuk semuanya: `http://127.0.0.1:18080`.
+Run pertama bootstrap otomatis — buat `config.yaml`, build dashboard, buka browser. Satu URL untuk semuanya: `http://localhost:18080`.
 
 ### Hubungkan tool
 
 ```bash
 # Claude Code (format Anthropic)
-export ANTHROPIC_BASE_URL=http://127.0.0.1:18080
+export ANTHROPIC_BASE_URL=http://localhost:18080
 export ANTHROPIC_API_KEY=my-key
 
 # opencode / Cursor / Cline / Codex (format OpenAI)
-export OPENAI_BASE_URL=http://127.0.0.1:18080/v1
+export OPENAI_BASE_URL=http://localhost:18080/v1
 export OPENAI_API_KEY=my-key
 ```
 
