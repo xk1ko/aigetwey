@@ -5,20 +5,11 @@ All notable changes to **aigetwey** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.5.1] — 2026-06-28
+## [1.5.0] — 2026-06-28
 
 ### Added
 - **Changelog popup** — click version badge in top bar to view full changelog;
   fetches from GitHub and renders markdown inline
-
-### Fixed
-- **Windows tray icon** — generates `.ico` from PNG at runtime and loads via
-  `System.Drawing.Icon(stream)` instead of PNG→Bitmap→GetHicon (native format,
-  correct sizing + transparency)
-
-## [1.5.0] — 2026-06-28
-
-### Added
 - **Custom budget windows** — any `Nh` or `Nday` value works (e.g. `3h`, `90day`);
   custom text input next to preset pills in Budget and Key Scope forms
 - **Quota/billing fallback** — quota, exhausted, payment, billing, free-tier,
@@ -48,6 +39,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   size bumped, dim text colors brightened
 
 ### Fixed
+- **Windows tray icon** — generates `.ico` from PNG at runtime and loads via
+  `System.Drawing.Icon(stream)` instead of PNG→Bitmap→GetHicon (native format,
+  correct sizing + transparency)
 - **Per-provider cooldown/retries removed** — replaced with global constants
   `COOLDOWN_BASE_MS=1000`, `MAX_RETRIES=2` (matches 9router approach)
 - **est_converse shows remaining** — `(limit - spent) / rate` = tokens/USD left
