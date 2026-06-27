@@ -145,7 +145,7 @@ export function ConfigEditor() {
             </>
           }
         >
-          <p className="text-[12.5px] text-text-muted">
+          <p className="text-[13px] text-text-muted">
             Export downloads the live config as YAML with unmasked keys — keep it safe. Import loads a file into
             the raw editor below for review; it only applies when you Save there.
           </p>
@@ -182,7 +182,7 @@ export function ConfigEditor() {
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 spellCheck={false}
-                className="h-[55vh] w-full resize-none rounded-brand border border-border bg-bg p-4 font-mono text-[12.5px] leading-relaxed text-text focus:border-accent focus:outline-none"
+                className="h-[55vh] w-full resize-none rounded-brand border border-border bg-bg p-4 font-mono text-[13px] leading-relaxed text-text focus:border-accent focus:outline-none"
               />
             )}
           </div>

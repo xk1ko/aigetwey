@@ -25,7 +25,7 @@ export function ConfirmModal({ title, message, confirmLabel = "Delete", onConfir
           </span>
           <h2 className="text-[15px] font-semibold text-text">{title}</h2>
         </div>
-        <p className="mb-4 text-[12.5px] text-text-muted">{message}</p>
+        <p className="mb-4 text-[13px] text-text-muted">{message}</p>
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onCancel}>Cancel</Button>
           <Button variant="danger" disabled={busy} onClick={onConfirm}>{confirmLabel}</Button>

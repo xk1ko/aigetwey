@@ -79,7 +79,7 @@ export function ModelSelectModal({
             className="flex items-center gap-2.5 border-b border-border-subtle px-4 py-2 text-left hover:bg-surface-2"
           >
             <Checkbox checked={allShownPicked} indeterminate={someShownPicked} onChange={toggleAllShown} ariaLabel="Select all" />
-            <span className="text-[12.5px] font-medium text-text">Select all{filter ? " (filtered)" : ""}</span>
+            <span className="text-[13px] font-medium text-text">Select all{filter ? " (filtered)" : ""}</span>
             <span className="ml-auto tnum text-[11px] text-text-subtle">
               {shownPickedCount}/{shown.length}
             </span>
@@ -101,7 +101,7 @@ export function ModelSelectModal({
                   }`}
                 >
                   <Checkbox checked={sel} onChange={() => toggle(m.id)} ariaLabel={m.id} />
-                  <span className="flex-1 truncate text-[12.5px] text-text">{m.id}</span>
+                  <span className="flex-1 truncate text-[13px] text-text">{m.id}</span>
                   {m.added && <span className="text-[11px] text-text-subtle">in catalog</span>}
                 </button>
               );

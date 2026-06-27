@@ -49,7 +49,7 @@ export function KeyReveal({
 
   return (
     <span className={`flex min-w-0 items-center gap-1.5${className ? ` ${className}` : ""}`}>
-      <span className={`tnum truncate text-[12.5px] text-text${align === "right" ? " flex-1" : ""}`}>{display}</span>
+      <span className={`tnum truncate text-[13px] text-text${align === "right" ? " flex-1" : ""}`}>{display}</span>
       <button
         type="button"
         onClick={() => {
