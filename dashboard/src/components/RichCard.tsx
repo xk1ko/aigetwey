@@ -15,14 +15,14 @@ export function RichCard({
 }) {
   return (
     <section
-      className={`overflow-hidden rounded-brand-lg border border-border bg-surface shadow-soft${className ? ` ${className}` : ""}`}
+      className={`flex flex-col rounded-brand-lg border border-border bg-surface shadow-soft${className ? ` ${className}` : ""}`}
     >
       {header && (
         <header className="flex items-center justify-between gap-3 border-b border-border-subtle px-4 py-3">
           {header}
         </header>
       )}
-      <div className="p-4">{children}</div>
+      <div className="flex flex-1 flex-col p-4">{children}</div>
       {footer && (
         <footer className="flex items-center justify-between gap-3 border-t border-border-subtle bg-bg-alt px-4 py-2.5">
           {footer}

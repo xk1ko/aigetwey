@@ -7,9 +7,18 @@ import { RichCard, CardTitle } from "@/components/RichCard";
 import { CooldownTimer } from "@/components/CooldownTimer";
 import { fmt, Empty } from "@/components/ui";
 import { BudgetForm } from "@/components/BudgetForm";
+import { ConfirmModal } from "@/components/ConfirmModal";
 import { Button } from "@/components/Button";
 import { Icon } from "@/components/Icon";
 import type { BudgetStatus, KeyUsageRow } from "@/lib/gateway";
+
+const WINDOW_LABELS: Record<string, string> = {
+  "5h": "5H", "24h": "24H", "7day": "7D", "30day": "30D",
+};
+
+function windowLabel(w: string): string {
+  return WINDOW_LABELS[w] ?? w.replace("day", "D").replace("h", "H");
+}
 
 /**
  * Budget Tracker — scoped spend budgets (global / per-provider / per-model /
@@ -21,6 +30,7 @@ export function BudgetTracker() {
   const [keys, setKeys] = useState<KeyUsageRow[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [form, setForm] = useState<{ open: boolean; initial: BudgetStatus | null }>({ open: false, initial: null });
+  const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   const refresh = () => {
@@ -75,43 +85,49 @@ export function BudgetTracker() {
                 key={b.key}
                 header={
                   <>
-                    <CardTitle title={b.label} sub={`${b.scope.type} · ${b.window}`} />
+                    <CardTitle title={b.label} sub={`${b.scope.type} · ${windowLabel(b.window)}`} />
                     <Badge tone={b.exhausted ? "down" : b.alert ? "warn" : "live"}>
                       {b.exhausted ? "exhausted" : b.alert ? "alert" : "active"}
                     </Badge>
                   </>
                 }
               >
-                <div className="space-y-2.5">
-                  {b.note && <p className="text-[12px] text-text-muted">{b.note}</p>}
-                  <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
-                    <div
-                      className={`h-full rounded-full transition-all ${b.exhausted ? "bg-danger" : b.alert ? "bg-warning" : "bg-accent"}`}
-                      style={{ width: `${Math.min(100, Math.round(b.pct * 100))}%` }}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between text-[12px]">
-                    <span className="tnum text-text-muted">
-                      {b.unit === "usd"
-                        ? `$${b.spent.toFixed(2)} / $${b.limit.toFixed(2)}`
-                        : `${fmt.compact(b.spent)} / ${fmt.compact(b.limit)} tokens`}
+                <div className="flex h-full flex-col gap-2.5">
+                  <p className="min-h-[18px] text-[12px] text-text-muted">
+                    {b.note ?? "\u00A0"}
+                  </p>
+                  <div className="mt-auto flex flex-col gap-2.5">
+                    <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
+                      <div
+                        className={`h-full rounded-full transition-all ${b.exhausted ? "bg-danger" : b.alert ? "bg-warning" : "bg-accent"}`}
+                        style={{ width: `${Math.min(100, Math.round(b.pct * 100))}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-[12px]">
+                      <span className="tnum text-text-muted">
+                        {b.unit === "usd"
+                          ? `$${b.spent.toFixed(2)} / $${b.limit.toFixed(2)}`
+                          : `${fmt.compact(b.spent)} / ${fmt.compact(b.limit)} tokens`}
+                      </span>
+                      <CooldownTimer ms={b.reset_in_ms} tone="muted" icon="restart_alt" keepZero />
+                    </div>
+                    <div className="min-h-[16px] text-[11px] text-text-subtle">
                       {b.est_converse != null
-                        ? b.unit === "usd" ? ` · ~${fmt.compact(b.est_converse)} tok` : ` · ~$${b.est_converse.toFixed(2)}`
-                        : " · —"}
-                    </span>
-                    <CooldownTimer ms={b.reset_in_ms} tone="muted" icon="restart_alt" keepZero />
-                  </div>
-                  <div className="flex items-center gap-2 border-t border-border-subtle pt-2.5">
-                    <Button variant="ghost" className="px-2.5 py-1 text-[12px]" onClick={() => setForm({ open: true, initial: b })}>
-                      <Icon name="edit" size={14} /> Edit
-                    </Button>
-                    <Button
-                      variant="danger"
-                      className="px-2.5 py-1 text-[12px]"
-                      onClick={async () => { const r = await adminApi.clearBudget(b.key); if (!r.ok) setError(r.error ?? "could not remove budget"); refresh(); }}
-                    >
-                      <Icon name="delete" size={14} /> Remove
-                    </Button>
+                        ? (b.unit === "usd" ? `est. ${fmt.compact(b.est_converse)} tok left` : `est. $${b.est_converse.toFixed(2)} left`)
+                        : "\u00A0"}
+                    </div>
+                    <div className="flex items-center gap-2 border-t border-border-subtle pt-2.5">
+                      <Button variant="ghost" className="px-2.5 py-1 text-[12px]" onClick={() => setForm({ open: true, initial: b })}>
+                        <Icon name="edit" size={14} /> Edit
+                      </Button>
+                      <Button
+                        variant="danger"
+                        className="px-2.5 py-1 text-[12px]"
+                        onClick={() => setConfirmRemove(b.key)}
+                      >
+                        <Icon name="delete" size={14} /> Remove
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </RichCard>
@@ -132,7 +148,7 @@ export function BudgetTracker() {
                 key={k.fingerprint}
                 header={
                   <>
-                    <CardTitle title={k.name} sub={k.budget ? `key · ${k.budget.window}` : "key · no limit"} />
+                    <CardTitle title={k.name} sub={k.budget ? `key · ${windowLabel(k.budget.window)}` : "key · no limit"} />
                     {k.expires && Date.now() > k.expires ? (
                       <Badge tone="down">expired</Badge>
                     ) : k.budget?.exhausted ? (
@@ -143,7 +159,7 @@ export function BudgetTracker() {
                   </>
                 }
               >
-                <div className="space-y-2.5">
+                <div className="flex h-full flex-col gap-2.5">
                   {k.budget ? (
                     <>
                       <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
@@ -167,7 +183,7 @@ export function BudgetTracker() {
                       <span className="text-text-subtle">no limit</span>
                     </div>
                   )}
-                  <div className="text-[11px] text-text-subtle">
+                  <div className="mt-auto text-[11px] text-text-subtle">
                     {k.expires ? `expires ${fmt.date(k.expires)}` : "no expiry"}
                   </div>
                 </div>
@@ -176,6 +192,21 @@ export function BudgetTracker() {
           </div>
         )}
       </div>
+
+      {confirmRemove && (
+        <ConfirmModal
+          title="Remove budget"
+          message="This will stop tracking spend for this scope. Continue?"
+          confirmLabel="Remove"
+          onConfirm={async () => {
+            const r = await adminApi.clearBudget(confirmRemove);
+            if (!r.ok) setError(r.error ?? "could not remove budget");
+            setConfirmRemove(null);
+            refresh();
+          }}
+          onCancel={() => setConfirmRemove(null)}
+        />
+      )}
     </div>
   );
 }
