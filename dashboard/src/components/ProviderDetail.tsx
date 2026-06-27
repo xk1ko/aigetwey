@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { adminApi } from "@/lib/client";
 import { Lamp } from "@/components/Lamp";
-import { Badge, FormatBadge } from "@/components/Badge";
+import { Badge } from "@/components/Badge";
 import { CooldownTimer } from "@/components/CooldownTimer";
 import { RichCard, CardTitle } from "@/components/RichCard";
 import { Button, Input, Field } from "@/components/Button";
@@ -25,6 +25,9 @@ export function ProviderDetail({ id }: { id: string }) {
   const [busy, setBusy] = useState("");
   const [newKey, setNewKey] = useState("");
   const [newKeyName, setNewKeyName] = useState("");
+  const [newKeyCheck, setNewKeyCheck] = useState<PingResult | null>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkText, setBulkText] = useState("");
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const [editVal, setEditVal] = useState("");
@@ -122,114 +125,107 @@ export function ProviderDetail({ id }: { id: string }) {
         <Icon name="arrow_back" size={15} /> Providers
       </button>
 
-      <div className="mb-6 flex items-center gap-3">
-        <Lamp state={provider.disabled ? "idle" : (health?.keys.some((k) => k.healthy) ?? true) ? "live" : "down"} />
-        <div>
-          <h1 className="text-[22px] font-semibold tracking-tight text-text">{provider.name || provider.id}</h1>
-          {provider.name && <span className="text-[12px] text-text-subtle">{provider.id}/</span>}
-        </div>
-        <FormatBadge format={provider.format} />
-        {provider.free && <Badge tone="info">free</Badge>}
-        {provider.service_account && <Badge tone="info">service-account</Badge>}
-        {/* enable/disable lives on the Providers list (one place); here we just
-            flag the state. Disabled = red badge + the content below fades. */}
-        {provider.disabled && <Badge tone="down">disabled</Badge>}
-      </div>
-
-      <div className={`grid gap-4 lg:grid-cols-2 transition-opacity ${provider.disabled ? "opacity-50" : ""}`}>
-        <RichCard header={<CardTitle title="Connection" />}>
-          {editingConn ? (
-            <div className="space-y-3">
-              <Field label="Label" hint="display name in dashboard (optional, does not affect routing)">
-                <Input value={connLabel} onChange={(e) => setConnLabel(e.target.value)} placeholder={connPrefix || "e.g. My Provider"} className="text-[12.5px]" />
-              </Field>
-              <Field label="ID / Prefix" hint="the call prefix (id/model) — changing this breaks CLI tools">
-                <Input value={connPrefix} onChange={(e) => setConnPrefix(e.target.value)} placeholder="e.g. openai" className="font-mono text-[12.5px]" />
-              </Field>
-              {connPrefix.trim() && connPrefix.trim() !== id && (
-                <p className="flex items-start gap-1.5 rounded-brand border border-warning/40 bg-warning/8 px-2.5 py-2 text-[11.5px] text-warning">
-                  <Icon name="warning" size={14} className="mt-0.5 flex-none" />
-                  <span>
-                    Renaming rewrites the call string. CLI tools pointing at{" "}
-                    <code className="tnum">{id}/…</code> will break until repointed; combos that target it are
-                    updated automatically.
-                  </span>
-                </p>
-              )}
-              <Field label="Base URL">
-                <Input value={connUrl} onChange={(e) => setConnUrl(e.target.value)} placeholder="https://..." className="font-mono text-[12.5px]" />
-              </Field>
-              <div className="flex justify-end gap-2">
-                <Button variant="ghost" onClick={() => setEditingConn(false)}>Cancel</Button>
-                <Button disabled={busy === "editconn"} onClick={() => run("editconn", async () => {
-                  const newId = connPrefix.trim();
-                  let activeId = id;
-                  if (newId && newId !== id) {
-                    const rr = await adminApi.renameProvider(id, newId);
-                    if (!rr.ok) return rr;
-                    activeId = newId;
-                  }
-                  const newName = connLabel.trim() || undefined;
-                  const r = await adminApi.editProvider(activeId, { base_url: connUrl.trim() || undefined, name: newName });
-                  if (r.ok) {
-                    setEditingConn(false);
-                    if (activeId !== id) { router.push(`/providers/${encodeURIComponent(activeId)}`); return r; }
-                  }
-                  return r;
-                })}>Save</Button>
+      {/* ─── Header with connection info ─── */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Lamp state={provider.disabled ? "idle" : (health?.keys.some((k) => k.healthy) ?? true) ? "live" : "down"} />
+            <div>
+              <h1 className="text-[22px] font-semibold tracking-tight text-text">{provider.name || provider.id}</h1>
+              <div className="flex items-center gap-2 text-[12px] text-text-subtle">
+                <span className="font-mono">{provider.id}/</span>
+                <span>—</span>
+                <span className="font-mono">{provider.base_url}</span>
               </div>
             </div>
-          ) : (
-            <>
-              <div className="space-y-2 text-[13px]">
-                {provider.name && <Row k="Label" v={provider.name} />}
-                <Row k="ID / Prefix" v={provider.id} />
-                <Row k="Base URL" v={provider.base_url} />
-                <Row k="Format" v={provider.format} />
-                <Row k="Cooldown base" v={`${provider.cooldown_base_ms}ms`} />
-                <Row k="Max retries" v={String(provider.max_retries)} />
-              </div>
-              <div className="mt-4 flex items-center gap-2">
-                <Button variant="ghost" onClick={() => { setEditingConn(true); setConnUrl(provider.base_url); setConnPrefix(provider.id); setConnLabel(provider.name ?? ""); }}>
-                  <Icon name="edit" size={15} /> Edit
-                </Button>
-                <Button variant="ghost" disabled={busy === "test"} onClick={() => run("test", async () => {
-                  const r = await adminApi.testProvider(id);
-                  if (r.ok) setPing(r.data);
-                  return r;
-                })}>
-                  <Icon name="wifi_tethering" size={16} /> {busy === "test" ? "Testing…" : "Test connection"}
-                </Button>
-                <Button variant="ghost" disabled={busy === "discover"} onClick={() => run("discover", async () => {
-                  const r = await adminApi.discoverModels(id);
-                  if (r.ok) setDiscovered(r.data?.models ?? []);
-                  return r;
-                })}>
-                  <Icon name="sync" size={16} /> {busy === "discover" ? "Fetching…" : "Fetch models"}
-                </Button>
-              </div>
-              {ping && (
-                <div className="mt-3 text-[12px]">
-                  <Badge tone={ping.ok ? "live" : ping.reachable ? "warn" : "down"}>
-                    {ping.ok ? `ok (${ping.status})` : ping.reachable ? `reachable (${ping.status})` : "unreachable"}
-                  </Badge>
-                  {ping.error && <span className="ml-2 text-text-subtle">{ping.error}</span>}
-                </div>
-              )}
-              {actionErr && (
-                <div className="mt-3 rounded-brand border border-danger/30 bg-danger/5 px-3 py-2 text-[12px] text-danger">
-                  {actionErr}
-                </div>
-              )}
-            </>
-          )}
-        </RichCard>
+            {provider.disabled && <Badge tone="down">disabled</Badge>}
+          </div>
 
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" onClick={() => { setEditingConn(true); setConnUrl(provider.base_url); setConnPrefix(provider.id); setConnLabel(provider.name ?? ""); }}>
+              <Icon name="edit" size={15} /> Edit
+            </Button>
+            <Button variant="ghost" disabled={busy === "test"} onClick={() => run("test", async () => {
+              const r = await adminApi.testProvider(id);
+              if (r.ok) setPing(r.data);
+              return r;
+            })}>
+              <Icon name="wifi_tethering" size={16} /> {busy === "test" ? "Testing…" : "Test connection"}
+            </Button>
+            <Button variant="ghost" disabled={busy === "discover"} onClick={() => run("discover", async () => {
+              const r = await adminApi.discoverModels(id);
+              if (r.ok) setDiscovered(r.data?.models ?? []);
+              return r;
+            })}>
+              <Icon name="sync" size={16} /> {busy === "discover" ? "Fetching…" : "Fetch models"}
+            </Button>
+          </div>
+        </div>
+
+        {ping && (
+          <div className={`mt-2 rounded-brand border px-3 py-2 text-[12px] ${ping.ok ? "border-live/30 bg-live/5 text-live" : "border-danger/30 bg-danger/5 text-danger"}`}>
+            {ping.ok
+              ? `connected (${ping.status})`
+              : ping.error || (ping.reachable ? `server returned ${ping.status}` : "could not reach the endpoint")}
+          </div>
+        )}
+        {actionErr && (
+          <div className="mt-2 rounded-brand border border-danger/30 bg-danger/5 px-3 py-2 text-[12px] text-danger">
+            {actionErr}
+          </div>
+        )}
+
+        {editingConn && (
+          <div className="mt-4 space-y-3 rounded-brand border border-border bg-surface p-4">
+            <Field label="Label" hint="display name in dashboard (optional, does not affect routing)">
+              <Input value={connLabel} onChange={(e) => setConnLabel(e.target.value)} placeholder={connPrefix || "e.g. My Provider"} className="text-[12.5px]" />
+            </Field>
+            <Field label="ID / Prefix" hint="the call prefix (id/model) — changing this breaks CLI tools">
+              <Input value={connPrefix} onChange={(e) => setConnPrefix(e.target.value)} placeholder="e.g. openai" className="font-mono text-[12.5px]" />
+            </Field>
+            {connPrefix.trim() && connPrefix.trim() !== id && (
+              <p className="flex items-start gap-1.5 rounded-brand border border-warning/40 bg-warning/8 px-2.5 py-2 text-[11.5px] text-warning">
+                <Icon name="warning" size={14} className="mt-0.5 flex-none" />
+                <span>
+                  Renaming rewrites the call string. CLI tools pointing at{" "}
+                  <code className="tnum">{id}/…</code> will break until repointed; combos that target it are
+                  updated automatically.
+                </span>
+              </p>
+            )}
+            <Field label="Base URL">
+              <Input value={connUrl} onChange={(e) => setConnUrl(e.target.value)} placeholder="https://..." className="font-mono text-[12.5px]" />
+            </Field>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setEditingConn(false)}>Cancel</Button>
+              <Button disabled={busy === "editconn" || !connPrefix.trim()} onClick={() => run("editconn", async () => {
+                const newId = connPrefix.trim();
+                let activeId = id;
+                if (newId && newId !== id) {
+                  const rr = await adminApi.renameProvider(id, newId);
+                  if (!rr.ok) return rr;
+                  activeId = newId;
+                }
+                const newName = connLabel.trim();
+                const r = await adminApi.editProvider(activeId, { base_url: connUrl.trim() || undefined, name: newName });
+                if (r.ok) {
+                  setEditingConn(false);
+                  if (activeId !== id) { router.push(`/providers/${encodeURIComponent(activeId)}`); return r; }
+                }
+                return r;
+              })}>Save</Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className={`space-y-4 transition-opacity ${provider.disabled ? "opacity-50" : ""}`}>
+        {/* ─── Keys ─── */}
         <RichCard
           header={
             <>
               <CardTitle title="Keys" sub={`${keys.length} configured`} />
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-3">
                 {keys.length > 1 && (
                   <Button variant="ghost" disabled={testingAll} onClick={() => testAllKeys(keys.length)}>
                     <Icon name={testingAll ? "progress_activity" : "sync"} size={15} />
@@ -241,20 +237,9 @@ export function ProviderDetail({ id }: { id: string }) {
                     <Icon name="stop" size={15} /> Stop
                   </Button>
                 )}
-                <span className="text-[11px] text-text-subtle">Round Robin</span>
-                <button
-                  onClick={() => {
-                    const next = provider.strategy === "round-robin" ? null : "round-robin";
-                    void adminApi.setProviderStrategy(id, next as "round-robin" | null, provider.sticky ?? 1).then(() => reload());
-                  }}
-                  className={`relative h-5 w-9 rounded-full transition-colors ${provider.strategy === "round-robin" ? "bg-accent" : "bg-border-subtle"}`}
-                  aria-label="Toggle round-robin"
-                >
-                  <span className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${provider.strategy === "round-robin" ? "translate-x-[18px]" : "translate-x-0"}`} />
-                </button>
                 {provider.strategy === "round-robin" && (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] text-text-subtle">Sticky:</span>
+                    <span className="text-[11px] text-text-subtle" title="Requests per key before rotating to the next one">Sticky:</span>
                     <div className="flex items-center rounded-brand border border-border-subtle">
                       <button
                         type="button"
@@ -277,6 +262,17 @@ export function ProviderDetail({ id }: { id: string }) {
                     </div>
                   </div>
                 )}
+                <span className="text-[11px] text-text-subtle">Round Robin</span>
+                <button
+                  onClick={() => {
+                    const next = provider.strategy === "round-robin" ? null : "round-robin";
+                    void adminApi.setProviderStrategy(id, next as "round-robin" | null, provider.sticky ?? 1).then(() => reload());
+                  }}
+                  className={`relative h-5 w-9 rounded-full transition-colors ${provider.strategy === "round-robin" ? "bg-accent" : "bg-border-subtle"}`}
+                  aria-label="Toggle round-robin"
+                >
+                  <span className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${provider.strategy === "round-robin" ? "translate-x-[18px]" : "translate-x-0"}`} />
+                </button>
               </div>
             </>
           }
@@ -291,7 +287,7 @@ export function ProviderDetail({ id }: { id: string }) {
           {keys.length === 0 ? (
             <Empty>No keys (free / service-account provider).</Empty>
           ) : (
-            <div className="space-y-1.5">
+            <div className="max-h-[400px] space-y-1.5 overflow-y-auto">
               {keys.map((k, i) => {
                 const ks = health?.keys[i];
                 const test = keyTest[i];
@@ -318,7 +314,6 @@ export function ProviderDetail({ id }: { id: string }) {
                 return (
                   <div key={i} className={`rounded-brand border border-border-subtle px-3 py-2${disabled ? " opacity-60" : ""}`}>
                     <div className="flex items-center gap-2">
-                      {/* reorder */}
                       <div className="flex flex-col">
                         <button
                           onClick={() => run(`reorder${i}up`, () => adminApi.reorderKey(id, i, i - 1))}
@@ -353,7 +348,6 @@ export function ProviderDetail({ id }: { id: string }) {
                         </button>
                       )}
                       {ks && ks.cooldown_ms > 0 && <CooldownTimer ms={ks.cooldown_ms} />}
-                      {/* actions: reveal > toggle > test > edit > delete */}
                       <button
                         onClick={async () => {
                           if (revealedKeys[i]) { setRevealedKeys((r) => { const n = { ...r }; delete n[i]; return n; }); return; }
@@ -400,16 +394,16 @@ export function ProviderDetail({ id }: { id: string }) {
                       </button>
                     </div>
                     {tested && (
-                      <div className="mt-1.5 flex items-center gap-2 pl-8 text-[11.5px]">
+                      <div className="mt-1.5 pl-8 text-[11.5px]">
                         <Badge tone={tested.ok ? "live" : tested.reachable ? "warn" : "down"}>
                           {tested.ok ? "valid" : tested.reachable ? `reachable (${tested.status})` : "invalid"}
                         </Badge>
-                        {tested.error && <span className="truncate text-danger">{tested.error}</span>}
+                        {tested.error && <p className="mt-0.5 text-danger">{tested.error}</p>}
                       </div>
                     )}
                     {!tested && ks?.last_error && (
-                      <div className="mt-1.5 flex items-center gap-2 pl-8 text-[11.5px]">
-                        <span className="text-danger">{ks.last_error.status ? `${ks.last_error.status}: ` : ""}{ks.last_error.message}</span>
+                      <div className="mt-1.5 pl-8 text-[11.5px]">
+                        <p className="text-danger">{ks.last_error.status ? `${ks.last_error.status}: ` : ""}{ks.last_error.message}</p>
                         <span className="text-text-subtle">{new Date(ks.last_error.at).toLocaleTimeString()}</span>
                       </div>
                     )}
@@ -421,18 +415,63 @@ export function ProviderDetail({ id }: { id: string }) {
           <div className="mt-3 space-y-2">
             <Input value={newKeyName} onChange={(e) => setNewKeyName(e.target.value)} placeholder="key name (optional, e.g. primary)" />
             <div className="flex gap-2">
-              <Input value={newKey} onChange={(e) => setNewKey(e.target.value)} placeholder="add a key…" className="font-mono text-[12.5px]" />
+              <Input value={newKey} onChange={(e) => { setNewKey(e.target.value); setNewKeyCheck(null); }} placeholder="add a key…" className="font-mono text-[12.5px]" />
+              <Button variant="ghost" disabled={!newKey || busy === "checkkey"} onClick={() => run("checkkey", async () => {
+                const r = await adminApi.checkKey(id, newKey);
+                setNewKeyCheck(r.data ?? { ok: false, reachable: false, status: 0, error: r.error });
+                return r;
+              })}>Check</Button>
               <Button disabled={!newKey || busy === "addkey"} onClick={() => run("addkey", async () => {
                 const r = await adminApi.addKey(id, newKey, newKeyName.trim() || undefined);
-                if (r.ok) { setNewKey(""); setNewKeyName(""); }
+                if (r.ok) { setNewKey(""); setNewKeyName(""); setNewKeyCheck(null); }
                 return r;
               })}>Add</Button>
+              <Button variant="ghost" onClick={() => setBulkOpen(true)}>Bulk</Button>
             </div>
+            {newKeyCheck && (
+              <div className={`rounded-brand border px-3 py-2 text-[12px] ${newKeyCheck.ok ? "border-live/30 bg-live/5 text-live" : "border-danger/30 bg-danger/5 text-danger"}`}>
+                {newKeyCheck.ok ? `valid (${newKeyCheck.status})` : newKeyCheck.error || `server returned ${newKeyCheck.status}`}
+              </div>
+            )}
           </div>
+
+          {bulkOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setBulkOpen(false)}>
+              <div className="w-full max-w-lg rounded-brand border border-border bg-surface p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+                <h3 className="mb-1 text-[14px] font-semibold text-text">Bulk Add Keys</h3>
+                <p className="mb-3 text-[12px] text-text-subtle">Format: <code className="text-text-muted">name|apiKey</code> or just <code className="text-text-muted">apiKey</code> (one per line)</p>
+                <textarea
+                  value={bulkText}
+                  onChange={(e) => setBulkText(e.target.value)}
+                  placeholder={"primary|sk-abc123\nbackup|sk-xyz789\nsk-anonymous-key"}
+                  rows={8}
+                  className="w-full rounded-brand border border-border bg-bg px-3 py-2 font-mono text-[12.5px] text-text placeholder:text-text-subtle focus:border-accent focus:outline-none"
+                  autoFocus
+                />
+                <div className="mt-3 flex justify-end gap-2">
+                  <Button variant="ghost" onClick={() => setBulkOpen(false)}>Cancel</Button>
+                  <Button disabled={!bulkText.trim() || busy === "bulkkeys"} onClick={() => run("bulkkeys", async () => {
+                    const lines = bulkText.split("\n").map((l) => l.trim()).filter(Boolean);
+                    for (const line of lines) {
+                      const pipeIdx = line.indexOf("|");
+                      const name = pipeIdx > 0 ? line.slice(0, pipeIdx).trim() : undefined;
+                      const key = pipeIdx > 0 ? line.slice(pipeIdx + 1).trim() : line;
+                      if (!key) continue;
+                      const r = await adminApi.addKey(id, key, name);
+                      if (!r.ok) return r;
+                    }
+                    setBulkText("");
+                    setBulkOpen(false);
+                    return { ok: true };
+                  })}>{busy === "bulkkeys" ? "Adding…" : `Add ${bulkText.split("\n").filter((l) => l.trim()).length} keys`}</Button>
+                </div>
+              </div>
+            </div>
+          )}
         </RichCard>
 
+        {/* ─── Models served ─── */}
         <RichCard
-          className="lg:col-span-2"
           header={
             <>
               <CardTitle title="Models served" sub={`${provider.models.length} in catalog`} />
@@ -455,7 +494,6 @@ export function ProviderDetail({ id }: { id: string }) {
               <p className="mb-2.5 text-[12px] text-text-subtle">
                 Call any of these as <span className="tnum text-text-muted">{provider.id}/&lt;model&gt;</span>, as a combo alias, or by the bare id.
               </p>
-              {/* filter only earns its space once the catalog is long enough to scroll */}
               {provider.models.length > 8 && (
                 <div className="mb-2.5 flex items-center gap-2">
                   <div className="relative flex-1">
@@ -468,9 +506,9 @@ export function ProviderDetail({ id }: { id: string }) {
                 </div>
               )}
               {shownModels.length === 0 ? (
-                <Empty>No model matches “{modelFilter}”.</Empty>
+                <Empty>No model matches &ldquo;{modelFilter}&rdquo;.</Empty>
               ) : (
-                <div className="max-h-[360px] divide-y divide-border-subtle overflow-y-auto rounded-brand border border-border-subtle">
+                <div className="max-h-[280px] divide-y divide-border-subtle overflow-y-auto rounded-brand border border-border-subtle">
                   {shownModels.map((m) => {
                     const st = modelTest[m.id];
                     const statusIcon = st === "ok" ? "check_circle" : st === "fail" ? "cancel" : "smart_toy";
@@ -479,7 +517,6 @@ export function ProviderDetail({ id }: { id: string }) {
                       <div key={m.id} className="group flex items-center justify-between gap-3 px-3 py-2 hover:bg-bg">
                         <div className="flex min-w-0 items-center gap-2">
                           <Icon name={statusIcon} size={15} className={`flex-none ${statusColor}`} />
-                          {/* the prefix (= provider id) is what makes the call string; show it aigetwey-style */}
                           <span className="tnum truncate text-[12.5px]">
                             <span className="text-text-subtle">{provider.id}/</span>
                             <span className="text-text">{m.id}</span>
@@ -499,7 +536,7 @@ export function ProviderDetail({ id }: { id: string }) {
                             aria-label={`Test ${m.id}`}
                             title={st === "fail" ? "Test failed — click to retry" : "Test this model"}
                           >
-                            <Icon name={st === "testing" ? "progress_activity" : "science"} size={15} />
+                            <Icon name={st === "testing" ? "progress_activity" : "wifi_tethering"} size={15} />
                           </button>
                           <button
                             onClick={() => run(`rmmodel${m.id}`, () => adminApi.removeModel(id, m.id))}
@@ -562,15 +599,6 @@ export function ProviderDetail({ id }: { id: string }) {
           })}
         />
       )}
-    </div>
-  );
-}
-
-function Row({ k, v }: { k: string; v: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-text-subtle">{k}</span>
-      <span className="truncate text-text">{v}</span>
     </div>
   );
 }
