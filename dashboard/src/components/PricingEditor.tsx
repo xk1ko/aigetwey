@@ -116,7 +116,7 @@ export function PricingEditor() {
                   const overridden = m.price_in != null || m.price_out != null;
                   return (
                     <div key={m.id} className="flex items-center gap-2 border-b border-border-subtle px-3 py-2 last:border-b-0">
-                      <span className="tnum min-w-0 flex-1 truncate text-[12.5px] text-text">{m.id}</span>
+                      <span className="tnum min-w-0 flex-1 truncate text-[13px] text-text">{m.id}</span>
                       <label className="flex items-center gap-1 text-[11px] text-text-subtle">
                         in
                         <input
@@ -124,7 +124,7 @@ export function PricingEditor() {
                           onChange={(e) => setField(p.id, m.id, "in", e.target.value)}
                           placeholder={m.default_in == null ? "—" : String(m.default_in)}
                           inputMode="decimal"
-                          className="w-16 rounded border border-border bg-bg px-1.5 py-1 text-right tnum text-[12px] text-text placeholder:text-text-subtle/60 focus:border-accent focus:outline-none"
+                          className="w-16 rounded border border-border bg-bg px-1.5 py-1 text-right tnum text-[12px] text-text placeholder:text-text-subtle focus:border-accent focus:outline-none"
                         />
                       </label>
                       <label className="flex items-center gap-1 text-[11px] text-text-subtle">
@@ -134,7 +134,7 @@ export function PricingEditor() {
                           onChange={(e) => setField(p.id, m.id, "out", e.target.value)}
                           placeholder={m.default_out == null ? "—" : String(m.default_out)}
                           inputMode="decimal"
-                          className="w-16 rounded border border-border bg-bg px-1.5 py-1 text-right tnum text-[12px] text-text placeholder:text-text-subtle/60 focus:border-accent focus:outline-none"
+                          className="w-16 rounded border border-border bg-bg px-1.5 py-1 text-right tnum text-[12px] text-text placeholder:text-text-subtle focus:border-accent focus:outline-none"
                         />
                       </label>
                       <button

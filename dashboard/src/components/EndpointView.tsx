@@ -73,7 +73,7 @@ export function EndpointView() {
                 onClick={() => {
                   void navigator.clipboard.writeText(baseUrl);
                 }}
-                className="flex items-center gap-1.5 rounded-brand border border-border-subtle px-2.5 py-1 tnum text-[12.5px] text-text hover:border-text-subtle"
+                className="flex items-center gap-1.5 rounded-brand border border-border-subtle px-2.5 py-1 tnum text-[13px] text-text hover:border-text-subtle"
               >
                 {baseUrl}
                 <Icon name="content_copy" size={13} />
@@ -203,7 +203,7 @@ function HeadroomCard({
         <div className="flex items-end gap-2">
           <div className="flex-1">
             <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-text-subtle">Proxy URL</div>
-            <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="http://localhost:8787" className="font-mono text-[12.5px]" />
+            <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="http://localhost:8787" className="font-mono text-[13px]" />
           </div>
           <Button
             variant="ghost"
@@ -273,7 +273,7 @@ function CopyRow({ label, value }: { label: string; value: string }) {
           setCopied(true);
           setTimeout(() => setCopied(false), 1200);
         }}
-        className="flex items-center gap-1.5 rounded-brand border border-border-subtle px-2.5 py-1 tnum text-[12.5px] text-text hover:border-text-subtle"
+        className="flex items-center gap-1.5 rounded-brand border border-border-subtle px-2.5 py-1 tnum text-[13px] text-text hover:border-text-subtle"
       >
         {value}
         <Icon name={copied ? "check" : "content_copy"} size={13} />
@@ -318,7 +318,7 @@ function LevelRow({ label, desc, value, busy, onChange }: { label: string; desc:
             key={lvl}
             disabled={busy}
             onClick={() => onChange(lvl)}
-            className={`rounded-full px-2.5 py-1 text-[11.5px] font-medium transition-colors ${
+            className={`rounded-full px-2.5 py-1 text-[12px] font-medium transition-colors ${
               value === lvl ? "bg-accent text-accent-ink" : "text-text-muted hover:text-text"
             }`}
           >
@@ -420,7 +420,7 @@ function TunnelRow() {
         ) : status?.enabled && status.url ? (
           <button
             onClick={() => void navigator.clipboard.writeText(status.url!)}
-            className="flex items-center gap-1.5 rounded-brand border border-border-subtle px-2.5 py-1 tnum text-[12.5px] text-text hover:border-text-subtle"
+            className="flex items-center gap-1.5 rounded-brand border border-border-subtle px-2.5 py-1 tnum text-[13px] text-text hover:border-text-subtle"
           >
             {status.url}
             <Icon name="content_copy" size={13} />

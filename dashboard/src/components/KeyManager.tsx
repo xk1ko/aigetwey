@@ -31,10 +31,20 @@ export function KeyManager() {
   const [keyBudgets, setKeyBudgets] = useState<Record<string, { limit: number; window: string }>>({});
 
   const reload = useCallback(async () => {
-    const r = await adminApi.endpoint();
+    const [r, br] = await Promise.all([
+      adminApi.endpoint(),
+      adminApi.budgets(),
+    ]);
     if (!r.ok) { setError(r.error ?? "could not reach gateway"); return; }
     setError("");
     setEp(r.data);
+    if (br.ok && br.data) {
+      const map: Record<string, { limit: number; window: string }> = {};
+      for (const b of br.data.budgets) {
+        if (b.scope.type === "key") map[b.scope.id] = { limit: b.limit, window: b.window };
+      }
+      setKeyBudgets(map);
+    }
   }, []);
 
   useEffect(() => {
@@ -52,14 +62,6 @@ export function KeyManager() {
         setGroups(grps);
       } catch { /* non-critical */ }
     })();
-    void adminApi.budgets().then((r) => {
-      if (!r.ok || !r.data) return;
-      const map: Record<string, { limit: number; window: string }> = {};
-      for (const b of r.data.budgets) {
-        if (b.scope.type === "key") map[b.scope.id] = { limit: b.limit, window: b.window };
-      }
-      setKeyBudgets(map);
-    });
   }, [reload]);
 
   async function run(label: string, fn: () => Promise<{ ok: boolean; error?: string }>) {
@@ -71,13 +73,13 @@ export function KeyManager() {
   }
 
   async function addKey(label: string, rawKey: string) {
-    const name = (label || "Gateway key").trim();
-    if (ep && ep.keys.some((k) => k.name === name)) {
+    const name = label.trim();
+    if (name && ep && ep.keys.some((k) => k.name === name)) {
       setError(`Key name "${name}" already exists`);
       return;
     }
     setBusy("genkey");
-    const r = await adminApi.addServerKey(rawKey, name);
+    const r = await adminApi.addServerKey(rawKey, name || undefined);
     setBusy("");
     if (!r.ok) { setError(r.error ?? "could not add key"); return; }
     setError("");
@@ -123,7 +125,7 @@ export function KeyManager() {
             return (
               <div
                 key={i}
-                className={`group rounded-brand-lg border bg-surface p-4 shadow-soft transition-colors ${
+                className={`group flex flex-col rounded-brand-lg border bg-surface p-4 shadow-soft transition-colors ${
                   expired ? "border-danger/35 opacity-70" : "border-border hover:border-text-subtle"
                 }`}
               >
@@ -137,20 +139,34 @@ export function KeyManager() {
                   <Badge tone={expired ? "danger" : "live"}>{expired ? "expired" : "active"}</Badge>
                 </div>
 
-                {/* tags */}
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  <Badge tone={k.models?.length ? "info" : "neutral"}>{k.models?.length ? `${k.models.length} model${k.models.length > 1 ? "s" : ""}` : "all models"}</Badge>
-                  {k.rpm && <Badge tone="neutral">{k.rpm}/min</Badge>}
-                  {budget && <Badge tone="info">${budget.limit}/{budget.window}</Badge>}
-                  {k.expires && !expired && <Badge tone="neutral">expires {fmt.date(k.expires)}</Badge>}
+                {/* info pills */}
+                <div className="mt-3 flex flex-col items-start gap-1.5">
+                  <span className="inline-flex items-center rounded-brand bg-bg px-2 py-0.5 text-[12px] text-text-muted">
+                    {k.models?.length ? `${k.models.length} model${k.models.length > 1 ? "s" : ""}` : "all models"}
+                  </span>
+                  {k.rpm && (
+                    <span className="inline-flex items-center rounded-brand bg-bg px-2 py-0.5 text-[12px] tnum text-text-muted">
+                      {k.rpm}/min
+                    </span>
+                  )}
+                  {budget && (
+                    <span className="inline-flex items-center rounded-brand bg-accent-soft px-2 py-0.5 text-[12px] tnum text-accent">
+                      ${budget.limit} / {budget.window.replace("day", " days").replace("h", "h")}
+                    </span>
+                  )}
+                  {k.expires && !expired && (
+                    <span className="inline-flex items-center rounded-brand bg-bg px-2 py-0.5 text-[12px] tnum text-text-subtle">
+                      expires {fmt.date(k.expires)}
+                    </span>
+                  )}
                 </div>
 
                 {/* actions */}
-                <div className="mt-4 flex items-center gap-2">
-                  <button onClick={() => { setScopeKey(i); }} className="inline-flex items-center gap-1.5 rounded-brand border border-border px-3 py-1.5 text-[12.5px] text-text-muted hover:border-text-subtle hover:text-text">
+                <div className="mt-auto flex items-center gap-2 pt-4">
+                  <button onClick={() => { setScopeKey(i); }} className="inline-flex items-center gap-1.5 rounded-brand border border-border px-3 py-1.5 text-[13px] text-text-muted hover:border-text-subtle hover:text-text">
                     <Icon name="edit" size={14} /> Edit
                   </button>
-                  <button onClick={() => setPendingDel({ i, label: k.name || k.key })} className="inline-flex items-center gap-1.5 rounded-brand border border-border px-3 py-1.5 text-[12.5px] text-text-muted hover:border-danger/40 hover:text-danger">
+                  <button onClick={() => setPendingDel({ i, label: k.name || k.key })} className="inline-flex items-center gap-1.5 rounded-brand border border-border px-3 py-1.5 text-[13px] text-text-muted hover:border-danger/40 hover:text-danger">
                     <Icon name="delete" size={14} /> Remove
                   </button>
                 </div>
@@ -176,11 +192,11 @@ export function KeyManager() {
       {/* New key reveal modal */}
       {created && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6" onClick={() => setCreated(null)}>
-          <div className="w-full max-w-sm rounded-brand-lg border border-border bg-surface p-5 shadow-elevated" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-lg rounded-brand-lg border border-border bg-surface p-5 shadow-elevated" onClick={(e) => e.stopPropagation()}>
             <h2 className="mb-2 text-[14px] font-semibold text-text">Key created — copy it now</h2>
-            <p className="mb-3 text-[12px] text-text-muted">This is the only time the full key is shown.</p>
+            <p className="mb-3 text-[12px] text-text-muted">Copy your key now. You can reveal it later, but storing it saves time.</p>
             <div className="flex items-center gap-2 rounded-brand bg-bg px-3 py-2">
-              <code className="flex-1 break-all text-[11.5px] text-text">{created.key}</code>
+              <code className="flex-1 truncate text-[12px] text-text">{created.key}</code>
               <button onClick={() => void navigator.clipboard.writeText(created.key)} className="text-text-subtle hover:text-text"><Icon name="content_copy" size={14} /></button>
             </div>
             <Button className="mt-4 w-full" onClick={() => setCreated(null)}>Done</Button>
@@ -224,18 +240,18 @@ function KeyRevealInline({ name, masked, reveal }: { name: string; masked: strin
   return (
     <div className="min-w-0">
       <span className="flex items-center gap-1.5">
-        <span className="truncate text-[13.5px] font-semibold text-text">{name}</span>
+        <span className="truncate text-[14px] font-semibold text-text">{name}</span>
+      </span>
+      <span className={`flex items-center gap-1.5 text-[12px] text-text-subtle tnum ${shown ? "break-all" : ""}`}>
         <button
           onClick={toggle}
           disabled={loading}
-          className="flex-none text-text-subtle transition-colors hover:text-text disabled:opacity-40"
+          className="flex flex-none items-center justify-center leading-none text-text-muted transition-colors hover:text-accent disabled:opacity-40"
           aria-label={shown ? "Hide key" : "Show key"}
           title={shown ? "Hide key" : "Show key"}
         >
           <Icon name={loading ? "hourglass_empty" : shown ? "visibility_off" : "visibility"} size={14} />
         </button>
-      </span>
-      <span className={`flex items-center gap-1.5 text-[12px] text-text-subtle tnum ${shown ? "break-all" : ""}`}>
         <span className={shown ? "" : "truncate"}>{shown && real ? real : masked}</span>
         {shown && real && (
           <button

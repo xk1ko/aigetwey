@@ -65,7 +65,7 @@ function UpdateModal({
           </button>
         </div>
 
-        <p className="mb-3 text-[12.5px] text-text-muted">
+        <p className="mb-3 text-[13px] text-text-muted">
           Run this command in your terminal to update:
         </p>
 
@@ -87,14 +87,14 @@ function UpdateModal({
         <div className="mt-4 flex gap-2">
           <button
             onClick={() => { copy(); onShutdown(); }}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-brand border border-warning/30 bg-warning/10 px-3 py-2 text-[12.5px] font-medium text-warning transition-colors hover:bg-warning/20"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-brand border border-warning/30 bg-warning/10 px-3 py-2 text-[13px] font-medium text-warning transition-colors hover:bg-warning/20"
           >
             <Icon name="content_copy" size={14} />
             Copy &amp; Shut down
           </button>
           <button
             onClick={onClose}
-            className="rounded-brand border border-border px-3 py-2 text-[12.5px] text-text-muted transition-colors hover:text-text"
+            className="rounded-brand border border-border px-3 py-2 text-[13px] text-text-muted transition-colors hover:text-text"
           >
             Later
           </button>
@@ -241,7 +241,7 @@ export function TopBar() {
               <Icon name="power_settings_new" size={20} />
             </span>
             <h2 className="text-[15px] font-semibold text-text">Gateway stopped</h2>
-            <p className="mt-1 text-[12.5px] text-text-muted">
+            <p className="mt-1 text-[13px] text-text-muted">
               Run <code className="rounded bg-surface-2 px-1">{CMD}</code> then restart with <code className="rounded bg-surface-2 px-1">aigetwey</code>.
             </p>
           </div>

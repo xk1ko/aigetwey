@@ -198,7 +198,7 @@ export function LogTable({ logs: initial }: { logs: UsageLog[] }) {
                   {["Status", "Time", "Alias", "Provider", "Model", "In", "Out", "ms", "Mode"].map((h, i) => (
                     <th
                       key={h + i}
-                      className={`whitespace-nowrap px-4 pb-2.5 pt-3 text-[10px] font-medium uppercase tracking-wider ${
+                      className={`whitespace-nowrap px-4 pb-2.5 pt-3 text-[11px] font-medium uppercase tracking-wider ${
                         i >= 5 && i <= 7 ? "text-right" : "text-left"
                       }`}
                     >
@@ -302,7 +302,7 @@ function FilterPill({
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder={`Search ${label.toLowerCase()}…`}
                     autoFocus
-                    className="flex-1 bg-transparent text-[12.5px] text-text placeholder:text-text-subtle outline-none"
+                    className="flex-1 bg-transparent text-[13px] text-text placeholder:text-text-subtle outline-none"
                   />
                   {search && (
                     <button onClick={() => setSearch("")} className="text-text-subtle hover:text-text">
@@ -321,7 +321,7 @@ function FilterPill({
                   <button
                     key={o.value}
                     onClick={() => { onChange(o.value); setOpen(false); }}
-                    className={`flex w-full items-center gap-2.5 px-4 py-2 text-left text-[12.5px] transition-colors ${
+                    className={`flex w-full items-center gap-2.5 px-4 py-2 text-left text-[13px] transition-colors ${
                       value === o.value ? "bg-accent/10 text-accent" : "text-text-muted hover:bg-surface-2 hover:text-text"
                     }`}
                   >
@@ -358,7 +358,7 @@ function Td({
     <td
       title={title}
       suppressHydrationWarning={suppressHydrationWarning}
-      className={`whitespace-nowrap px-4 py-2.5 tnum text-[12.5px] ${right ? "text-right" : "text-left"} ${
+      className={`whitespace-nowrap px-4 py-2.5 tnum text-[13px] ${right ? "text-right" : "text-left"} ${
         muted ? "text-text-muted" : "text-text"
       }${className ? ` ${className}` : ""}`}
     >
@@ -400,7 +400,7 @@ function RequestDetail({ log, onClose }: { log: UsageLog; onClose: () => void })
 function DetailCell({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <span className="text-[10px] uppercase tracking-wider text-text-subtle">{label}</span>
+      <span className="text-[11px] uppercase tracking-wider text-text-subtle">{label}</span>
       <div className="tnum text-text">{value}</div>
     </div>
   );

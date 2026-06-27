@@ -74,10 +74,7 @@ export function CliToolConfig() {
                   <Badge tone="neutral">not detected</Badge>
                 )}
               </div>
-              <p className="mt-2 text-[12.5px] text-text-muted">{t.blurb}</p>
-              <span className="mt-3 inline-flex items-center gap-1 text-[12px] text-text-subtle group-hover:text-text">
-                Setup <Icon name="arrow_forward" size={14} />
-              </span>
+              <p className="mt-2 text-[13px] text-text-muted">{t.blurb}</p>
             </Link>
           );
         })}

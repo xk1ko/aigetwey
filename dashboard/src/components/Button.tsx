@@ -89,7 +89,7 @@ export function Select({
                 onChange?.({ target: { value: o.value } } as React.ChangeEvent<HTMLSelectElement>);
                 setOpen(false);
               }}
-              className={`flex w-full items-center gap-2 px-3 py-2 text-left text-[12.5px] transition-colors ${
+              className={`flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] transition-colors ${
                 o.value === String(value ?? "") ? "bg-accent/10 text-accent" : "text-text-muted hover:bg-surface-2 hover:text-text"
               }`}
             >
@@ -115,7 +115,7 @@ export function Field({
     <label className="flex flex-col gap-1.5">
       <span className="text-[11px] font-medium uppercase tracking-wider text-text-subtle">
         {label}
-        {hint && <span className="ml-1.5 lowercase tracking-normal text-text-subtle/70">· {hint}</span>}
+        {hint && <span className="ml-1.5 lowercase tracking-normal text-text-subtle">· {hint}</span>}
       </span>
       {children}
     </label>

@@ -16,8 +16,8 @@
   --color-border-subtle: #1f1f1d;
 
   --color-text: #ededec;
-  --color-text-muted: #8d8d86;
-  --color-text-subtle: #5c5c56;
+  --color-text-muted: #9c9c94;
+  --color-text-subtle: #787871;
 
   --color-accent: #cbe85a;
   --color-accent-hover: #d6f06a;
@@ -54,8 +54,8 @@ html.light {
   --color-border: #e0e0dc;
   --color-border-subtle: #eaeae7;
   --color-text: #1a1a18;
-  --color-text-muted: #6b6b65;
-  --color-text-subtle: #9b9b94;
+  --color-text-muted: #5e5e58;
+  --color-text-subtle: #84847d;
   --color-accent: #6b8f20;
   --color-accent-hover: #7ba025;
   --color-accent-ink: #ffffff;
@@ -123,7 +123,7 @@ html.light .rail-icon-active:hover {
   background: #333330;
 }
 
-/* status lamp — green when live, red pulse on cooldown */
+/* status lamp — green when live, red when down, grey when idle */
 .lamp {
   display: inline-block;
   width: 8px;
@@ -141,21 +141,6 @@ html.light .rail-icon-active:hover {
 .lamp-down {
   background: var(--color-danger);
   box-shadow: 0 0 6px 1px color-mix(in srgb, var(--color-danger) 60%, transparent);
-  animation: pulse 1.4s ease-in-out infinite;
-}
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.35;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .lamp-down {
-    animation: none;
-  }
 }
 
 /* console shell — floating icon-island rail + main column with sticky top bar */
