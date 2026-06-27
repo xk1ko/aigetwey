@@ -158,10 +158,13 @@ export function TopBar() {
 
         <button
           onClick={toggle}
-          className="flex h-8 w-8 items-center justify-center rounded-full text-text-subtle transition-colors hover:text-text"
+          className={`group relative flex h-8 w-8 items-center justify-center rounded-full text-text-subtle transition-colors hover:text-text ${theme === "dark" ? "hover:animate-[shake_0.4s_ease-in-out]" : ""}`}
           aria-label="Toggle theme"
-          title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          title={theme === "dark" ? "FLASHBANG OUT!" : "Switch to dark mode"}
         >
+          {theme === "dark" && (
+            <span className="pointer-events-none absolute inset-0 rounded-full opacity-0 group-hover:animate-[flash_0.3s_ease-out] group-hover:opacity-100 bg-white/80" />
+          )}
           {theme === "dark" ? (
             <svg viewBox="0 -1 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
               {/* top canister (small) */}
