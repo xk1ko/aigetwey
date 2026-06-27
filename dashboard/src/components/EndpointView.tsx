@@ -319,7 +319,7 @@ function LevelRow({ label, desc, value, busy, onChange }: { label: string; desc:
             disabled={busy}
             onClick={() => onChange(lvl)}
             className={`rounded-full px-2.5 py-1 text-[11.5px] font-medium transition-colors ${
-              value === lvl ? "bg-surface-2 text-text" : "text-text-muted hover:text-text"
+              value === lvl ? "bg-accent text-accent-ink" : "text-text-muted hover:text-text"
             }`}
           >
             {lvl}
