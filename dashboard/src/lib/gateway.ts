@@ -287,6 +287,7 @@ export interface UsageLog {
   status: number;
   latency_ms: number;
   stream: number;
+  client_key: string;
 }
 export interface UsageSummary {
   total: { requests: number; tokens_in: number; tokens_out: number; cost: number };
