@@ -758,24 +758,24 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
   });
 
   // ---- autostart: query/toggle run-on-OS-startup ----
-  app.get("/admin/autostart", requireAdmin, (_req, reply) => {
+  app.get("/admin/autostart", requireAdmin, async (_req, reply) => {
     try {
-      const { isAutoStartEnabled } = require("../cli/tray/autostart.js") as typeof import("../cli/tray/autostart.js");
+      const { isAutoStartEnabled } = await import("../cli/tray/autostart.js");
       reply.send({ enabled: isAutoStartEnabled() });
     } catch {
       reply.send({ enabled: false });
     }
   });
 
-  app.post("/admin/autostart", requireAdmin, (req, reply) => {
+  app.post("/admin/autostart", requireAdmin, async (req, reply) => {
     const { enabled } = (req.body ?? {}) as { enabled?: boolean };
     try {
       if (enabled) {
-        const { enableAutoStart } = require("../cli/tray/autostart.js") as typeof import("../cli/tray/autostart.js");
+        const { enableAutoStart } = await import("../cli/tray/autostart.js");
         const ok = enableAutoStart();
         reply.send({ enabled: ok });
       } else {
-        const { disableAutoStart } = require("../cli/tray/autostart.js") as typeof import("../cli/tray/autostart.js");
+        const { disableAutoStart } = await import("../cli/tray/autostart.js");
         disableAutoStart();
         reply.send({ enabled: false });
       }
