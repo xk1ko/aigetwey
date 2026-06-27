@@ -785,18 +785,23 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
   });
 
   // ---- tunnel: Cloudflare Quick Tunnel for remote access ----
+  const tunnelSecurity = () => ({
+    hasAuth: (deps.state.config.raw.server?.api_keys ?? []).length > 0,
+    isDefaultPassword: deps.auth.verify("123456"),
+  });
+
   app.get("/admin/tunnel", requireAdmin, async (_req, reply) => {
     const { isTunnelRunning, getTunnelUrl } = await import("../tunnel/cloudflared.js");
-    reply.send({ enabled: isTunnelRunning(), url: getTunnelUrl() });
+    reply.send({ enabled: isTunnelRunning(), url: getTunnelUrl(), ...tunnelSecurity() });
   });
 
   app.post("/admin/tunnel", requireAdmin, async (_req, reply) => {
     const { startQuickTunnel, isTunnelRunning, getTunnelUrl } = await import("../tunnel/cloudflared.js");
-    if (isTunnelRunning()) return reply.send({ enabled: true, url: getTunnelUrl() });
+    if (isTunnelRunning()) return reply.send({ enabled: true, url: getTunnelUrl(), ...tunnelSecurity() });
     const port = deps.state.config.raw.server?.port ?? 18080;
     try {
       const url = await startQuickTunnel(port);
-      reply.send({ enabled: true, url });
+      reply.send({ enabled: true, url, ...tunnelSecurity() });
     } catch (e) {
       reply.code(500).send({ error: String((e as Error).message) });
     }
@@ -805,7 +810,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
   app.delete("/admin/tunnel", requireAdmin, async (_req, reply) => {
     const { stopTunnel } = await import("../tunnel/cloudflared.js");
     stopTunnel();
-    reply.send({ enabled: false, url: null });
+    reply.send({ enabled: false, url: null, ...tunnelSecurity() });
   });
 
   // ---- shutdown: stop the gateway process (dashboard power button) ----
