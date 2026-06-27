@@ -52,7 +52,7 @@ export function EndpointView() {
   if (error) return <Empty>{error}</Empty>;
   if (!ep) return <Empty>Loading…</Empty>;
 
-  const baseUrl = `http://127.0.0.1:${ep.port}`;
+  const baseUrl = `http://localhost:${ep.port}`;
 
   return (
     <div>
@@ -81,11 +81,6 @@ export function EndpointView() {
             </div>
             <TunnelRow />
           </div>
-          <p className="mt-3 text-[12px] text-text-subtle">
-            One gateway, both formats. Anthropic clients (Claude Code) use it as-is; OpenAI clients (opencode,
-            Cursor, Codex) append <span className="tnum">/v1</span>. The <span className="text-text-muted">CLI Tools</span>{" "}
-            page has copy-ready env per tool.
-          </p>
         </RichCard>
 
         <RichCard className="lg:col-span-2" header={<CardTitle title="Token savers" sub="applied to every request before routing" />}>
@@ -363,9 +358,13 @@ function Badge({
 }
 
 function TunnelRow() {
-  const [status, setStatus] = useState<{ enabled: boolean; url: string | null } | null>(null);
+  const [status, setStatus] = useState<{ enabled: boolean; url: string | null; hasAuth?: boolean; isDefaultPassword?: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [dismissed, setDismissed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("tunnel-warning-dismissed") === "1";
+  });
 
   useEffect(() => {
     void fetch("/api/gw/admin/tunnel").then(async (r) => {
@@ -387,8 +386,16 @@ function TunnelRow() {
     setBusy(false);
   }
 
+  function dismiss() {
+    setDismissed(true);
+    localStorage.setItem("tunnel-warning-dismissed", "1");
+  }
+
+  const isUnsafe = status && !status.enabled && (!status.hasAuth || status.isDefaultPassword);
+  const showWarning = isUnsafe && !dismissed;
+
   return (
-    <div>
+    <div className="space-y-2">
       <div className="flex items-center gap-3">
         {status?.enabled ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 px-2.5 py-0.5 text-[11px] font-medium text-blue-400">
@@ -407,7 +414,7 @@ function TunnelRow() {
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
-            {status?.enabled ? "Disconnecting…" : "Starting tunnel…"}
+            {status?.enabled ? "Disconnecting…" : "Starting tunnel… this may take a few seconds"}
           </span>
         ) : status?.enabled && status.url ? (
           <button
@@ -423,12 +430,29 @@ function TunnelRow() {
             variant={status?.enabled ? "ghost" : "primary"}
             disabled={busy}
             onClick={toggle}
+            className="!px-2.5 !py-1 !text-[11.5px]"
           >
-            <Icon name={status?.enabled ? "link_off" : "link"} size={14} />
+            <Icon name={status?.enabled ? "link_off" : "link"} size={12} />
             {status?.enabled ? "Disable" : "Enable"}
           </Button>
         )}
       </div>
+      {showWarning && (
+        <div className="flex items-start gap-2 rounded-brand border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[12px] text-amber-400">
+          <Icon name="warning" size={14} className="mt-0.5 shrink-0" />
+          <div className="flex-1 space-y-0.5">
+            {!status?.hasAuth && (
+              <p>No API keys — <a href="/keys" className="font-medium text-amber-300 underline underline-offset-2 decoration-amber-300/50 hover:decoration-amber-300">add in Access Keys</a> before enabling tunnel.</p>
+            )}
+            {status?.isDefaultPassword && (
+              <p>Default password — <a href="/config" className="font-medium text-amber-300 underline underline-offset-2 decoration-amber-300/50 hover:decoration-amber-300">change in Settings</a> before enabling tunnel.</p>
+            )}
+          </div>
+          <button onClick={dismiss} className="shrink-0 p-0.5 rounded hover:bg-amber-500/10 text-amber-400/60 hover:text-amber-400">
+            <Icon name="close" size={14} />
+          </button>
+        </div>
+      )}
       {err && <p className="mt-1.5 text-[11px] text-danger">{err}</p>}
     </div>
   );
