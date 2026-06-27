@@ -127,7 +127,7 @@ export const PROVIDER_CAPABILITIES: Record<string, Record<string, Partial<Caps>>
   // (see registry thinkingFormat). `onlyReasoning` models can't turn thinking
   // off → thinkingCanDisable:false (clamped to minimal instead of disabled).
   "codebuddy-cn": {
-    "glm-5.2":            { reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 1000000, maxOutput: 48000 },
+    "glm-5.2":            { vision: true, reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 1000000, maxOutput: 48000 },
     "glm-5.1":            { reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 200000, maxOutput: 48000 },
     "glm-5.0":            { reasoning: true, thinkingFormat: "openai", contextWindow: 200000, maxOutput: 48000 },
     "glm-5.0-turbo":      { reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 200000, maxOutput: 48000 },
