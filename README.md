@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>Personal AI gateway for CLI coding tools</strong><br>
+  <strong>Personal AI gateway — one endpoint, every app</strong><br>
   One endpoint · format translation · fallback routing · token saving · spend control
 </p>
 
@@ -13,16 +13,17 @@
   <img src="https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg" alt="Node ≥22">
 </p>
 
+<p align="center">
+  <a href="#features">Features</a> · <a href="#getting-started">Quick Start</a> · <a href="#token-savers">Token Savers</a> · <a href="#configuration">Config</a> · <a href="#memulai">Bahasa Indonesia</a>
+</p>
+
 ---
 
-Point Claude Code, opencode, Cursor, Cline, or Codex at `localhost:18080` and get:
+## Why aigetwey?
 
-- **Format translation** — clients speak OpenAI or Anthropic; the gateway translates on the fly, streaming included
-- **Fallback routing** — one model alias resolves to a priority chain of providers; on 429/5xx/timeout it rotates keys and falls through
-- **Token savers** — RTK compresses `tool_result`, caveman trims prose, ponytail nudges minimal code, headroom compresses context — all toggleable per-endpoint
-- **Access keys** — hand a gateway key to anyone; set model allowlist, rate limit, spend cap, and expiry per key
-- **Budgets** — rolling spend caps (global/provider/model/key) with live countdown, SQLite cost tracking per token type
-- **Dashboard** — providers, combos, usage, budgets, CLI tools, live console, settings, drag-to-reorder
+Every AI app speaks a different API format. Every provider has different keys, models, and rate limits. You juggle configs, hit quota walls mid-session, and lose track of spend.
+
+**aigetwey fixes this.** One local endpoint, one key. Point any app at it — Claude Code, opencode, Cursor, Codex, or anything that supports a custom base URL. It translates formats, routes across providers with automatic fallback, compresses token-heavy context, and tracks every cent.
 
 ```bash
 npm install -g aigetwey && aigetwey
@@ -30,19 +31,29 @@ npm install -g aigetwey && aigetwey
 
 First run bootstraps everything. Subsequent runs start instantly.
 
-<p align="center">
-  <img src="./assets/screenshot-endpoint.png" width="860" alt="Endpoint">
-</p>
-<p align="center">
-  <img src="./assets/screenshot-accesskey.png" width="860" alt="Access Keys">
-</p>
-<p align="center">
-  <img src="./assets/screenshot-budgets.png" width="860" alt="Budgets">
-</p>
+---
 
-**Language:** [English](#getting-started) · [Bahasa Indonesia](#memulai)
+## Features
 
-See [CHANGELOG.md](./CHANGELOG.md) for release history.
+- **Format translation** — OpenAI ↔ Anthropic on the fly, streaming included
+- **Fallback routing** — combo alias → provider chain; auto-rotates keys on 429/5xx/timeout
+- **Token savers** — RTK compresses tool results, caveman trims prose, ponytail nudges minimal code, headroom compresses context
+- **Access keys** — share gateway keys with model allowlist, rate limit, spend cap, and expiry
+- **Budgets** — rolling spend caps (global/provider/model/key) with live countdown and per-token-type cost tracking
+- **Dashboard** — providers, combos, usage, budgets, CLI tools, live console, settings — all drag-to-reorder
+
+<p align="center">
+  <img src="./assets/screenshot-endpoint.png" width="860" alt="Endpoint page">
+  <br><sub>Endpoint page — token saver toggles & endpoint config</sub>
+</p>
+<p align="center">
+  <img src="./assets/screenshot-accesskey.png" width="860" alt="Access Keys page">
+  <br><sub>Access Keys — model allowlist, rate limit, spend cap per key</sub>
+</p>
+<p align="center">
+  <img src="./assets/screenshot-budgets.png" width="860" alt="Budgets page">
+  <br><sub>Budgets — rolling spend caps with live countdown</sub>
+</p>
 
 ---
 
@@ -86,6 +97,8 @@ The dashboard's **CLI Tools** page detects installed tools and writes configs fo
 
 **Model resolution** (in order): combo alias → `provider/model`.
 
+Any app that supports a custom base URL + API key can use aigetwey — just set the model to `provider/model`.
+
 ---
 
 ## Configuration
@@ -107,6 +120,7 @@ endpoint:
   rtk: true                 # compress tool_result blocks
   caveman: full             # off | lite | full | ultra
   ponytail: lite            # off | lite | full | ultra
+  headroom: off             # off | on — requires external headroom proxy
 
 providers:
   - id: anthropic
@@ -117,7 +131,7 @@ providers:
     format: openai
     base_url: https://opencode.ai/zen/v1
     free: true
-    auto_models: true
+    # auto_models: false    # fetch provider's /v1/models catalog (manual)
 
 models:
   - alias: claude-sonnet-4-6
@@ -188,6 +202,8 @@ aigetwey
 
 Run pertama bootstrap otomatis — buat `config.yaml`, build dashboard, buka browser. Satu URL untuk semuanya: `http://localhost:18080`.
 
+Menu terminal: **Web UI** / **Terminal** (logs) / **Hide to Tray** (macOS + Linux) / **Exit**.
+
 ### Hubungkan tool
 
 ```bash
@@ -200,16 +216,16 @@ export OPENAI_BASE_URL=http://localhost:18080/v1
 export OPENAI_API_KEY=my-key
 ```
 
-Halaman **CLI Tools** di dashboard mendeteksi tool dan menulis config otomatis.
+Halaman **CLI Tools** di dashboard mendeteksi tool dan menulis config otomatis. App lain yang support custom base URL + API key bisa langsung pakai dengan model `provider/model`.
 
 ### Fitur utama
 
-- **Satu endpoint, semua format** — translate OpenAI ↔ Anthropic otomatis, termasuk streaming
-- **Routing + fallback** — alias model → rantai provider berprioritas; rotasi key saat 429/5xx/timeout
-- **Penghemat token** — RTK, Caveman, Ponytail (built-in) + Headroom (eksternal)
-- **Access keys** — bagi key ke teman dengan allowlist model, rate limit, batas spend, dan kedaluwarsa
-- **Budget** — spend cap rolling (5h/24h/7day/30day) dengan countdown dan tracking per jenis token
-- **Dashboard** — providers, combos, usage, budgets, CLI tools, console live, settings, drag-to-reorder
+- **Format translation** — translate OpenAI ↔ Anthropic otomatis, termasuk streaming
+- **Fallback routing** — alias model → rantai provider; rotasi key saat 429/5xx/timeout
+- **Token savers** — RTK, Caveman, Ponytail (built-in) + Headroom (eksternal)
+- **Access keys** — bagi key dengan allowlist model, rate limit, batas spend, kedaluwarsa
+- **Budgets** — spend cap rolling (5h/24h/7day/30day) dengan countdown dan tracking per jenis token
+- **Dashboard** — providers, combos, usage, budgets, CLI tools, console live, settings
 
 ### Penghemat token
 
@@ -221,15 +237,20 @@ RTK, Caveman, Ponytail = **built-in**. Hanya Headroom yang **eksternal** (Python
 
 **Combo** = entry `models`: alias → rantai provider. Strategy: `fallback` (default) atau `round-robin`.
 
-**Resolusi model**: alias combo → `provider/model` → id model polos (deteksi otomatis).
+**Resolusi model**: alias combo → `provider/model`.
 
 ### Environment
 
 Gateway: `AIGETWEY_CONFIG`, `AIGETWEY_DATA_DIR`, `AIGETWEY_ADMIN_PASSWORD`, `AIGETWEY_PORT`.
-
 Dashboard: `GATEWAY_URL`, `ADMIN_PASSWORD`, `SESSION_SECRET`.
 
 Password admin dan key provider tidak pernah sampai ke browser.
+
+---
+
+## ⭐ Star this repo
+
+If aigetwey helps you, consider giving it a star — it helps others discover it.
 
 ---
 
