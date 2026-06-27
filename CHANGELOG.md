@@ -5,6 +5,17 @@ All notable changes to **aigetwey** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] — 2026-06-28
+
+### Added
+- **Changelog popup** — click version badge in top bar to view full changelog;
+  fetches from GitHub and renders markdown inline
+
+### Fixed
+- **Windows tray icon** — generates `.ico` from PNG at runtime and loads via
+  `System.Drawing.Icon(stream)` instead of PNG→Bitmap→GetHicon (native format,
+  correct sizing + transparency)
+
 ## [1.5.0] — 2026-06-28
 
 ### Added

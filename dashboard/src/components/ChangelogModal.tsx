@@ -6,7 +6,7 @@ import { Icon } from "./Icon";
 
 const CHANGELOG_URL = "https://raw.githubusercontent.com/xk1ko/aigetwey/main/CHANGELOG.md";
 
-marked.setOptions({ gfm: true, breaks: true });
+marked.setOptions({ gfm: true, breaks: false });
 
 export function ChangelogModal({ onClose }: { onClose: () => void }) {
   const [html, setHtml] = useState("");

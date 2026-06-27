@@ -143,15 +143,7 @@ export function TopBar() {
 
       <div className="ml-auto flex items-center gap-2.5">
         {version && (
-          version.updateAvailable ? (
-            <button
-              onClick={() => setShowUpdate(true)}
-              className="flex items-center gap-1.5 rounded-full border border-warning/30 bg-warning/10 px-2.5 py-1 text-[11px] font-medium text-warning transition-colors hover:bg-warning/20"
-            >
-              <Icon name="arrow_upward" size={12} />
-              v{version.current} → {version.latest}
-            </button>
-          ) : (
+          <>
             <button
               onClick={() => setShowChangelog(true)}
               className="rounded-full px-2 py-1 text-[11px] text-text-subtle transition-colors hover:text-text hover:bg-surface-2"
@@ -159,7 +151,16 @@ export function TopBar() {
             >
               v{version.current}
             </button>
-          )
+            {version.updateAvailable && (
+              <button
+                onClick={() => setShowUpdate(true)}
+                className="flex items-center gap-1.5 rounded-full border border-warning/30 bg-warning/10 px-2.5 py-1 text-[11px] font-medium text-warning transition-colors hover:bg-warning/20"
+              >
+                <Icon name="arrow_upward" size={12} />
+                → {version.latest}
+              </button>
+            )}
+          </>
         )}
 
         <button
