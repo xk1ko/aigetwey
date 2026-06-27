@@ -23,8 +23,12 @@ type Json = Record<string, unknown>;
 
 async function onPath(bin: string): Promise<boolean> {
   try {
-    const cmd = os.platform() === "win32" ? `where ${bin}` : `which ${bin}`;
-    await execAsync(cmd, { windowsHide: true });
+    const isWin = os.platform() === "win32";
+    const cmd = isWin ? `where ${bin}` : `which ${bin}`;
+    const env = isWin
+      ? { ...process.env, PATH: `${process.env.APPDATA}\\npm;${process.env.PATH ?? ""}` }
+      : process.env;
+    await execAsync(cmd, { windowsHide: true, env });
     return true;
   } catch {
     return false;

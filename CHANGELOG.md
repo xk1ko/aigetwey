@@ -19,14 +19,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   one-click removal without navigating to detail page
 - **Provider bulk select** — select mode toggles multiple providers at once;
   click card to select, bulk delete button in header
+- **Provider import/export (JSON)** — export providers as JSON for sharing;
+  import merges new providers and adds new keys to existing ones without
+  wiping current config
 
 ### Changed
 - **Combo pricing auto-detected** — removed manual price_in/price_out fields
   from combo form; pricing now resolves from model patterns automatically
 - **Key toggle indicator** — disabled keys now show red lamp + red toggle icon
   (was gray), matching provider disabled state styling
+- **CLI tools detection status on cards** — detected/not-detected badge shown
+  directly on tool cards (no need to click into detail)
 
 ### Fixed
+- **Windows system tray** — `trayWin.ts` was missing entirely; now implemented
+  via PowerShell NotifyIcon (no native binary needed)
+- **opencode detection on Windows** — inject `%APPDATA%/npm` into PATH so
+  `where opencode` finds npm global installs
 - **GLM-5.2 vision capability** — marked as vision-capable in provider
   overrides so image input routes correctly
 - **CLI Tools endpoint dropdown** — shows `__auto__` label instead of raw URL
