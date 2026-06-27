@@ -69,7 +69,7 @@ const HELP = `
 `;
 
 const GATEWAY_PORT = opts.port ?? Number(process.env.AIGETWEY_PORT ?? 18080);
-const DASHBOARD_PORT = Number(process.env.DASHBOARD_PORT ?? 3000);
+const DASHBOARD_PORT = Number(process.env.DASHBOARD_PORT ?? 18081);
 
 const adminPassword = process.env.AIGETWEY_ADMIN_PASSWORD ?? "123456";
 const generatedPw = !process.env.AIGETWEY_ADMIN_PASSWORD;
@@ -190,7 +190,7 @@ async function ensurePortFree(port: number, envVar: string): Promise<void> {
     // ps failed — fall through to the unknown-owner branch
   }
 
-  if (!/next|node|tsx|aigetwey/.test(cmd)) {
+  if (!/aigetwey/.test(cmd)) {
     console.error(
       `  port ${port} is in use by another process (pid ${pid}). free it or set ${envVar}.`,
     );
