@@ -6,6 +6,11 @@ const nextConfig: NextConfig = {
   // dashboard talks to the gateway only server-side (route handlers proxy
   // /admin/*), so no rewrites/CORS needed here.
   reactStrictMode: true,
+  // Standalone output bundles only the deps Next.js actually uses into
+  // .next/standalone/node_modules — eliminates the need for a full
+  // `npm install` at runtime. The published npm package ships this dir
+  // so users never see "installing dashboard dependencies".
+  output: "standalone",
   // allow dev HMR/resource requests from loopback hosts so client hydration
   // works regardless of which host name opens the app (localhost vs 127.0.0.1).
   allowedDevOrigins: ["localhost", "127.0.0.1"],
