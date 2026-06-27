@@ -8,6 +8,9 @@ import { ModelPicker, type ModelGroup } from "@/components/ModelPicker";
 import type { BudgetStatus, ModelsPayload } from "@/lib/gateway";
 
 const WINDOWS = ["5h", "24h", "7day", "30day"] as const;
+const WINDOW_LABELS: Record<string, string> = {
+  "5h": "5H", "24h": "24H", "7day": "7D", "30day": "30D",
+};
 type ScopeType = "global" | "provider" | "model";
 
 /** Segment-pill button style — selected = accent, matches the Unit toggle. */
@@ -62,7 +65,8 @@ export function BudgetForm({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [unit, setUnit] = useState<"usd" | "tokens">(initial?.unit ?? "usd");
   const [limit, setLimit] = useState(String(initial?.limit ?? ""));
-  const [window, setWindow] = useState<(typeof WINDOWS)[number]>(initial?.window ?? "30day");
+  const [window, setWindow] = useState<string>(initial?.window ?? "30day");
+  const [customWindow, setCustomWindow] = useState("");
   const [alertAt, setAlertAt] = useState(initial ? String(Math.round(initial.alert_at * 100)) : "80");
   const [note, setNote] = useState(initial?.note ?? "");
   const [error, setError] = useState("");
@@ -92,7 +96,7 @@ export function BudgetForm({
     setSaving(true);
     setError("");
     try {
-      const r = await adminApi.setBudget({ scope, unit, limit: limitNum, window, alert_at: alertPct / 100, note: note.trim() || undefined });
+      const r = await adminApi.setBudget({ scope, unit, limit: limitNum, window: customWindow || window, alert_at: alertPct / 100, note: note.trim() || undefined });
       if (!r.ok) return setError(r.error ?? "could not save budget");
       onSaved();
     } finally {
@@ -109,7 +113,7 @@ export function BudgetForm({
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-[14px] font-semibold text-text">Add a budget</h2>
-            <p className="mt-0.5 text-[12.5px] text-text-muted">Pick what this budget caps — the rest is one short form.</p>
+            <p className="mt-0.5 text-[13px] text-text-muted">Pick what this budget caps — the rest is one short form.</p>
           </div>
           <button type="button" onClick={onCancel} className="flex-none text-text-subtle hover:text-text" aria-label="Cancel">
             <Icon name="close" size={18} />
@@ -127,8 +131,8 @@ export function BudgetForm({
                 <Icon name={s.icon} size={20} />
               </span>
               <span className="min-w-0">
-                <span className="block text-[13.5px] font-semibold text-text">{s.label}</span>
-                <span className="mt-1 block text-[11.5px] text-text-muted">{s.hint}</span>
+                <span className="block text-[14px] font-semibold text-text">{s.label}</span>
+                <span className="mt-1 block text-[12px] text-text-muted">{s.hint}</span>
               </span>
             </button>
           ))}
@@ -147,7 +151,7 @@ export function BudgetForm({
           <Icon name={scopeMeta.icon} size={17} />
         </span>
         <div>
-          <div className="text-[13.5px] font-semibold text-text">{editing ? "Edit budget" : scopeMeta.label}</div>
+          <div className="text-[14px] font-semibold text-text">{editing ? "Edit budget" : scopeMeta.label}</div>
           <div className="tnum text-[11px] text-text-subtle">
             {scopeType === "global" ? "whole gateway" : `${scopeType} · ${editing ? initial!.label : scopeIdLabel || "—"}`}
           </div>
@@ -156,7 +160,7 @@ export function BudgetForm({
           <button
             type="button"
             onClick={() => { setScopeType(null); setError(""); }}
-            className="ml-auto inline-flex items-center gap-1 text-[12px] text-text-subtle hover:text-text"
+            className="ml-auto inline-flex items-center gap-1 rounded-brand border border-border bg-surface-2 px-2.5 py-1 text-[12px] font-medium text-text-muted transition-colors hover:border-text-subtle hover:bg-surface-3 hover:text-text"
           >
             <Icon name="arrow_back" size={14} /> change scope
           </button>
@@ -190,10 +194,17 @@ export function BudgetForm({
           <Input value={limit} onChange={(e) => setLimit(e.target.value)} inputMode="decimal" placeholder={unit === "usd" ? "50.00" : "1000000"} />
         </Field>
         <Group label="Window">
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {WINDOWS.map((w) => (
-              <button key={w} type="button" onClick={() => setWindow(w)} className={pill(window === w)}>{w}</button>
+              <button key={w} type="button" onClick={() => { setWindow(w); setCustomWindow(""); }} className={pill(window === w && !customWindow)}>{WINDOW_LABELS[w]}</button>
             ))}
+            <input
+              value={customWindow}
+              onChange={(e) => setCustomWindow(e.target.value)}
+              placeholder="custom"
+              className="w-20 rounded-brand border border-border bg-bg px-2 py-1.5 text-[13px] text-text placeholder:text-text-subtle focus:border-accent focus:outline-none"
+            />
+            <span className="text-[11px] text-text-subtle">e.g. 1h, 12h, 90day</span>
           </div>
         </Group>
         <Group label="Alert at">
@@ -248,7 +259,7 @@ export function BudgetForm({
           selected={scopeId ? [scopeId] : []}
           onToggle={(v) => { setScopeId(v); setPickerOpen(false); }}
           onClose={() => setPickerOpen(false)}
-          showThinkingHint={scopeType === "model"}
+          singleSelect
         />
       )}
     </div>

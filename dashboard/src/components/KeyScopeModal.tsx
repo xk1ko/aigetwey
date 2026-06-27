@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { adminApi } from "@/lib/client";
 import { Button, Input } from "@/components/Button";
 import { Icon } from "@/components/Icon";
@@ -39,10 +39,17 @@ export function KeyScopeModal({ keyIndex, k, fingerprint, groups, keyBudget, onC
   const [scopeExpiry, setScopeExpiry] = useState<"keep" | "never" | "24h" | "7day" | "30day" | "custom">(k.expires ? "keep" : "never");
   const [scopeCustomDays, setScopeCustomDays] = useState("");
   const [scopeLimit, setScopeLimit] = useState(keyBudget ? String(keyBudget.limit) : "");
-  const [scopeWindow, setScopeWindow] = useState<"5h" | "24h" | "7day" | "30day">((keyBudget?.window as "5h" | "24h" | "7day" | "30day") ?? "30day");
+  const [scopeWindow, setScopeWindow] = useState<string>(keyBudget?.window ?? "30day");
+  const [scopeCustomWindow, setScopeCustomWindow] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!keyBudget && (scopeExpiry === "24h" || scopeExpiry === "7day" || scopeExpiry === "30day")) {
+      setScopeWindow(scopeExpiry);
+    }
+  }, [scopeExpiry, keyBudget]);
 
   async function save() {
     setBusy(true);
@@ -65,7 +72,7 @@ export function KeyScopeModal({ keyIndex, k, fingerprint, groups, keyBudget, onC
     if (!r.ok) { setError(r.error ?? "save failed"); setBusy(false); return; }
     const limit = scopeLimit ? Number(scopeLimit) : 0;
     if (limit > 0) {
-      await adminApi.setBudget({ scope: { type: "key", id: fingerprint }, unit: "usd", limit, window: scopeWindow });
+      await adminApi.setBudget({ scope: { type: "key", id: fingerprint }, unit: "usd", limit, window: scopeCustomWindow || scopeWindow });
     } else if (keyBudget) {
       await adminApi.clearBudget(`key:${fingerprint}`);
     }
@@ -82,7 +89,7 @@ export function KeyScopeModal({ keyIndex, k, fingerprint, groups, keyBudget, onC
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <h2 className="text-[14px] font-semibold text-text">Edit key scope</h2>
-            <p className="text-[11.5px] text-text-subtle font-mono mt-0.5">{k.name ? `${k.name} · ` : ""}{k.key}</p>
+            <p className="text-[12px] text-text-subtle font-mono mt-0.5">{k.name ? `${k.name} · ` : ""}{k.key}</p>
           </div>
           <button onClick={onClose} className="text-text-subtle hover:text-text"><Icon name="close" size={17} /></button>
         </div>
@@ -153,11 +160,17 @@ export function KeyScopeModal({ keyIndex, k, fingerprint, groups, keyBudget, onC
             <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-text-subtle">Spend cap (USD)</div>
             <Input inputMode="decimal" value={scopeLimit} onChange={(e) => setScopeLimit(e.target.value.replace(/[^\d.]/g, ""))} placeholder="USD (blank = no cap)" />
             {scopeLimit && (
-              <div className="mt-1.5 flex items-center gap-1.5">
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                 <span className="text-[11px] text-text-subtle">resets every</span>
                 {(["5h", "24h", "7day", "30day"] as const).map((w) => (
-                  <button key={w} type="button" onClick={() => setScopeWindow(w)} className={pill(scopeWindow === w)}>{w}</button>
+                  <button key={w} type="button" onClick={() => { setScopeWindow(w); setScopeCustomWindow(""); }} className={pill(scopeWindow === w && !scopeCustomWindow)}>{w}</button>
                 ))}
+                <input
+                  value={scopeCustomWindow}
+                  onChange={(e) => { setScopeCustomWindow(e.target.value); setScopeWindow(""); }}
+                  placeholder="custom"
+                  className="w-16 rounded-brand border border-border bg-bg px-2 py-1 text-[13px] text-text placeholder:text-text-subtle focus:border-accent focus:outline-none"
+                />
               </div>
             )}
           </div>
