@@ -322,7 +322,7 @@ function AddProviderForm({ onDone, onClose }: { onDone: () => void; onClose: () 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!preset || !id || !baseUrl) {
-      setErr("name and base URL are required");
+      setErr(!id ? "ID / Prefix is required" : "base URL is required");
       return;
     }
     setBusy(true);
@@ -363,7 +363,7 @@ function AddProviderForm({ onDone, onClose }: { onDone: () => void; onClose: () 
           <Field label="Label" hint="display name in dashboard (optional)">
             <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. My OpenAI" />
           </Field>
-          <Field label="ID / Prefix" hint="the call prefix (id/model) — used by CLI tools">
+          <Field label="ID / Prefix" hint="required — used as prefix when calling models (e.g. prefix/model-name)">
             <Input value={id} onChange={(e) => setId(e.target.value)} placeholder="e.g. openai, anthropic" className="font-mono text-[12.5px]" />
           </Field>
           <Field label="Base URL" hint={preset.hint}>
