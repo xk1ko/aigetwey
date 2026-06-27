@@ -5,7 +5,7 @@
  * communicates via stdout (menu-click events).
  */
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { TRAY_ICON_PNG_BASE64 } from "./icon.js";
+import { TRAY_ICON_ICO_BASE64 } from "./icon.js";
 
 interface WinTrayConfig {
   tooltip: string;
@@ -24,11 +24,10 @@ export function initWinTray(cfg: WinTrayConfig): WinTrayHandle {
   const script = `
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
-$icon = [System.Convert]::FromBase64String("${TRAY_ICON_PNG_BASE64}")
+$icon = [System.Convert]::FromBase64String("${TRAY_ICON_ICO_BASE64}")
 $ms = New-Object System.IO.MemoryStream(,$icon)
-$bmp = [System.Drawing.Image]::FromStream($ms)
 $ni = New-Object System.Windows.Forms.NotifyIcon
-$ni.Icon = [System.Drawing.Icon]::FromHandle($bmp.GetHicon())
+$ni.Icon = New-Object System.Drawing.Icon($ms)
 $ni.Visible = $true
 $ni.Text = "${tooltip}"
 $menu = New-Object System.Windows.Forms.ContextMenuStrip
