@@ -530,6 +530,14 @@ export function ProviderDetail({ id }: { id: string }) {
                         </div>
                         <div className="flex flex-none items-center gap-0.5">
                           <button
+                            onClick={() => { navigator.clipboard.writeText(`${provider.id}/${m.id}`); }}
+                            className="rounded p-1 text-text-subtle transition-colors hover:bg-surface hover:text-accent"
+                            aria-label={`Copy ${provider.id}/${m.id}`}
+                            title="Copy model name"
+                          >
+                            <Icon name="content_copy" size={15} />
+                          </button>
+                          <button
                             onClick={() => testModel(m.id)}
                             disabled={st === "testing"}
                             className="rounded p-1 text-text-subtle transition-colors hover:bg-surface hover:text-accent disabled:opacity-60"
