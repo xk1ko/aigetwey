@@ -5,6 +5,30 @@ All notable changes to **aigetwey** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.7] — 2026-06-27
+
+### Added
+- **Check key before adding** — new Check button tests a raw API key against the
+  provider's base URL without saving it to config
+- **Bulk add keys** — modal popup accepts multiple keys (format: `name|apiKey` or
+  just `apiKey`, one per line)
+- **Custom Select component** — replaces native browser `<select>` across the
+  dashboard for consistent styling
+
+### Changed
+- **Provider detail layout rework** — connection info inline in header, Models &
+  Keys stacked vertically full-width (no 2-col grid); Keys card first
+- **Round Robin sticky inline** — Sticky counter appears on the same row as the
+  toggle; no layout shift when toggling on/off
+- **Test connection result** — full-width error bar (same style as fetch models
+  failure) instead of small inline badge
+- **Edit form full-width** — removed max-width constraint, aligns with cards below
+- **Server Console icon** — changed to `receipt_long` (distinct from CLI Tools)
+- **Model test icon** — `wifi_tethering` (consistent with key test button)
+- **TopBar** — aigetwey logo pill + brand name replace admin text
+- **Light mode toggle** — hover animation on the toggle button
+- **Save disabled when prefix empty** — prefix is required for routing
+
 ## [1.4.6] — 2026-06-27
 
 ### Changed
