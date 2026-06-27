@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Display URLs use `localhost`** — cleaner than raw `127.0.0.1` in CLI output
   and dashboard
 
+### Security
+- **Bare model resolution removed** — clients must use combo alias or
+  `provider/model` prefix; prevents unintended routing to arbitrary models
+- **Remote access blocked when no api_keys** — only loopback allowed without
+  keys; remote IPs get 403 with setup instructions
+
 ## [1.4.5] — 2026-06-27
 
 ### Fixed

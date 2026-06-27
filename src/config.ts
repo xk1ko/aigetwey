@@ -215,9 +215,6 @@ export class GatewayConfig {
    *   - a combo alias => its target chain, ordered by the combo's strategy
    *     (fallback = config order; round-robin = rotate the first tried per call).
    *   - "provider/model" => single direct route to that provider.
-   *   - a bare model id => auto-detect: every provider whose catalog lists that
-   *     exact id, as a fallback chain (config order). Lets a CLI tool call a raw
-   *     model name with no combo and no prefix.
    * Returns [] when nothing matches (handler turns that into a 404).
    */
   resolve(name: string): ResolvedRoute[] {
@@ -263,17 +260,7 @@ export class GatewayConfig {
       }
     }
 
-    // Auto-detect: no alias, no usable provider/ prefix. Route by catalog —
-    // any provider that lists this exact model id, as a fallback chain. The
-    // upstream model name stays the requested id (it's what the catalog holds).
-    const byCatalog = [...this.providers.values()].flatMap((provider) => {
-      if (provider.disabled) return [];
-      const entry = provider.models.find((m) => m.id === name);
-      if (!entry) return [];
-      return [{ alias: name, provider, model: name, price_in: entry.price_in, price_out: entry.price_out }];
-    });
-    if (byCatalog.length > 0) return byCatalog;
-
+    // No bare model auto-detect — require combo alias or provider/model prefix.
     return [];
   }
 
