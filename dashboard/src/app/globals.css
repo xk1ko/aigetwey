@@ -386,3 +386,17 @@ input[type="range"].range-accent::-moz-range-thumb {
   box-shadow: 0 0 0 1px var(--color-accent), 0 0 8px color-mix(in srgb, var(--color-accent) 55%, transparent);
   cursor: pointer;
 }
+
+@keyframes shake {
+  0%, 100% { transform: rotate(0deg); }
+  20% { transform: rotate(-8deg); }
+  40% { transform: rotate(8deg); }
+  60% { transform: rotate(-5deg); }
+  80% { transform: rotate(5deg); }
+}
+
+@keyframes flash {
+  0% { opacity: 0; transform: scale(0.5); }
+  50% { opacity: 1; transform: scale(1.8); }
+  100% { opacity: 0; transform: scale(2.2); }
+}
