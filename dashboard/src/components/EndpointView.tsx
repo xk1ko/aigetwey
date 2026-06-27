@@ -76,6 +76,7 @@ export function EndpointView() {
                 <Icon name="content_copy" size={13} />
               </button>
             </div>
+            <TunnelRow />
           </div>
           <p className="mt-3 text-[12px] text-text-subtle">
             One gateway, both formats. Anthropic clients (Claude Code) use it as-is; OpenAI clients (opencode,
@@ -355,5 +356,57 @@ function Badge({
     >
       {children}
     </span>
+  );
+}
+
+function TunnelRow() {
+  const [status, setStatus] = useState<{ enabled: boolean; url: string | null } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    void fetch("/api/gw/admin/tunnel").then(async (r) => {
+      if (r.ok) setStatus(await r.json());
+    });
+  }, []);
+
+  async function toggle() {
+    setBusy(true);
+    setErr("");
+    const method = status?.enabled ? "DELETE" : "POST";
+    const r = await fetch("/api/gw/admin/tunnel", { method });
+    if (r.ok) {
+      setStatus(await r.json());
+    } else {
+      const body = await r.json().catch(() => ({ error: "failed" }));
+      setErr(body.error ?? "failed");
+    }
+    setBusy(false);
+  }
+
+  return (
+    <div className="mt-2.5">
+      <div className="flex items-center gap-3">
+        <span className="text-text-subtle">Tunnel</span>
+        {status?.enabled && status.url ? (
+          <button
+            onClick={() => void navigator.clipboard.writeText(status.url!)}
+            className="flex items-center gap-1.5 rounded-brand border border-border-subtle px-2.5 py-1 tnum text-[12.5px] text-text hover:border-text-subtle"
+          >
+            {status.url}
+            <Icon name="content_copy" size={13} />
+          </button>
+        ) : null}
+        <Button
+          variant={status?.enabled ? "ghost" : "primary"}
+          disabled={busy}
+          onClick={toggle}
+        >
+          <Icon name={status?.enabled ? "link_off" : "link"} size={14} />
+          {busy ? "…" : status?.enabled ? "Disable" : "Enable"}
+        </Button>
+      </div>
+      {err && <p className="mt-1.5 text-[11px] text-danger">{err}</p>}
+    </div>
   );
 }
