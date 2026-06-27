@@ -784,6 +784,30 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     }
   });
 
+  // ---- tunnel: Cloudflare Quick Tunnel for remote access ----
+  app.get("/admin/tunnel", requireAdmin, async (_req, reply) => {
+    const { isTunnelRunning, getTunnelUrl } = await import("../tunnel/cloudflared.js");
+    reply.send({ enabled: isTunnelRunning(), url: getTunnelUrl() });
+  });
+
+  app.post("/admin/tunnel", requireAdmin, async (_req, reply) => {
+    const { startQuickTunnel, isTunnelRunning, getTunnelUrl } = await import("../tunnel/cloudflared.js");
+    if (isTunnelRunning()) return reply.send({ enabled: true, url: getTunnelUrl() });
+    const port = deps.state.config.raw.server?.port ?? 18080;
+    try {
+      const url = await startQuickTunnel(port);
+      reply.send({ enabled: true, url });
+    } catch (e) {
+      reply.code(500).send({ error: String((e as Error).message) });
+    }
+  });
+
+  app.delete("/admin/tunnel", requireAdmin, async (_req, reply) => {
+    const { stopTunnel } = await import("../tunnel/cloudflared.js");
+    stopTunnel();
+    reply.send({ enabled: false, url: null });
+  });
+
   // ---- shutdown: stop the gateway process (dashboard power button) ----
   // Matches aigetwey's POST /api/shutdown: reply first, then exit after a short
   // delay so the response reaches the browser. Admin-gated like everything else;
