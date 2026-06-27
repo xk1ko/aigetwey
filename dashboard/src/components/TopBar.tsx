@@ -162,7 +162,30 @@ export function TopBar() {
           aria-label="Toggle theme"
           title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
         >
-          <Icon name={theme === "dark" ? "light_mode" : "dark_mode"} size={18} />
+          {theme === "dark" ? (
+            <svg viewBox="0 -1 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+              {/* top canister (small) */}
+              <rect x="9.5" y="3.5" width="5" height="3.5" rx="1"/>
+              {/* lever/spoon on top */}
+              <path d="M12 3.5V2.5"/>
+              <path d="M10.5 3.5c0-1 3-1 3 0"/>
+              {/* pin ring */}
+              <circle cx="14.5" cy="2.8" r="0.8"/>
+              {/* body canister (main) */}
+              <rect x="8.5" y="7" width="7" height="10.5" rx="1.5"/>
+              {/* center band */}
+              <line x1="8.5" y1="12.25" x2="15.5" y2="12.25"/>
+              {/* flash rays from center */}
+              <line x1="6.5" y1="12.25" x2="4.5" y2="12.25"/>
+              <line x1="17.5" y1="12.25" x2="19.5" y2="12.25"/>
+              <line x1="6.8" y1="9.8" x2="5.2" y2="8.8"/>
+              <line x1="17.2" y1="9.8" x2="18.8" y2="8.8"/>
+              <line x1="6.8" y1="14.7" x2="5.2" y2="15.7"/>
+              <line x1="17.2" y1="14.7" x2="18.8" y2="15.7"/>
+            </svg>
+          ) : (
+            <Icon name="dark_mode" size={18} />
+          )}
         </button>
 
         <button
@@ -175,10 +198,16 @@ export function TopBar() {
         </button>
 
         <div className="flex items-center gap-2 rounded-full border border-border bg-surface py-1 pl-1 pr-3">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent text-[11px] font-bold text-accent-ink">
-            A
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent">
+            <svg viewBox="0 0 512 512" className="h-4 w-4">
+              <text x="135" y="360" fontFamily="ui-sans-serif, Inter, Arial, sans-serif" fontSize="320" fontWeight="800" textAnchor="middle" fill="#0f0f0e">a</text>
+              <g fill="none" stroke="#0f0f0e" strokeWidth="38" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="280,170 370,256 280,342"/>
+                <polyline points="355,170 445,256 355,342"/>
+              </g>
+            </svg>
           </span>
-          <span className="text-[12px] text-text-muted">admin</span>
+          <span className="text-[12px] font-medium text-text-muted">aigetwey</span>
         </div>
       </div>
 
