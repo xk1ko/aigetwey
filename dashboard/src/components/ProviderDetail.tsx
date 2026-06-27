@@ -121,8 +121,8 @@ export function ProviderDetail({ id }: { id: string }) {
 
   return (
     <div>
-      <button onClick={() => router.push("/providers")} className="mb-4 inline-flex items-center gap-1 text-[12px] text-text-muted hover:text-text">
-        <Icon name="arrow_back" size={15} /> Providers
+      <button onClick={() => router.push("/providers")} className="mb-4 inline-flex items-center gap-1 rounded-brand border border-border bg-surface-2 px-2.5 py-1 text-[12px] font-medium text-text-muted transition-colors hover:border-text-subtle hover:bg-surface-3 hover:text-text">
+        <Icon name="arrow_back" size={14} /> Providers
       </button>
 
       {/* ─── Header with connection info ─── */}
@@ -178,13 +178,13 @@ export function ProviderDetail({ id }: { id: string }) {
         {editingConn && (
           <div className="mt-4 space-y-3 rounded-brand border border-border bg-surface p-4">
             <Field label="Label" hint="display name in dashboard (optional, does not affect routing)">
-              <Input value={connLabel} onChange={(e) => setConnLabel(e.target.value)} placeholder={connPrefix || "e.g. My Provider"} className="text-[12.5px]" />
+              <Input value={connLabel} onChange={(e) => setConnLabel(e.target.value)} placeholder={connPrefix || "e.g. My Provider"} className="text-[13px]" />
             </Field>
             <Field label="ID / Prefix" hint="the call prefix (id/model) — changing this breaks CLI tools">
-              <Input value={connPrefix} onChange={(e) => setConnPrefix(e.target.value)} placeholder="e.g. openai" className="font-mono text-[12.5px]" />
+              <Input value={connPrefix} onChange={(e) => setConnPrefix(e.target.value)} placeholder="e.g. openai" className="font-mono text-[13px]" />
             </Field>
             {connPrefix.trim() && connPrefix.trim() !== id && (
-              <p className="flex items-start gap-1.5 rounded-brand border border-warning/40 bg-warning/8 px-2.5 py-2 text-[11.5px] text-warning">
+              <p className="flex items-start gap-1.5 rounded-brand border border-warning/40 bg-warning/8 px-2.5 py-2 text-[12px] text-warning">
                 <Icon name="warning" size={14} className="mt-0.5 flex-none" />
                 <span>
                   Renaming rewrites the call string. CLI tools pointing at{" "}
@@ -194,7 +194,7 @@ export function ProviderDetail({ id }: { id: string }) {
               </p>
             )}
             <Field label="Base URL">
-              <Input value={connUrl} onChange={(e) => setConnUrl(e.target.value)} placeholder="https://..." className="font-mono text-[12.5px]" />
+              <Input value={connUrl} onChange={(e) => setConnUrl(e.target.value)} placeholder="https://..." className="font-mono text-[13px]" />
             </Field>
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setEditingConn(false)}>Cancel</Button>
@@ -278,7 +278,7 @@ export function ProviderDetail({ id }: { id: string }) {
           }
         >
           {testAllSummary && (
-            <div className="mb-3 flex items-center gap-2 text-[11.5px]">
+            <div className="mb-3 flex items-center gap-2 text-[12px]">
               <Badge tone={testAllSummary.failed === 0 ? "live" : "warn"}>
                 {testAllSummary.total} tested: {testAllSummary.passed} valid, {testAllSummary.failed} failed
               </Badge>
@@ -299,7 +299,7 @@ export function ProviderDetail({ id }: { id: string }) {
                   return (
                     <div key={i} className="space-y-2 rounded-brand border border-accent bg-accent-soft/40 px-3 py-2.5">
                       <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="key name (optional)" />
-                      <Input value={editVal} onChange={(e) => setEditVal(e.target.value)} placeholder="new key value (leave blank to keep)" className="font-mono text-[12.5px]" />
+                      <Input value={editVal} onChange={(e) => setEditVal(e.target.value)} placeholder="new key value (leave blank to keep)" className="font-mono text-[13px]" />
                       <div className="flex justify-end gap-2">
                         <Button variant="ghost" onClick={() => setEditIdx(null)}>Cancel</Button>
                         <Button disabled={busy === `editkey${i}`} onClick={() => run(`editkey${i}`, async () => {
@@ -335,7 +335,7 @@ export function ProviderDetail({ id }: { id: string }) {
                       <Lamp state={lamp} />
                       <div className="min-w-0 flex-1">
                         {name && <div className="text-[12px] font-semibold text-text-muted">{name}</div>}
-                        <span className="block truncate font-mono text-[12.5px] text-text">{revealedKeys[i] ?? k}</span>
+                        <span className="block truncate font-mono text-[13px] text-text">{revealedKeys[i] ?? k}</span>
                       </div>
                       {revealedKeys[i] && (
                         <button
@@ -394,7 +394,7 @@ export function ProviderDetail({ id }: { id: string }) {
                       </button>
                     </div>
                     {tested && (
-                      <div className="mt-1.5 pl-8 text-[11.5px]">
+                      <div className="mt-1.5 pl-8 text-[12px]">
                         <Badge tone={tested.ok ? "live" : tested.reachable ? "warn" : "down"}>
                           {tested.ok ? "valid" : tested.reachable ? `reachable (${tested.status})` : "invalid"}
                         </Badge>
@@ -402,7 +402,7 @@ export function ProviderDetail({ id }: { id: string }) {
                       </div>
                     )}
                     {!tested && ks?.last_error && (
-                      <div className="mt-1.5 pl-8 text-[11.5px]">
+                      <div className="mt-1.5 pl-8 text-[12px]">
                         <p className="text-danger">{ks.last_error.status ? `${ks.last_error.status}: ` : ""}{ks.last_error.message}</p>
                         <span className="text-text-subtle">{new Date(ks.last_error.at).toLocaleTimeString()}</span>
                       </div>
@@ -415,7 +415,7 @@ export function ProviderDetail({ id }: { id: string }) {
           <div className="mt-3 space-y-2">
             <Input value={newKeyName} onChange={(e) => setNewKeyName(e.target.value)} placeholder="key name (optional, e.g. primary)" />
             <div className="flex gap-2">
-              <Input value={newKey} onChange={(e) => { setNewKey(e.target.value); setNewKeyCheck(null); }} placeholder="add a key…" className="font-mono text-[12.5px]" />
+              <Input value={newKey} onChange={(e) => { setNewKey(e.target.value); setNewKeyCheck(null); }} placeholder="add a key…" className="font-mono text-[13px]" />
               <Button variant="ghost" disabled={!newKey || busy === "checkkey"} onClick={() => run("checkkey", async () => {
                 const r = await adminApi.checkKey(id, newKey);
                 setNewKeyCheck(r.data ?? { ok: false, reachable: false, status: 0, error: r.error });
@@ -445,7 +445,7 @@ export function ProviderDetail({ id }: { id: string }) {
                   onChange={(e) => setBulkText(e.target.value)}
                   placeholder={"primary|sk-abc123\nbackup|sk-xyz789\nsk-anonymous-key"}
                   rows={8}
-                  className="w-full rounded-brand border border-border bg-bg px-3 py-2 font-mono text-[12.5px] text-text placeholder:text-text-subtle focus:border-accent focus:outline-none"
+                  className="w-full rounded-brand border border-border bg-bg px-3 py-2 font-mono text-[13px] text-text placeholder:text-text-subtle focus:border-accent focus:outline-none"
                   autoFocus
                 />
                 <div className="mt-3 flex justify-end gap-2">
@@ -517,7 +517,7 @@ export function ProviderDetail({ id }: { id: string }) {
                       <div key={m.id} className="group flex items-center justify-between gap-3 px-3 py-2 hover:bg-bg">
                         <div className="flex min-w-0 items-center gap-2">
                           <Icon name={statusIcon} size={15} className={`flex-none ${statusColor}`} />
-                          <span className="tnum truncate text-[12.5px]">
+                          <span className="tnum truncate text-[13px]">
                             <span className="text-text-subtle">{provider.id}/</span>
                             <span className="text-text">{m.id}</span>
                           </span>
