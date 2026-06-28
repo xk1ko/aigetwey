@@ -91,14 +91,10 @@ function recordUsage(
   const tokensOut = usage?.completion_tokens ?? 0;
   const reasoningTokens = usage?.reasoning_tokens ?? 0;
   const cachedTokens = usage?.cached_tokens ?? 0;
-  const cacheCreationTokens = usage?.cache_creation_tokens ?? 0;
   if (!deps.db) return;
   const pricing = getPricingForModel(route.provider.id, route.model);
   const priceIn = route.price_in ?? pricing?.input;
   const priceOut = route.price_out ?? pricing?.output;
-  const priceCachedRead = pricing?.cached;
-  const priceReasoning = pricing?.reasoning;
-  const priceCacheCreation = pricing?.cache_creation;
   deps.db.record({
     alias: route.alias,
     provider: route.provider.id,
@@ -107,7 +103,7 @@ function recordUsage(
     tokens_out: tokensOut,
     reasoning_tokens: reasoningTokens,
     cached_tokens: cachedTokens,
-    cost: computeCost(tokensIn, tokensOut, priceIn, priceOut, priceReasoning, priceCachedRead, cachedTokens, reasoningTokens, cacheCreationTokens, priceCacheCreation),
+    cost: computeCost(tokensIn, tokensOut, priceIn, priceOut),
     status,
     latency_ms: latencyMs,
     stream: stream ? 1 : 0,
@@ -136,7 +132,7 @@ export async function handle(
   // model, and capture the intent (suffix wins, else any reasoning param already
   // in the body). It's applied per-attempt in the served provider's native format
   // (upstream/client.ts), driven by the capabilities table — a no-op for models
-  // that can't reason. Matches aigetwey's capture-before-translate flow.
+  // that can't reason. Matches aigloo's capture-before-translate flow.
   const { cleanModel, override } = parseSuffix(canonical.model);
   canonical.model = cleanModel;
 

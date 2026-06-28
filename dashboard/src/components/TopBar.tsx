@@ -21,7 +21,7 @@ const LABELS: Record<string, string> = {
   config: "Settings",
 };
 
-const CMD = "npm i -g aigetwey@latest --prefer-online";
+const CMD = "npm i -g aigloo@latest --prefer-online";
 
 function UpdateModal({
   current,
@@ -46,7 +46,8 @@ function UpdateModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6" onClick={onClose}>
       <div
-        className="w-full max-w-sm rounded-brand-lg border border-border bg-surface p-5 shadow-elevated"
+        className="w-full max-w-sm rounded-brand-lg glass-strong modal-card p-5 shadow-elevated"
+        style={{ boxShadow: "var(--shadow-elevated), 0 0 0 1px var(--color-border)" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between gap-3">
@@ -70,7 +71,7 @@ function UpdateModal({
           Run this command in your terminal to update:
         </p>
 
-        <div className="flex items-center gap-2 rounded-brand border border-border bg-bg px-3 py-2">
+        <div className="flex items-center gap-2 rounded-brand bg-bg px-3 py-2">
           <code className="flex-1 text-[12px] text-text">{CMD}</code>
           <button
             onClick={copy}
@@ -134,19 +135,19 @@ export function TopBar() {
   }
 
   return (
-    <header className="console-topbar">
-      <div className="flex items-center gap-2 text-[13px]">
-        <span className="text-text-subtle">aigetwey</span>
+    <header className="app-topbar">
+      <div className="flex items-center gap-2 text-[14px]">
+        <span className="text-text-subtle">aigloo</span>
         <span className="text-text-subtle">/</span>
-        <span className="font-medium text-text">{current}</span>
+        <span className="font-semibold text-text">{current}</span>
       </div>
 
-      <div className="ml-auto flex items-center gap-2.5">
+      <div className="ml-auto flex items-center gap-2">
         {version && (
           <>
             <button
               onClick={() => setShowChangelog(true)}
-              className="rounded-full px-2 py-1 text-[11px] text-text-subtle transition-colors hover:text-text hover:bg-surface-2"
+              className="rounded-full px-2.5 py-1 text-[11px] text-text-subtle transition-colors hover:text-text hover:bg-surface-2"
               title="View changelog"
             >
               v{version.current}
@@ -165,7 +166,7 @@ export function TopBar() {
 
         <button
           onClick={toggle}
-          className={`group relative flex h-8 w-8 items-center justify-center rounded-full text-text-subtle transition-colors hover:text-text ${theme === "dark" ? "hover:animate-[shake_0.4s_ease-in-out]" : ""}`}
+          className={`group relative flex h-8 w-8 items-center justify-center rounded-full text-text-subtle transition-colors hover:text-text hover:bg-surface-2 ${theme === "dark" ? "hover:animate-[shake_0.4s_ease-in-out]" : ""}`}
           aria-label="Toggle theme"
           title={theme === "dark" ? "FLASHBANG OUT!" : "Switch to dark mode"}
         >
@@ -174,18 +175,12 @@ export function TopBar() {
           )}
           {theme === "dark" ? (
             <svg viewBox="0 -1 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-              {/* top canister (small) */}
               <rect x="9.5" y="3.5" width="5" height="3.5" rx="1"/>
-              {/* lever/spoon on top */}
               <path d="M12 3.5V2.5"/>
               <path d="M10.5 3.5c0-1 3-1 3 0"/>
-              {/* pin ring */}
               <circle cx="14.5" cy="2.8" r="0.8"/>
-              {/* body canister (main) */}
               <rect x="8.5" y="7" width="7" height="10.5" rx="1.5"/>
-              {/* center band */}
               <line x1="8.5" y1="12.25" x2="15.5" y2="12.25"/>
-              {/* flash rays from center */}
               <line x1="6.5" y1="12.25" x2="4.5" y2="12.25"/>
               <line x1="17.5" y1="12.25" x2="19.5" y2="12.25"/>
               <line x1="6.8" y1="9.8" x2="5.2" y2="8.8"/>
@@ -200,24 +195,24 @@ export function TopBar() {
 
         <button
           onClick={() => setConfirmShutdown(true)}
-          className="flex h-8 w-8 items-center justify-center rounded-full text-text-subtle transition-colors hover:text-danger"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-text-subtle transition-colors hover:text-danger hover:bg-danger/10"
           aria-label="Shut down gateway"
           title="Shut down the gateway"
         >
           <Icon name="power_settings_new" size={18} />
         </button>
 
-        <div className="flex items-center gap-2 rounded-full border border-border bg-surface py-1 pl-1 pr-3">
+        <div className="glass flex items-center gap-2 rounded-full py-1 pl-1 pr-3">
           <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent">
-            <svg viewBox="0 0 512 512" className="h-4 w-4">
-              <text x="135" y="360" fontFamily="ui-sans-serif, Inter, Arial, sans-serif" fontSize="320" fontWeight="800" textAnchor="middle" fill="#0f0f0e">a</text>
-              <g fill="none" stroke="#0f0f0e" strokeWidth="38" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="280,170 370,256 280,342"/>
-                <polyline points="355,170 445,256 355,342"/>
+            <svg viewBox="0 0 512 512" width="16" height="16" fill="none">
+              <g transform="translate(60, 60) scale(14)" stroke="#08090d" strokeLinecap="round">
+                <path d="M4 20C4 12.268 8.477 6 14 6C19.523 6 24 12.268 24 20" strokeWidth="2"/>
+                <path d="M8 20C8 14.477 10.686 10 14 10C17.314 10 20 14.477 20 20" strokeWidth="1.5" opacity="0.5"/>
+                <line x1="3" y1="20" x2="25" y2="20" strokeWidth="2"/>
               </g>
             </svg>
           </span>
-          <span className="text-[12px] font-medium text-text-muted">aigetwey</span>
+          <span className="text-[12px] font-medium text-text-muted">aigloo</span>
         </div>
       </div>
 
@@ -247,13 +242,13 @@ export function TopBar() {
 
       {stopped && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6">
-          <div className="w-full max-w-sm rounded-brand-lg border border-border bg-surface p-5 text-center shadow-elevated">
+          <div className="w-full max-w-sm rounded-brand-lg glass-strong modal-card p-5 text-center shadow-elevated">
             <span className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-full bg-danger/10 text-danger">
               <Icon name="power_settings_new" size={20} />
             </span>
             <h2 className="text-[15px] font-semibold text-text">Gateway stopped</h2>
             <p className="mt-1 text-[13px] text-text-muted">
-              Run <code className="rounded bg-surface-2 px-1">{CMD}</code> then restart with <code className="rounded bg-surface-2 px-1">aigetwey</code>.
+              Run <code className="rounded bg-surface-2 px-1">{CMD}</code> then restart with <code className="rounded bg-surface-2 px-1">aigloo</code>.
             </p>
           </div>
         </div>

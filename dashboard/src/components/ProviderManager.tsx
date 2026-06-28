@@ -18,7 +18,6 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { adminApi } from "@/lib/client";
-import { Lamp } from "@/components/Lamp";
 import { Badge, FormatBadge } from "@/components/Badge";
 import { CooldownTimer } from "@/components/CooldownTimer";
 import { Button, Input, Field } from "@/components/Button";
@@ -32,6 +31,12 @@ interface Loaded {
   health: ProviderSnapshot[];
 }
 
+// format → accent color
+const FORMAT_ACCENT: Record<string, { color: string; glow: string; bg: string; border: string }> = {
+  openai: { color: "#5dd87f", glow: "rgba(93,216,127,0.4)", bg: "linear-gradient(90deg, rgba(93,216,127,0.4), rgba(93,216,127,0.1))", border: "#5dd87f" },
+  anthropic: { color: "#e8a55a", glow: "rgba(232,165,90,0.4)", bg: "linear-gradient(90deg, rgba(232,165,90,0.4), rgba(232,165,90,0.1))", border: "#e8a55a" },
+};
+
 export function ProviderManager() {
   const [data, setData] = useState<Loaded | null>(null);
   const [error, setError] = useState("");
@@ -40,6 +45,7 @@ export function ProviderManager() {
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState("");
   const [confirmBulk, setConfirmBulk] = useState(false);
   const [busy, setBusy] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
@@ -74,11 +80,9 @@ export function ProviderManager() {
   async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id || !data) return;
-
     const oldIndex = providerOrder.indexOf(active.id as string);
     const newIndex = providerOrder.indexOf(over.id as string);
     if (oldIndex === -1 || newIndex === -1) return;
-
     setProviderOrder(arrayMove(providerOrder, oldIndex, newIndex));
     await adminApi.reorderProvider(oldIndex, newIndex);
     void reload();
@@ -97,8 +101,12 @@ export function ProviderManager() {
     setBusy(true);
     const r = await adminApi.removeProvider(id);
     setBusy(false);
-    setConfirmDelete(null);
-    if (r.ok) void reload();
+    if (r.ok) {
+      setConfirmDelete(null);
+      void reload();
+    } else {
+      setDeleteError(r.error ?? "failed to delete provider");
+    }
   }
 
   async function deleteSelected() {
@@ -149,12 +157,18 @@ export function ProviderManager() {
     .map((id) => providerMap.get(id))
     .filter(Boolean) as typeof data.config.providers;
 
+  const activeCount = orderedProviders.filter((p) => {
+    const h = healthById.get(p.id);
+    const healthy = h ? h.keys.some((k) => k.healthy) : true;
+    return !p.disabled && healthy;
+  }).length;
+  const disabledCount = orderedProviders.length - activeCount;
+
   return (
     <div>
       <div className="mb-6 flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-[22px] font-semibold tracking-tight text-text">Providers</h1>
-          <p className="mt-1 text-[13px] text-text-muted">Upstream providers the gateway routes to.</p>
+          <h1 className="text-[30px] font-bold tracking-tight heading-gradient heading-accent">Providers</h1>
         </div>
         <div className="flex items-center gap-2">
           <input ref={importInput} type="file" accept=".json,application/json" className="hidden" onChange={handleImport} />
@@ -209,6 +223,15 @@ export function ProviderManager() {
         </div>
       </div>
 
+      {/* stats strip */}
+      {orderedProviders.length > 0 && (
+        <div className="mb-5 grid grid-cols-3 gap-3">
+          <ProviderStat label="Total" value={orderedProviders.length} icon="dns" />
+          <ProviderStat label="Active" value={activeCount} icon="check_circle" tone="success" />
+          <ProviderStat label="Disabled" value={disabledCount} icon="block" tone={disabledCount > 0 ? "danger" : "neutral"} />
+        </div>
+      )}
+
       {adding && (
         <AddProviderForm
           onClose={() => setAdding(false)}
@@ -221,7 +244,7 @@ export function ProviderManager() {
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={providerOrder} strategy={rectSortingStrategy}>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {orderedProviders.map((p) => {
                 const health = healthById.get(p.id);
                 const healthy = health ? health.keys.some((k) => k.healthy) : true;
@@ -236,7 +259,7 @@ export function ProviderManager() {
                     selectMode={selectMode}
                     isSelected={selected.has(p.id)}
                     onToggleSelect={() => toggleSelect(p.id)}
-                    onDelete={() => setConfirmDelete(p.id)}
+                    onDelete={() => { setConfirmDelete(p.id); setDeleteError(""); }}
                   />
                 );
               })}
@@ -249,8 +272,9 @@ export function ProviderManager() {
         <ConfirmModal
           title="Remove provider"
           message={`Delete "${confirmDelete}"? All keys and model associations will be lost.`}
+          error={deleteError}
           busy={busy}
-          onCancel={() => setConfirmDelete(null)}
+          onCancel={() => { setConfirmDelete(null); setDeleteError(""); }}
           onConfirm={() => deleteProvider(confirmDelete)}
         />
       )}
@@ -267,7 +291,7 @@ export function ProviderManager() {
 
       {importResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setImportResult(null)}>
-          <div className="mx-4 w-full max-w-sm rounded-brand-lg border border-border bg-surface p-5 shadow-elevated" onClick={(e) => e.stopPropagation()}>
+          <div className="mx-4 w-full max-w-sm rounded-brand-lg glass-strong modal-card p-5" onClick={(e) => e.stopPropagation()}>
             <h3 className="mb-3 text-[15px] font-semibold text-text">Import result</h3>
             <div className="space-y-2 text-[13px]">
               {importResult.added.length > 0 && (
@@ -287,6 +311,19 @@ export function ProviderManager() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ProviderStat({ label, value, icon, tone }: { label: string; value: number; icon: string; tone?: "success" | "danger" | "neutral" }) {
+  const color = tone === "success" ? "var(--color-success)" : tone === "danger" ? "var(--color-danger)" : "var(--color-accent)";
+  return (
+    <div className="card rounded-brand-lg px-5 py-3.5">
+      <div className="flex items-center justify-between">
+        <div className="text-[11px] font-medium uppercase tracking-wider text-text-subtle">{label}</div>
+        <Icon name={icon} size={16} className="text-text-subtle" />
+      </div>
+      <div className="mt-0.5 tnum text-[24px] font-bold tracking-tight" style={{ color: value > 0 ? color : "var(--color-text)" }}>{value}</div>
     </div>
   );
 }
@@ -315,63 +352,49 @@ function SortableProviderCard({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: p.id });
 
-  const style = {
+  const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
+    willChange: isDragging ? "transform" : undefined,
   };
 
   const keyCount = p.free || p.service_account
     ? (p.api_keys?.length ?? 0)
     : (p.api_keys?.length ?? (p.api_key ? 1 : 0));
 
-  const lamp = <Lamp state={p.disabled ? "down" : healthy ? "live" : "down"} />;
-
-  const headerLeft = (
-    <div className="flex items-center gap-2.5 min-w-0">
-      {lamp}
-      <div className="min-w-0">
-        <span className="block truncate text-[15px] font-semibold text-text">{p.name || p.id}</span>
-        <span className="block truncate text-[12px] text-text-subtle">
-          {p.name ? `${p.id}/<model>` : "\u00A0"}
-        </span>
-      </div>
-    </div>
-  );
-
-  const pills = (
-    <div className="mt-auto flex flex-wrap items-center gap-2">
-      {p.free && <Badge tone="info">free</Badge>}
-      {p.service_account && <Badge tone="info">service-account</Badge>}
-      {(!p.free || keyCount > 0) && <Badge tone="neutral">{keyCount} keys</Badge>}
-      <Badge tone="neutral">{p.models.length} models</Badge>
-      {cooling && <CooldownTimer ms={cooling.cooldown_ms} />}
-    </div>
-  );
+  const isDown = p.disabled || !healthy;
+  const accent = FORMAT_ACCENT[p.format] ?? FORMAT_ACCENT.openai;
+  const statusColor = p.disabled ? "var(--color-danger)" : healthy ? "var(--color-success)" : "var(--color-danger)";
 
   if (selectMode) {
     return (
       <div
         ref={setNodeRef}
-        style={style}
+        style={{
+          ...style,
+          ...(isSelected
+            ? { borderColor: "var(--color-accent)", boxShadow: "0 0 24px -2px var(--color-accent-glow), inset 0 0 16px -8px var(--color-accent-glow), var(--shadow-card)" }
+            : {}),
+        }}
         onClick={onToggleSelect}
-        className={`group flex flex-col cursor-pointer rounded-brand-lg border bg-surface shadow-soft transition-colors ${
-          isSelected ? "border-accent bg-accent/5" : "border-border hover:border-text-subtle"
+        className={`group flex cursor-pointer flex-col overflow-hidden rounded-brand-lg card transition-[box-shadow,opacity,border-color] duration-150 ${
+          p.disabled ? "opacity-50" : ""
         }`}
       >
-        <div className="flex items-center justify-between border-b border-border-subtle px-5 py-3">
-          {headerLeft}
+        <div className="h-0.5 w-full" style={{ background: accent.bg, opacity: isSelected ? 1 : 0.4 }} />
+        <div className="flex items-center justify-between px-5 py-3 pt-3.5">
+          <span className="truncate text-[15px] font-bold text-text">{p.name || p.id}</span>
           <FormatBadge format={p.format} />
         </div>
-        <div className="flex flex-1 flex-col gap-3 p-5">
-          <div className="truncate text-[13px] text-text-subtle">{p.base_url}</div>
-          {pills}
-        </div>
-        <div className="flex items-center justify-end border-t border-border-subtle px-5 py-2.5">
-          <span className={`flex h-5 w-5 items-center justify-center rounded-full border-2 transition-colors ${
-            isSelected ? "border-accent bg-accent" : "border-border-subtle"
-          }`}>
-            {isSelected && <Icon name="check" size={13} className="text-accent-ink" />}
-          </span>
+        <div className="flex flex-1 flex-col gap-2 px-5 pb-4">
+          <div className="truncate rounded-brand border border-border-subtle bg-bg/50 px-3 py-2 font-mono text-[12px] text-text-muted">
+            {p.base_url}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {p.free && keyCount === 0 && <Badge tone="info">free</Badge>}
+            <Badge tone="neutral">{keyCount} keys</Badge>
+            <Badge tone="neutral">{p.models.length} models</Badge>
+          </div>
         </div>
       </div>
     );
@@ -381,44 +404,71 @@ function SortableProviderCard({
     <div
       ref={setNodeRef}
       style={style}
-      className={`group relative flex flex-col rounded-brand-lg border bg-surface shadow-soft transition-colors ${
-        isDragging ? "border-accent shadow-elevated z-10 opacity-50" : ""
-      } ${
-        p.disabled
-          ? "border-danger/35 opacity-60 hover:opacity-100 hover:border-danger/60"
-          : isDragging ? "" : "border-border hover:border-text-subtle"
-      }`}
+      className={`group relative flex flex-col overflow-hidden rounded-brand-lg card transition-[box-shadow,opacity] duration-150 ${
+        isDragging ? "ring-2 ring-accent shadow-elevated z-10 opacity-80" : ""
+      } ${p.disabled ? "opacity-50" : ""}`}
     >
+      {/* format-colored top strip */}
+      <div className="h-0.5 w-full" style={{ background: accent.bg, opacity: 0.6 }} />
+
+      {/* drag handle — pill bar */}
       <div
         {...attributes}
         {...listeners}
-        className="absolute inset-x-0 top-0 z-10 flex h-5 cursor-grab items-center justify-center opacity-0 transition-opacity group-hover:opacity-100 active:cursor-grabbing"
+        className="absolute inset-x-0 top-1.5 z-10 flex h-5 cursor-grab items-center justify-center opacity-0 transition-opacity group-hover:opacity-100 active:cursor-grabbing"
         onClick={(e) => e.preventDefault()}
       >
         <span className="h-[3px] w-8 rounded-full bg-border-subtle transition-colors group-hover:bg-text-subtle" />
       </div>
 
-      <Link
-        href={`/providers/${encodeURIComponent(p.id)}`}
-        className="flex flex-1 flex-col"
-        draggable={false}
-      >
-        <div className="flex items-center justify-between border-b border-border-subtle px-5 py-3">
-          {headerLeft}
+      <Link href={`/providers/${encodeURIComponent(p.id)}`} className="flex flex-1 flex-col" draggable={false}>
+        {/* header: name + status */}
+        <div className="flex items-start justify-between gap-2 px-5 pt-7 pb-2">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span
+              className="h-2.5 w-2.5 flex-none rounded-full"
+              style={{ background: statusColor, boxShadow: isDown ? `0 0 4px 1px ${statusColor}` : `0 0 6px 1px ${statusColor}` }}
+            />
+            <div className="min-w-0">
+              <div className="truncate text-[15px] font-bold text-text">{p.name || p.id}</div>
+              <div className="tnum text-[11px] text-text-subtle">{p.id}/&lt;model&gt;</div>
+            </div>
+          </div>
           <FormatBadge format={p.format} />
         </div>
-        <div className="flex flex-1 flex-col gap-3 p-5">
-          <div className="truncate text-[13px] text-text-subtle">{p.base_url}</div>
-          {pills}
+
+        {/* URL in code block */}
+        <div className="px-5 pb-3">
+          <div className="truncate rounded-brand border border-border-subtle bg-bg/50 px-3 py-2 font-mono text-[12px] text-text-muted">
+            {p.base_url}
+          </div>
+        </div>
+
+        {/* stats row */}
+        <div className="flex flex-wrap items-center gap-2 px-5 pb-3">
+          {p.free && keyCount === 0 && <Badge tone="info">free</Badge>}
+          {p.service_account && <Badge tone="info">service-account</Badge>}
+          {(!p.free || keyCount > 0) && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-text-muted">
+              <Icon name="vpn_key" size={12} className="text-text-subtle" />
+              {keyCount} keys
+            </span>
+          )}
+          <span className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-text-muted">
+            <Icon name="category" size={12} className="text-text-subtle" />
+            {p.models.length} models
+          </span>
+          {cooling && <CooldownTimer ms={cooling.cooldown_ms} />}
         </div>
       </Link>
 
+      {/* footer: toggle + delete */}
       <div className="flex items-center justify-between border-t border-border-subtle px-5 py-2.5">
         <ProviderToggle id={p.id} disabled={!!p.disabled} onDone={onDone} />
         <button
           type="button"
           onClick={onDelete}
-          className="flex h-7 w-7 items-center justify-center rounded-brand text-text-subtle opacity-0 transition-all hover:bg-danger/10 hover:text-danger group-hover:opacity-100"
+          className="flex h-7 w-7 items-center justify-center rounded-brand text-text-subtle transition-colors hover:bg-danger/10 hover:text-danger"
           aria-label="Remove provider"
           title="Remove provider"
         >
@@ -429,11 +479,6 @@ function SortableProviderCard({
   );
 }
 
-/**
- * Inline enable/disable switch shown on each provider card. The card is a <Link>,
- * so the button swallows the click (preventDefault + stopPropagation) to toggle in
- * place instead of navigating into the provider. `busy` ignores double-clicks.
- */
 function ProviderToggle({ id, disabled, onDone }: { id: string; disabled: boolean; onDone: () => void }) {
   const [busy, setBusy] = useState(false);
   return (
@@ -450,17 +495,17 @@ function ProviderToggle({ id, disabled, onDone }: { id: string; disabled: boolea
       aria-label={disabled ? "Enable provider" : "Disable provider"}
       title={disabled ? "Provider disabled — click to enable" : "Provider enabled — click to disable"}
     >
-      <span className={`relative h-4 w-7 rounded-full transition-colors ${disabled ? "bg-danger" : "bg-accent"} ${busy ? "opacity-60" : ""}`}>
-        <span className={`absolute left-0.5 top-0.5 h-3 w-3 rounded-full bg-white transition-transform ${disabled ? "translate-x-0" : "translate-x-[14px]"}`} />
+      <span
+        className={`relative h-5 w-9 rounded-full transition-colors ${disabled ? "bg-danger/30" : "bg-accent"} ${busy ? "opacity-60" : ""}`}
+        style={!disabled ? { boxShadow: "0 0 10px -1px var(--color-accent-glow)" } : undefined}
+      >
+        <span className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${disabled ? "translate-x-0" : "translate-x-[16px]"}`} />
       </span>
+
     </button>
   );
 }
 
-// Provider presets — pick a type first, which prefills Base URL + API Type, then
-// you only fill Name + Key. Matches aigetwey's per-type forms but friendlier; the
-// fields below are still aigetwey's (Name, API Type, Base URL, Key + Check, Model
-// ID), minus the separate Prefix — our Name is the id and the model prefix.
 type Preset = { id: string; label: string; sub: string; icon: string; format: WireFormat; base_url: string; hint: string; modelHint: string };
 const PRESETS: Preset[] = [
   {
@@ -495,11 +540,9 @@ function AddProviderForm({ onDone, onClose }: { onDone: () => void; onClose: () 
     setErr("");
   }
 
-  // step 1: pick a type (OpenAI- or Anthropic-compatible) — this sets the wire
-  // format + base URL, exactly aigetwey's "Add OpenAI/Anthropic Compatible".
   if (!preset) {
     return (
-      <div className="mb-5 rounded-brand-lg border border-border bg-surface p-5 shadow-soft">
+      <div className="mb-5 card rounded-brand-lg p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-[14px] font-semibold text-text">Add a provider</h2>
@@ -510,23 +553,22 @@ function AddProviderForm({ onDone, onClose }: { onDone: () => void; onClose: () 
           </button>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          {PRESETS.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => choosePreset(p)}
-              className="group flex items-start gap-3 rounded-brand-lg border border-border bg-bg p-4 text-left transition-colors hover:border-accent hover:bg-accent-soft"
-            >
-              <span className="flex h-10 w-10 flex-none items-center justify-center rounded-brand bg-surface-2 text-text-muted group-hover:text-accent">
-                <Icon name={p.icon} size={20} />
-              </span>
-              <span className="min-w-0">
-                <span className="block text-[14px] font-semibold text-text">{p.label}</span>
-                <span className="block tnum text-[12px] text-text-subtle">{p.sub}</span>
-                <span className="mt-1 block text-[12px] text-text-muted">{p.hint}</span>
-              </span>
-            </button>
-          ))}
+          {PRESETS.map((p) => {
+            const accent = FORMAT_ACCENT[p.format];
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => choosePreset(p)}
+                className="group flex flex-col gap-1.5 overflow-hidden rounded-brand-lg border border-border bg-bg p-4 text-left transition-all hover:-translate-y-0.5 hover:border-accent/40"
+                style={{ borderTopColor: accent?.color, borderTopWidth: 2 }}
+              >
+                <span className="text-[14px] font-semibold text-text">{p.label}</span>
+                <span className="tnum text-[12px] text-text-subtle">{p.sub}</span>
+                <span className="text-[12px] text-text-muted">{p.hint}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
     );
@@ -560,14 +602,10 @@ function AddProviderForm({ onDone, onClose }: { onDone: () => void; onClose: () 
     onDone();
   }
 
-  // step 2: the aigetwey field set — Name, Base URL, API Key (for Check), Model ID.
   return (
-    <div className="mb-5 rounded-brand-lg border border-border bg-surface p-5 shadow-soft">
+    <div className="mb-5 card rounded-brand-lg p-5">
       <form onSubmit={submit}>
         <div className="mb-4 flex items-center gap-2.5 border-b border-border-subtle pb-4">
-          <span className="flex h-8 w-8 items-center justify-center rounded-brand bg-surface-2 text-text-muted">
-            <Icon name={preset.icon} size={17} />
-          </span>
           <div>
             <div className="text-[14px] font-semibold text-text">{preset.label}</div>
             <div className="tnum text-[11px] text-text-subtle">{preset.sub}</div>

@@ -484,7 +484,7 @@ export function removeProvider(config: Config, id: string): Config {
   if (idx === -1) throw new Error(`provider "${id}" not found`);
   const usedBy = next.models.filter((m) => m.target.includes(id)).map((m) => m.alias);
   if (usedBy.length > 0) {
-    throw new Error(`provider "${id}" is targeted by model alias(es): ${usedBy.join(", ")} — edit those first`);
+    throw new Error(`Cannot delete "${id}" — it is used in combos/routing: ${usedBy.join(", ")}. Remove it from those combos first.`);
   }
   next.providers.splice(idx, 1);
   return next;

@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { adminApi } from "@/lib/client";
-import { RichCard, CardTitle } from "@/components/RichCard";
 import { Button, Input } from "@/components/Button";
 import { Icon } from "@/components/Icon";
 import { Empty } from "@/components/ui";
@@ -26,8 +25,6 @@ export function EndpointView() {
     setEp(r.data);
   }, []);
 
-  // Headroom status is a live probe (installed/running/python), separate from the
-  // endpoint config — reload it on mount and after any headroom action.
   const reloadHr = useCallback(async () => {
     const r = await adminApi.headroomStatus();
     if (r.ok) setHr(r.data);
@@ -56,59 +53,110 @@ export function EndpointView() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-[22px] font-semibold tracking-tight text-text">Endpoint</h1>
-        <p className="mt-1 text-[13px] text-text-muted">Gateway address and token-saver toggles.</p>
+      <div className="mb-5">
+        <h1 className="text-[30px] font-bold tracking-tight heading-gradient heading-accent">Endpoint</h1>
       </div>
 
+      {/* Hero URL — full-width prominent bar */}
+      <div className="mb-5 overflow-hidden rounded-brand-lg glass-premium">
+        <div className="flex items-center gap-4 px-6 py-4">
+          <div className="flex flex-none items-center gap-2">
+            <span className={`h-3 w-3 rounded-full ${ep.port ? "bg-success" : "bg-danger"}`} style={{ boxShadow: `0 0 12px 2px ${ep.port ? "var(--color-success)" : "var(--color-danger)"}` }} />
+            <span className="text-[12px] font-semibold uppercase tracking-wider text-text-subtle">Live</span>
+          </div>
+          <button
+            onClick={() => { void navigator.clipboard.writeText(baseUrl); }}
+            className="flex flex-1 items-center gap-3 rounded-brand border border-border-subtle bg-bg/60 px-4 py-2 transition-all hover:border-accent/40"
+          >
+            <code className="tnum text-[14px] font-medium text-text">{baseUrl}</code>
+            <Icon name="content_copy" size={16} className="ml-auto flex-none text-text-subtle" />
+          </button>
+        </div>
+        <div className="border-t border-border-subtle px-5 py-3">
+          <TunnelRow />
+        </div>
+      </div>
+
+      {/* Token Savers + Headroom — side by side */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <RichCard className="lg:col-span-2" header={<CardTitle title="Gateway URL" sub="one endpoint for every client" />}>
-          <div className="text-[13px] space-y-2.5">
-            <div className="flex items-center gap-3">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-medium text-emerald-400">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                Local
-              </span>
-              <button
-                onClick={() => {
-                  void navigator.clipboard.writeText(baseUrl);
-                }}
-                className="flex items-center gap-1.5 rounded-brand border border-border-subtle px-2.5 py-1 tnum text-[13px] text-text hover:border-text-subtle"
-              >
-                {baseUrl}
-                <Icon name="content_copy" size={13} />
-              </button>
+        {/* Token Savers — single card, 3 stacked rows */}
+        <div className="overflow-hidden rounded-brand-lg card">
+          <div className="border-b border-border-subtle px-5 py-3">
+            <div className="flex items-center gap-2">
+              <Icon name="tune" size={16} className="text-text-subtle" />
+              <h2 className="text-[13px] font-semibold uppercase tracking-wider text-text-subtle">Token Savers</h2>
             </div>
-            <TunnelRow />
+            <p className="mt-0.5 text-[12px] text-text-muted">Applied to every request before routing.</p>
           </div>
-        </RichCard>
+          <div className="divide-y divide-border-subtle">
+            {/* RTK */}
+            <div className="px-5 py-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[14px] font-bold text-text">RTK</span>
+                <ToggleSwitch on={ep.rtk} busy={busy === "rtk"} onChange={(v) => run("rtk", () => adminApi.setRtk(v))} />
+              </div>
+              <p className="mt-1 text-[12px] leading-relaxed text-text-muted">
+                Compress bulky tool_result blocks (diffs, grep, listings) in the request.
+              </p>
+              <div className="mt-2 flex items-center gap-1.5">
+                <span className={`h-1.5 w-1.5 rounded-full ${ep.rtk ? "bg-success" : "bg-text-muted"}`} />
+                <span className="text-[11px] font-medium uppercase tracking-wider text-text-subtle">{ep.rtk ? "active" : "off"}</span>
+              </div>
+            </div>
 
-        <RichCard className="lg:col-span-2" header={<CardTitle title="Token savers" sub="applied to every request before routing" />}>
-          <div className="space-y-4">
-            <Toggle
-              label="RTK"
-              desc="Compress bulky tool_result blocks (diffs, grep, listings) in the request."
-              on={ep.rtk}
-              busy={busy === "rtk"}
-              onChange={(v) => run("rtk", () => adminApi.setRtk(v))}
-            />
-            <LevelRow
-              label="Caveman"
-              desc="Terser model output — drops filler, keeps substance."
-              value={ep.caveman}
-              busy={busy === "caveman"}
-              onChange={(lvl) => run("caveman", () => adminApi.setCaveman(lvl))}
-            />
-            <LevelRow
-              label="Ponytail"
-              desc="Minimal, YAGNI code style — deletion over addition."
-              value={ep.ponytail}
-              busy={busy === "ponytail"}
-              onChange={(lvl) => run("ponytail", () => adminApi.setPonytail(lvl))}
-            />
+            {/* Caveman */}
+            <div className="px-5 py-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[14px] font-bold text-text">Caveman</span>
+                {ep.caveman !== "off" && <span className="rounded-full bg-info/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-info">{ep.caveman}</span>}
+              </div>
+              <p className="mt-1 text-[12px] leading-relaxed text-text-muted">
+                Terse model output — drops filler, keeps substance.
+              </p>
+              <div className="mt-2 flex items-center gap-0.5 rounded-full bg-surface-2 p-0.5">
+                {LEVELS.map((lvl) => (
+                  <button
+                    key={lvl}
+                    disabled={busy === "caveman"}
+                    onClick={() => run("caveman", () => adminApi.setCaveman(lvl))}
+                    className={`flex-1 rounded-full py-1 text-[12px] font-medium transition-colors ${
+                      ep.caveman === lvl ? "bg-accent text-accent-ink" : "text-text-muted hover:text-text"
+                    }`}
+                  >
+                    {lvl}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Ponytail */}
+            <div className="px-5 py-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[14px] font-bold text-text">Ponytail</span>
+                {ep.ponytail !== "off" && <span className="rounded-full bg-info/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-info">{ep.ponytail}</span>}
+              </div>
+              <p className="mt-1 text-[12px] leading-relaxed text-text-muted">
+                Minimal, YAGNI code style — deletion over addition.
+              </p>
+              <div className="mt-2 flex items-center gap-0.5 rounded-full bg-surface-2 p-0.5">
+                {LEVELS.map((lvl) => (
+                  <button
+                    key={lvl}
+                    disabled={busy === "ponytail"}
+                    onClick={() => run("ponytail", () => adminApi.setPonytail(lvl))}
+                    className={`flex-1 rounded-full py-1 text-[12px] font-medium transition-colors ${
+                      ep.ponytail === lvl ? "bg-accent text-accent-ink" : "text-text-muted hover:text-text"
+                    }`}
+                  >
+                    {lvl}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-        </RichCard>
+        </div>
 
+        {/* Headroom */}
         <HeadroomCard
           ep={ep}
           hr={hr}
@@ -122,11 +170,6 @@ export function EndpointView() {
   );
 }
 
-/**
- * Headroom = external context-compression proxy. Status is a live probe; the
- * enable/url/compress fields persist to endpoint config; Start/Stop manage a
- * gateway-spawned proxy when the CLI is installed and the URL is loopback.
- */
 function HeadroomCard({
   ep,
   hr,
@@ -153,8 +196,6 @@ function HeadroomCard({
     await refresh();
   }
 
-  // Live re-probe: ask the gateway whether the proxy at the configured URL
-  // actually answers right now, and surface the result inline.
   async function checkProxy() {
     setLocalBusy("check");
     setMsg("");
@@ -174,165 +215,145 @@ function HeadroomCard({
   }
 
   return (
-    <RichCard className="lg:col-span-2" header={<CardTitle title="Headroom" sub="external context-compression proxy" />}>
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center gap-2 text-[12px]">
-          <Badge tone={hr?.installed ? "live" : "neutral"}>{hr?.installed ? "installed" : "not installed"}</Badge>
-          <Badge tone={hr?.running ? "live" : "warn"}>{hr?.running ? "proxy running" : "proxy down"}</Badge>
-          <Badge tone={hr?.python ? "info" : "neutral"}>{hr?.python ? `python ${hr.python}` : "no python ≥3.10"}</Badge>
-          {hr?.managedPid ? <span className="tnum text-text-subtle">pid {hr.managedPid}</span> : null}
+    <div className="overflow-hidden rounded-brand-lg card">
+      <div className="border-b border-border-subtle px-5 py-3">
+        <div className="flex items-center gap-2">
+          <Icon name="compress" size={16} className="text-text-subtle" />
+          <h2 className="text-[13px] font-semibold uppercase tracking-wider text-text-subtle">Headroom</h2>
         </div>
-
-        <Toggle
-          label="Enable headroom"
-          desc="Compress the full context through the proxy before each request."
-          on={h.enabled}
-          busy={localBusy === "enable"}
-          disabled={!hr?.running && !h.enabled}
-          onChange={(v) => act("enable", () => adminApi.setHeadroom({ enabled: v }))}
-        />
-        <Toggle
-          label="Compress user messages"
-          desc="Also squeeze user turns, not just tool/assistant context."
-          on={h.compress_user_messages}
-          busy={localBusy === "cum"}
-          disabled={!hr?.running && !h.enabled}
-          onChange={(v) => act("cum", () => adminApi.setHeadroom({ compress_user_messages: v }))}
-        />
-
-        <div className="flex items-end gap-2">
-          <div className="flex-1">
-            <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-text-subtle">Proxy URL</div>
-            <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="http://localhost:8787" className="font-mono text-[13px]" />
+        <p className="mt-0.5 text-[12px] text-text-muted">External context-compression proxy.</p>
+      </div>
+      <div>
+        {/* left: status + toggles */}
+        <div className="border-b border-border-subtle px-5 py-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Pill $tone={hr?.installed ? "live" : "neutral"}>{hr?.installed ? "installed" : "not installed"}</Pill>
+            <Pill $tone={hr?.running ? "live" : "warn"}>{hr?.running ? "running" : "down"}</Pill>
+            <Pill $tone={hr?.python ? "info" : "neutral"}>{hr?.python ? `py ${hr.python}` : "no py ≥3.10"}</Pill>
+            {hr?.managedPid ? <span className="tnum text-text-subtle">pid {hr.managedPid}</span> : null}
           </div>
-          <Button
-            variant="ghost"
-            disabled={url.trim() === h.url || localBusy === "url"}
-            onClick={() => act("url", () => adminApi.setHeadroom({ url: url.trim() }))}
-          >
-            Save URL
-          </Button>
-        </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            disabled={!hr?.canStart || hr?.running || !!localBusy}
-            onClick={async () => {
-              await act("start", () => adminApi.headroomStart());
-              await checkProxy();
-            }}
-          >
-            <Icon name={localBusy === "start" ? "sync" : "play_arrow"} size={16} className={localBusy === "start" ? "animate-spin" : ""} />
-            {localBusy === "start" ? "Starting…" : "Start proxy"}
-          </Button>
-          <Button
-            variant="danger"
-            disabled={!hr?.managedPid || localBusy === "stop"}
-            onClick={() => act("stop", () => adminApi.headroomStop())}
-          >
-            <Icon name="stop" size={16} /> Stop
-          </Button>
-          <Button variant="ghost" disabled={localBusy === "check"} onClick={checkProxy}>
-            <Icon name="sync" size={16} /> {localBusy === "check" ? "Checking…" : "Check"}
-          </Button>
+          <div className="mt-4 space-y-3">
+            {hr && !hr.running && (
+              <div className="flex items-center gap-2 rounded-brand border border-accent/20 bg-accent/5 px-3 py-2 text-[12px] text-text-subtle">
+                <Icon name="info" size={14} className="flex-none text-accent" />
+                <span>Start the proxy first, then enable compression.</span>
+              </div>
+            )}
+            <ToggleRow
+              label="Enable"
+              desc="Compress context through proxy before each request."
+              on={h.enabled}
+              busy={localBusy === "enable"}
+              disabled={!hr?.running && !h.enabled}
+              onChange={(v) => act("enable", () => adminApi.setHeadroom({ enabled: v }))}
+            />
+            <div className="h-px bg-border-subtle" />
+            <ToggleRow
+              label="Compress user msgs"
+              desc="Also squeeze user turns, not just tool/assistant context."
+              on={h.compress_user_messages}
+              busy={localBusy === "cum"}
+              disabled={!hr?.running && !h.enabled}
+              onChange={(v) => act("cum", () => adminApi.setHeadroom({ compress_user_messages: v }))}
+            />
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <Button
+              disabled={!hr?.canStart || hr?.running || !!localBusy}
+              onClick={async () => {
+                await act("start", () => adminApi.headroomStart());
+                await checkProxy();
+              }}
+            >
+              <Icon name={localBusy === "start" ? "sync" : "play_arrow"} size={16} className={localBusy === "start" ? "animate-spin" : ""} />
+              {localBusy === "start" ? "Starting…" : "Start"}
+            </Button>
+            <Button
+              variant="danger"
+              disabled={!hr?.managedPid || localBusy === "stop"}
+              onClick={() => act("stop", () => adminApi.headroomStop())}
+            >
+              <Icon name="stop" size={16} /> Stop
+            </Button>
+            <Button variant="ghost" disabled={localBusy === "check"} onClick={checkProxy}>
+              <Icon name="sync" size={16} /> {localBusy === "check" ? "Checking…" : "Check"}
+            </Button>
+          </div>
+
           {hr && !hr.installed && (
-            <span className="text-[11px] text-text-subtle">
-              Headroom isn’t installed. Get it from{" "}
+            <p className="mt-3 text-[11px] text-text-subtle">
+              Get it from{" "}
               <a href="https://github.com/chopratejas/headroom" target="_blank" rel="noreferrer" className="text-accent hover:underline">
                 chopratejas/headroom
               </a>{" "}
-              (needs Python ≥ 3.10):{" "}
-              <code className="rounded bg-surface-2 px-1">pipx install git+https://github.com/chopratejas/headroom</code>{" "}
-              — then re-open this page.
-            </span>
+              (Python ≥ 3.10):{" "}
+              <code className="rounded bg-surface-2 px-1">pipx install git+https://github.com/chopratejas/headroom</code>
+            </p>
           )}
           {hr?.installed && !hr.localUrl && (
-            <span className="text-[11px] text-text-subtle">URL isn’t loopback — start that proxy yourself.</span>
+            <p className="mt-3 text-[11px] text-text-subtle">URL isn't loopback — start that proxy yourself.</p>
+          )}
+
+          {msg && <p className="mt-2 text-[12px] text-danger">{msg}</p>}
+          {check && (
+            <p className={`mt-2 flex items-center gap-1 text-[12px] ${check.ok ? "text-success" : "text-danger"}`}>
+              <Icon name={check.ok ? "check_circle" : "error"} size={14} /> {check.text}
+            </p>
           )}
         </div>
 
-        {msg && <p className="text-[12px] text-danger">{msg}</p>}
-        {check && (
-          <p className={`flex items-center gap-1 text-[12px] ${check.ok ? "text-success" : "text-danger"}`}>
-            <Icon name={check.ok ? "check_circle" : "error"} size={14} /> {check.text}
-          </p>
-        )}
+        {/* right: URL input */}
+        <div className="px-5 py-4">
+          <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-text-subtle">Proxy URL</div>
+          <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="http://localhost:8787" className="font-mono text-[13px]" />
+          <div className="mt-2 flex justify-end">
+            <Button
+              variant="ghost"
+              disabled={url.trim() === h.url || localBusy === "url"}
+              onClick={() => act("url", () => adminApi.setHeadroom({ url: url.trim() }))}
+            >
+              Save URL
+            </Button>
+          </div>
+        </div>
       </div>
-    </RichCard>
-  );
-}
-
-function CopyRow({ label, value }: { label: string; value: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-text-subtle">{label}</span>
-      <button
-        onClick={() => {
-          void navigator.clipboard.writeText(value);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1200);
-        }}
-        className="flex items-center gap-1.5 rounded-brand border border-border-subtle px-2.5 py-1 tnum text-[13px] text-text hover:border-text-subtle"
-      >
-        {value}
-        <Icon name={copied ? "check" : "content_copy"} size={13} />
-      </button>
     </div>
   );
 }
 
-function Toggle({ label, desc, on, busy, disabled, onChange }: { label: string; desc: string; on: boolean; busy: boolean; disabled?: boolean; onChange: (v: boolean) => void }) {
+function ToggleSwitch({ on, busy, disabled, onChange }: { on: boolean; busy: boolean; disabled?: boolean; onChange: (v: boolean) => void }) {
+  const off = busy || disabled;
+  return (
+    <button
+      disabled={off}
+      onClick={() => onChange(!on)}
+      className={`relative h-5 w-9 flex-none rounded-full transition-colors ${on ? "bg-accent" : "bg-danger/30"} ${off ? "opacity-40" : ""}`}
+      style={on ? { boxShadow: "0 0 10px -1px var(--color-accent-glow)" } : undefined}
+      aria-pressed={on}
+    >
+      <span className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-bg shadow-sm transition-transform ${on ? "translate-x-[16px]" : "translate-x-0"}`} />
+    </button>
+  );
+}
+
+function ToggleRow({ label, desc, on, busy, disabled, onChange }: { label: string; desc: string; on: boolean; busy: boolean; disabled?: boolean; onChange: (v: boolean) => void }) {
   const off = busy || disabled;
   return (
     <div className={`flex items-center justify-between gap-4 ${off ? "opacity-40" : ""}`}>
-      <div>
+      <div className="min-w-0">
         <div className="text-[13px] font-semibold text-text">{label}</div>
         <div className="text-[12px] text-text-muted">{desc}</div>
       </div>
-      <button
-        disabled={off}
-        onClick={() => onChange(!on)}
-        className={`relative h-6 w-11 flex-none rounded-full transition-colors ${on ? "bg-accent" : "bg-surface-3"}`}
-        aria-pressed={on}
-      >
-        <span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-bg transition-transform ${on ? "translate-x-5" : "translate-x-0"}`} />
-      </button>
-    </div>
-  );
-}
-
-function LevelRow({ label, desc, value, busy, onChange }: { label: string; desc: string; value: InjectLevel; busy: boolean; onChange: (l: InjectLevel) => void }) {
-  return (
-    <div className="flex items-center justify-between gap-4">
-      <div>
-        <div className="flex items-center gap-2">
-          <span className="text-[13px] font-semibold text-text">{label}</span>
-          {value !== "off" && <Badge tone="info">{value}</Badge>}
-        </div>
-        <div className="text-[12px] text-text-muted">{desc}</div>
-      </div>
-      <div className="flex flex-none items-center gap-1 rounded-full border border-border bg-surface p-1">
-        {LEVELS.map((lvl) => (
-          <button
-            key={lvl}
-            disabled={busy}
-            onClick={() => onChange(lvl)}
-            className={`rounded-full px-2.5 py-1 text-[12px] font-medium transition-colors ${
-              value === lvl ? "bg-accent text-accent-ink" : "text-text-muted hover:text-text"
-            }`}
-          >
-            {lvl}
-          </button>
-        ))}
-      </div>
+      <ToggleSwitch on={on} busy={busy} disabled={disabled} onChange={onChange} />
     </div>
   );
 }
 
 type Tone = "live" | "down" | "warn" | "info" | "neutral";
 
-const TONES: Record<Tone, string> = {
+const PILL_TONES: Record<Tone, string> = {
   live: "bg-success/12 text-success",
   down: "bg-danger/12 text-danger",
   warn: "bg-warning/12 text-warning",
@@ -340,19 +361,9 @@ const TONES: Record<Tone, string> = {
   neutral: "bg-surface-2 text-text-muted",
 };
 
-function Badge({
-  tone = "neutral",
-  children,
-  className,
-}: {
-  tone?: Tone;
-  children: React.ReactNode;
-  className?: string;
-}) {
+function Pill({ $tone = "neutral", children }: { $tone?: Tone; children: React.ReactNode }) {
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${TONES[tone]}${className ? ` ${className}` : ""}`}
-    >
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${PILL_TONES[$tone]}`}>
       {children}
     </span>
   );
@@ -397,14 +408,15 @@ function TunnelRow() {
 
   return (
     <div className="space-y-2">
+      <div className="text-[11px] text-text-subtle">Expose gateway over the internet via a secure Cloudflare tunnel.</div>
       <div className="flex items-center gap-3">
         {status?.enabled ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 px-2.5 py-0.5 text-[11px] font-medium text-blue-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-info/10 px-2.5 py-0.5 text-[11px] font-medium text-info">
+            <span className="h-1.5 w-1.5 rounded-full bg-info" />
             Tunnel
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-alt px-2.5 py-0.5 text-[11px] font-medium text-text-muted">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-2.5 py-0.5 text-[11px] font-medium text-text-muted">
             <span className="h-1.5 w-1.5 rounded-full bg-text-muted" />
             Tunnel
           </span>
@@ -415,7 +427,7 @@ function TunnelRow() {
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
-            {status?.enabled ? "Disconnecting…" : "Starting tunnel… this may take a few seconds"}
+            {status?.enabled ? "Disconnecting…" : "Starting tunnel…"}
           </span>
         ) : status?.enabled && status.url ? (
           <button
@@ -434,22 +446,22 @@ function TunnelRow() {
             className="!px-2.5 !py-1 !text-[11.5px]"
           >
             <Icon name={status?.enabled ? "link_off" : "link"} size={12} />
-            {status?.enabled ? "Disable" : "Enable"}
+            {status?.enabled ? "Disconnect" : "Connect"}
           </Button>
         )}
       </div>
       {showWarning && (
-        <div className="flex items-start gap-2 rounded-brand border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[12px] text-amber-400">
+        <div className="flex items-start gap-2 rounded-brand border border-warning/30 bg-warning/5 px-3 py-2 text-[12px] text-warning">
           <Icon name="warning" size={14} className="mt-0.5 shrink-0" />
           <div className="flex-1 space-y-0.5">
             {!status?.hasAuth && (
-              <p>No API keys — <a href="/keys" className="font-medium text-amber-300 underline underline-offset-2 decoration-amber-300/50 hover:decoration-amber-300">add in Access Keys</a> before enabling tunnel.</p>
+              <p>No API keys — <a href="/keys" className="font-medium underline underline-offset-2">add in Access Keys</a> before enabling tunnel.</p>
             )}
             {status?.isDefaultPassword && (
-              <p>Default password — <a href="/config" className="font-medium text-amber-300 underline underline-offset-2 decoration-amber-300/50 hover:decoration-amber-300">change in Settings</a> before enabling tunnel.</p>
+              <p>Default password — <a href="/config" className="font-medium underline underline-offset-2">change in Settings</a> before enabling tunnel.</p>
             )}
           </div>
-          <button onClick={dismiss} className="shrink-0 p-0.5 rounded hover:bg-amber-500/10 text-amber-400/60 hover:text-amber-400">
+          <button onClick={dismiss} className="shrink-0 p-0.5 rounded hover:bg-warning/10 text-warning/60 hover:text-warning">
             <Icon name="close" size={14} />
           </button>
         </div>

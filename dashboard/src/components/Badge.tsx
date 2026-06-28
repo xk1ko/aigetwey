@@ -1,12 +1,12 @@
 type Tone = "live" | "down" | "warn" | "info" | "neutral" | "danger";
 
 const TONES: Record<Tone, string> = {
-  live: "bg-success/12 text-success",
-  down: "bg-danger/12 text-danger",
-  danger: "bg-danger/12 text-danger",
-  warn: "bg-warning/12 text-warning",
-  info: "bg-info/12 text-info",
-  neutral: "bg-surface-2 text-text-muted",
+  live: "bg-success/10 text-success border border-success/15",
+  down: "bg-danger/10 text-danger border border-danger/15",
+  danger: "bg-danger/10 text-danger border border-danger/15",
+  warn: "bg-warning/10 text-warning border border-warning/15",
+  info: "bg-info/10 text-info border border-info/15",
+  neutral: "glass text-text-muted",
 };
 
 export function Badge({

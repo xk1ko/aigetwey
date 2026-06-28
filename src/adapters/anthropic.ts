@@ -308,9 +308,16 @@ export function responseToCanonical(resp: unknown): CanonicalResponse {
     choices: [{ index: 0, message, finish_reason: mapStopReason(r.stop_reason) }],
     usage: r.usage
       ? {
-          prompt_tokens: r.usage.input_tokens,
+          prompt_tokens:
+            (r.usage.input_tokens ?? 0) +
+            (r.usage.cache_read_input_tokens ?? 0) +
+            (r.usage.cache_creation_input_tokens ?? 0),
           completion_tokens: r.usage.output_tokens,
-          total_tokens: r.usage.input_tokens + r.usage.output_tokens,
+          total_tokens:
+            (r.usage.input_tokens ?? 0) +
+            (r.usage.cache_read_input_tokens ?? 0) +
+            (r.usage.cache_creation_input_tokens ?? 0) +
+            (r.usage.output_tokens ?? 0),
           cached_tokens: r.usage.cache_read_input_tokens,
           cache_creation_tokens: r.usage.cache_creation_input_tokens,
         }

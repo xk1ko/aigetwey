@@ -31,7 +31,7 @@ export function AutostartToggle() {
   }
 
   return (
-    <RichCard header={<CardTitle title="Startup" sub="run aigetwey when your system boots" />}>
+    <RichCard header={<CardTitle title="Startup" sub="run aigloo when your system boots" />}>
       <div className="flex items-center justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-[13px]">
@@ -41,7 +41,7 @@ export function AutostartToggle() {
             )}
           </div>
           <p className="text-[11px] text-text-subtle">
-            Registers aigetwey to launch with system tray on OS startup (--tray --skip-update)
+            Registers aigloo to launch with system tray on OS startup (--tray --skip-update)
           </p>
         </div>
         <button

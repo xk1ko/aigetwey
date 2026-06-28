@@ -8,7 +8,7 @@ import { Empty } from "@/components/ui";
 import type { PricingPayload, PricingModel } from "@/lib/gateway";
 
 /**
- * Per-model price override editor (aigetwey's Pricing settings, adapted). Each model
+ * Per-model price override editor (aigloo's Pricing settings, adapted). Each model
  * shows the auto-resolved default from the pricing table; typing an override stores
  * it in config, and "use default" clears it. All rates are $/1M tokens.
  */
@@ -85,7 +85,7 @@ export function PricingEditor() {
   );
 
   return (
-    <details className="group overflow-hidden rounded-brand-lg border border-border bg-surface shadow-soft">
+    <details className="group overflow-hidden rounded-brand-lg card">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
         <CardTitle title="Pricing" sub="$/1M tokens — override the auto rate per model" />
         <span className="flex items-center gap-2">

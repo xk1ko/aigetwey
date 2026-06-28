@@ -30,31 +30,51 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="grid min-h-screen place-items-center p-6">
-      <form
-        onSubmit={submit}
-        className="w-full max-w-[360px] rounded-brand-lg border border-border bg-surface p-7 shadow-elevated"
-      >
-        <div className="mb-5 flex items-center gap-2.5">
-          <span className="flex h-7 w-7 flex-none items-center justify-center rounded-brand bg-accent text-[14px] font-bold text-accent-ink shadow-warm">
-            a
-          </span>
-          <span className="text-[16px] font-semibold tracking-tight text-text">aigetwey</span>
+    <div className="login-split">
+      {/* Left: gradient art panel */}
+      <div className="login-art">
+        <div className="max-w-md">
+          <div className="mb-8 flex items-center gap-3">
+            <span className="flex h-12 w-12 flex-none items-center justify-center rounded-brand-xl bg-accent shadow-warm">
+              <svg viewBox="0 0 512 512" width="28" height="28" fill="none">
+                <g transform="translate(60, 60) scale(14)" stroke="#08090d" strokeLinecap="round">
+                  <path d="M4 20C4 12.268 8.477 6 14 6C19.523 6 24 12.268 24 20" strokeWidth="2"/>
+                  <path d="M8 20C8 14.477 10.686 10 14 10C17.314 10 20 14.477 20 20" strokeWidth="1.5" opacity="0.5"/>
+                  <line x1="3" y1="20" x2="25" y2="20" strokeWidth="2"/>
+                </g>
+              </svg>
+            </span>
+            <span className="text-[24px] font-bold tracking-tight text-text">aigloo</span>
+          </div>
+          <h2 className="text-[28px] font-bold leading-tight tracking-tight text-text">
+            All your AI,<br/>in one place.
+          </h2>
+          <p className="mt-4 text-[14px] leading-relaxed text-text-muted">
+            Route, translate, and track requests across every provider. One endpoint, total visibility.
+          </p>
         </div>
+      </div>
 
-        <h1 className="text-[19px] font-semibold tracking-tight text-text">Welcome back</h1>
-        <p className="mb-6 mt-1 text-[13px] text-text-muted">Enter the admin password to continue.</p>
+      {/* Right: form */}
+      <div className="grid place-items-center p-6">
+        <form
+          onSubmit={submit}
+          className="glass-strong w-full max-w-[400px] rounded-brand-xl p-8 shadow-elevated"
+        >
+          <h1 className="text-[22px] font-bold tracking-tight text-text">Welcome back</h1>
+          <p className="mb-6 mt-1 text-[13px] text-text-muted">Enter the admin password to continue.</p>
 
-        <Field label="Password">
-          <Input type="password" value={password} autoFocus onChange={(e) => setPassword(e.target.value)} />
-        </Field>
+          <Field label="Password">
+            <Input type="password" value={password} autoFocus onChange={(e) => setPassword(e.target.value)} />
+          </Field>
 
-        {error && <div className="mt-2.5 text-[12px] text-danger">{error}</div>}
+          {error && <div className="mt-2.5 text-[12px] text-danger">{error}</div>}
 
-        <Button type="submit" disabled={busy} className="mt-6 w-full">
-          {busy ? "Connecting…" : "Connect"}
-        </Button>
-      </form>
-    </main>
+          <Button type="submit" disabled={busy} className="mt-6 w-full">
+            {busy ? "Connecting…" : "Connect"}
+          </Button>
+        </form>
+      </div>
+    </div>
   );
 }

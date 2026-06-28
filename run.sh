@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# aigetwey — bring up gateway + dashboard with one command.
+# aigloo — bring up gateway + dashboard with one command.
 #   ./run.sh
 # Built (production): npm run build && npm --prefix dashboard run build && ./run.sh
 set -euo pipefail
 cd "$(dirname "$0")"
 
 # zero-config local defaults (override by exporting before running).
-export AIGETWEY_ADMIN_PASSWORD="${AIGETWEY_ADMIN_PASSWORD:-123456}"
+export AIGLOO_ADMIN_PASSWORD="${AIGLOO_ADMIN_PASSWORD:-123456}"
 # stable secret so the dashboard login cookie survives restarts.
-export SESSION_SECRET="${SESSION_SECRET:-aigetwey-local-session-secret}"
+export SESSION_SECRET="${SESSION_SECRET:-aigloo-local-session-secret}"
 
 # seed a working config.yaml on first run (gitignored; holds keys).
 if [ ! -f config.yaml ]; then

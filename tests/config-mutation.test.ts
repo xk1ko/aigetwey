@@ -67,7 +67,7 @@ describe("provider mutations", () => {
   });
 
   it("removeProvider refuses while a route targets it", () => {
-    expect(() => removeProvider(base(), "oa")).toThrow(/targeted by model alias/);
+    expect(() => removeProvider(base(), "oa")).toThrow(/used in combos\/routing/);
   });
 
   it("removeProvider works once no route targets it", () => {

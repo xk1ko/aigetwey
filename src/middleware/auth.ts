@@ -76,7 +76,7 @@ export interface AdminVerifier {
 /**
  * Admin auth for /admin/* — the password is presented as a Bearer token (the
  * dashboard proxies it server-side; never reaches the browser) and checked
- * against the hash store (seeded from AIGETWEY_ADMIN_PASSWORD, changeable at
+ * against the hash store (seeded from AIGLOO_ADMIN_PASSWORD, changeable at
  * runtime).
  *
  * If no password is set, admin routes LOCK (503) rather than open — admin
@@ -84,7 +84,7 @@ export interface AdminVerifier {
  */
 export function checkAdminAuth(req: FastifyRequest, auth: AdminVerifier | undefined): AuthResult {
   if (!auth || !auth.enabled) {
-    return { ok: false, status: 503, error: "admin disabled (set AIGETWEY_ADMIN_PASSWORD)" };
+    return { ok: false, status: 503, error: "admin disabled (set AIGLOO_ADMIN_PASSWORD)" };
   }
   const key = extractKey(req);
   if (!key) return { ok: false, status: 401, error: "missing admin password" };

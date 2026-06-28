@@ -37,7 +37,7 @@ export const CLI_TOOLS: CliTool[] = [
     name: "Claude Code",
     icon: "smart_toy",
     format: "anthropic",
-    blurb: "Anthropic CLI. Point its base URL + key at the gateway.",
+    blurb: "Coding agent CLI. Routes any model through the gateway.",
     autoConfig: true,
     install: "npm i -g @anthropic-ai/claude-code",
     slots: [
@@ -60,7 +60,7 @@ export const CLI_TOOLS: CliTool[] = [
     name: "OpenCode",
     icon: "code_blocks",
     format: "openai",
-    blurb: "OpenAI-compatible provider. Set base_url to /v1.",
+    blurb: "Open-source coding agent. Any model via the gateway /v1 endpoint.",
     autoConfig: true,
     install: "curl -fsSL https://opencode.ai/install | bash",
     slots: [{ label: "Model", alias: "gpt-5" }],

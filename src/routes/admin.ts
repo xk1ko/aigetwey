@@ -1,5 +1,5 @@
 /**
- * Admin API (/admin/*), behind a single admin password (AIGETWEY_ADMIN_PASSWORD),
+ * Admin API (/admin/*), behind a single admin password (AIGLOO_ADMIN_PASSWORD),
  * consumed by the Next.js dashboard via a server-side proxy. Read endpoints
  * expose health/usage/logs; the config endpoints allow live editing with
  * hot-reload.
@@ -196,7 +196,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
   app.get("/admin/config/export", requireAdmin, (_req, reply) => {
     reply
       .header("Content-Type", "text/yaml; charset=utf-8")
-      .header("Content-Disposition", 'attachment; filename="aigetwey-config.yaml"')
+      .header("Content-Disposition", 'attachment; filename="aigloo-config.yaml"')
       .send(serializeConfig(deps.state.config.raw));
   });
 
@@ -295,7 +295,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     applyMutation(reply, (c) => addProviderKey(c, id, b.key!, b.name));
   });
 
-  // edit ONE provider key: rename and/or swap its value (aigetwey-style).
+  // edit ONE provider key: rename and/or swap its value (aigloo-style).
   app.put("/admin/providers/:id/keys/:index", requireAdmin, (req, reply) => {
     const { id, index } = req.params as { id: string; index: string };
     const i = Number(index);
@@ -386,7 +386,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
   });
 
   // Pre-save connectivity check for the add-provider form's "Check" button:
-  // ping an ad-hoc provider config without persisting it. Matches aigetwey's
+  // ping an ad-hoc provider config without persisting it. Matches aigloo's
   // validate-before-save. Never stores anything; the key stays in the request.
   app.post("/admin/providers/validate", requireAdmin, async (req, reply) => {
     const b = req.body as { format?: Provider["format"]; base_url?: string; api_key?: string };
@@ -439,7 +439,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     reply.send(await pingProvider(provider, key.trim()));
   });
 
-  // Test ONE model end-to-end (aigetwey's per-model science button). Routes through
+  // Test ONE model end-to-end (aigloo's per-model science button). Routes through
   // the real pipeline via handle(), so the ping lands in usage exactly like
   // a normal call — and it catches "model not found / not entitled" a /models
   // ping can't. Model id travels as ?model= to survive slashes through the proxy.
@@ -485,7 +485,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     const providers = deps.state.config.raw.providers;
     reply
       .header("Content-Type", "application/json")
-      .header("Content-Disposition", 'attachment; filename="aigetwey-providers.json"')
+      .header("Content-Disposition", 'attachment; filename="aigloo-providers.json"')
       .send(JSON.stringify({ providers }, null, 2));
   });
 
@@ -710,7 +710,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     if (!isLoopbackHeadroomUrl(url)) {
       return reply
         .code(400)
-        .send({ error: "external headroom proxies must be started outside aigetwey", code: "EXTERNAL_PROXY" });
+        .send({ error: "external headroom proxies must be started outside aigloo", code: "EXTERNAL_PROXY" });
     }
     let port = 8787;
     try {
@@ -783,7 +783,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     const current = readVersion();
     let latest: string | null = null;
     try {
-      const res = await fetch("https://registry.npmjs.org/aigetwey/latest", {
+      const res = await fetch("https://registry.npmjs.org/aigloo/latest", {
         signal: AbortSignal.timeout(3000),
       });
       if (res.ok) {
@@ -853,7 +853,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
   });
 
   // ---- shutdown: stop the gateway process (dashboard power button) ----
-  // Matches aigetwey's POST /api/shutdown: reply first, then exit after a short
+  // Matches aigloo's POST /api/shutdown: reply first, then exit after a short
   // delay so the response reaches the browser. Admin-gated like everything else;
   // the DB is closed cleanly (same path as the SIGINT/SIGTERM handler).
   app.post("/admin/shutdown", requireAdmin, (_req, reply) => {

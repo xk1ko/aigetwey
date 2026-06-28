@@ -1,6 +1,6 @@
 {
-  "name": "aigetwey",
-  "version": "1.5.0",
+  "name": "aigloo",
+  "version": "1.0.0",
   "type": "module",
   "description": "Personal AI gateway — route, translate and track requests across Anthropic and OpenAI-compatible providers, with a built-in dashboard.",
   "keywords": [
@@ -16,19 +16,19 @@
   ],
   "license": "MIT",
   "author": "xk1ko <221650117+xk1ko@users.noreply.github.com>",
-  "homepage": "https://github.com/xk1ko/aigetwey#readme",
+  "homepage": "https://github.com/xk1ko/aigloo#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/xk1ko/aigetwey.git"
+    "url": "git+https://github.com/xk1ko/aigloo.git"
   },
   "bugs": {
-    "url": "https://github.com/xk1ko/aigetwey/issues"
+    "url": "https://github.com/xk1ko/aigloo/issues"
   },
   "engines": {
     "node": ">=22"
   },
   "bin": {
-    "aigetwey": "dist/cli.js"
+    "aigloo": "dist/cli.js"
   },
   "files": [
     "dist",

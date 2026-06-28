@@ -1,11 +1,26 @@
 # Changelog
 
-All notable changes to **aigetwey** are documented here.
+All notable changes to **aigloo** are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.5.0] — 2026-06-28
+## [1.0.0] — 2026-06-28
+
+**aigloo** — rebranded from aigetwey. New name, new dashboard, same gateway.
+
+- **Redesigned dashboard** — glassmorphic aigloo design system: deep blue-black surfaces,
+  lime accent, floating sidebar, glass cards with layered shadows
+- **Login redesign** — split-panel layout, "All your AI, in one place" tagline
+- Renamed npm package `aigetwey` → `aigloo` (fresh v1.0.0)
+- Data directory `~/.aigetwey` → `~/.aigloo` (auto-migrated on first run)
+- Environment variables `AIGETWEY_*` → `AIGLOO_*`
+- New logo: minimalist igloo dome
+- GitHub repo renamed to `xk1ko/aigloo`
+
+All features from aigetwey 1.5.0 carry over unchanged.
+
+## [aigetwey 1.5.0] — 2026-06-28
 
 ### Added
 - **Changelog popup** — click version badge in top bar to view full changelog;
@@ -43,7 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `System.Drawing.Icon(stream)` instead of PNG→Bitmap→GetHicon (native format,
   correct sizing + transparency)
 - **Per-provider cooldown/retries removed** — replaced with global constants
-  `COOLDOWN_BASE_MS=1000`, `MAX_RETRIES=2` (matches 9router approach)
+  `COOLDOWN_BASE_MS=1000`, `MAX_RETRIES=2`
 - **est_converse shows remaining** — `(limit - spent) / rate` = tokens/USD left
   (was showing spent or limit)
 - **Key scope save refresh** — budgets refetched in `reload()` so spend cap
@@ -492,6 +507,6 @@ dashboard.
   installs dashboard deps, builds the dashboard).
 - Brand: `a»` mark (favicon + sidebar) and an `ai»getwey` wordmark.
 
-[Unreleased]: https://github.com/xk1ko/aigetwey/compare/v1.0.1...HEAD
-[1.0.1]: https://github.com/xk1ko/aigetwey/compare/v1.0.0...v1.0.1
-[1.0.0]: https://github.com/xk1ko/aigetwey/releases/tag/v1.0.0
+[Unreleased]: https://github.com/xk1ko/aigloo/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/xk1ko/aigloo/releases/tag/v1.0.0
+[aigetwey 1.5.0]: https://github.com/xk1ko/aigloo/releases/tag/v1.5.0

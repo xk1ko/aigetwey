@@ -1,12 +1,12 @@
 /**
  * Request-time context compression via the external Headroom proxy.
  *
- * aigetwey's canonical request is OpenAI-shaped, and Headroom's /v1/compress only
+ * aigloo's canonical request is OpenAI-shaped, and Headroom's /v1/compress only
  * understands OpenAI shape — so we compress canonical.messages directly, no
- * per-format translation dance (aigetwey has to translate Claude bodies first).
+ * per-format translation dance (aigloo has to translate Claude bodies first).
  * Fail-open: any error returns null and the request proceeds uncompressed.
  *
- * aigetwey's own implementation.
+ * aigloo's own implementation.
  */
 import type { CanonicalMessage } from "../core/canonical.js";
 

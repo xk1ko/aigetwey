@@ -3,8 +3,8 @@
  * Central source of truth for level↔budget maps (web-standard values).
  * Provider-specific application lives in thinkingUnified.ts; this file is maps-only.
  *
- * Implemented for aigetwey so
- * aigetwey normalizes thinking identically.
+ * Implemented for aigloo so
+ * aigloo normalizes thinking identically.
  */
 
 /** Discrete effort levels, ordered low→high. */

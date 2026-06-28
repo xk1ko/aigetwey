@@ -78,7 +78,7 @@ async function main(): Promise<void> {
   const state = new GatewayState(configPath, config, db);
   // admin password lives in a hash store (seeded from the env on first run,
   // changeable at runtime from the dashboard).
-  const auth = AuthStore.open(dataDir, process.env.AIGETWEY_ADMIN_PASSWORD);
+  const auth = AuthStore.open(dataDir, process.env.AIGLOO_ADMIN_PASSWORD);
 
   registerRoutes(app, state, db, auth);
 
@@ -87,7 +87,7 @@ async function main(): Promise<void> {
   // to it. The API routes above (/v1, /admin, /health) are more specific than the
   // proxy's catch-all, so client traffic stays direct on Fastify — only the
   // low-traffic dashboard is proxied. One address serves both.
-  const dashUpstream = process.env.AIGETWEY_DASHBOARD_PORT;
+  const dashUpstream = process.env.AIGLOO_DASHBOARD_PORT;
   if (dashUpstream) {
     await app.register(import("@fastify/http-proxy"), {
       upstream: `http://127.0.0.1:${dashUpstream}`,
@@ -114,16 +114,16 @@ async function main(): Promise<void> {
   process.on("SIGTERM", close);
 
   try {
-    const port = process.env.AIGETWEY_PORT ? Number(process.env.AIGETWEY_PORT) : config.server.port;
+    const port = process.env.AIGLOO_PORT ? Number(process.env.AIGLOO_PORT) : config.server.port;
     const host = config.server.host;
 
     if (host !== "127.0.0.1" && host !== "localhost" && config.server.api_keys.length === 0) {
       app.log.warn("⚠ SECURITY: binding on %s with NO api_keys — all requests unauthenticated!", host);
-      app.log.warn("⚠ Set server.api_keys in config.yaml or AIGETWEY_ADMIN_PASSWORD to secure the gateway.");
+      app.log.warn("⚠ Set server.api_keys in config.yaml or AIGLOO_ADMIN_PASSWORD to secure the gateway.");
     }
 
     await app.listen({ host, port });
-    app.log.info(`aigetwey listening on http://${host}:${port}`);
+    app.log.info(`aigloo listening on http://${host}:${port}`);
   } catch (e) {
     app.log.error(e);
     process.exit(1);

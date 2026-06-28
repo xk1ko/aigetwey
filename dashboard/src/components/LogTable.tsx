@@ -101,7 +101,7 @@ export function LogTable({ logs: initial }: { logs: UsageLog[] }) {
   const count = (k: StatusFilter) => (k === "all" ? logs.length : k === "ok" ? okCount : errCount);
 
   return (
-    <div className="overflow-hidden rounded-brand-lg border border-border bg-surface shadow-soft">
+    <div className="overflow-hidden rounded-brand-lg card">
       <header className="flex flex-col gap-3 border-b border-border-subtle px-4 py-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-1.5">
@@ -283,7 +283,7 @@ function FilterPill({
       {open && createPortal(
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-6" onClick={() => setOpen(false)}>
           <div
-            className="flex max-h-[60vh] w-full max-w-[360px] flex-col overflow-hidden rounded-brand-lg border border-border bg-surface shadow-elevated"
+            className="flex max-h-[60vh] w-full max-w-[360px] flex-col overflow-hidden rounded-brand-lg glass-strong modal-card"
             onClick={(e) => e.stopPropagation()}
           >
             <header className="flex items-center justify-between border-b border-border-subtle px-4 py-3">

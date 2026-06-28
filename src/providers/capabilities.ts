@@ -45,7 +45,7 @@ export interface Caps {
 }
 
 /**
- * Glob (* = wildcard) match, anchored + case-insensitive. aigetwey's
+ * Glob (* = wildcard) match, anchored + case-insensitive. aigloo's
  * pricing.matchPattern so capabilities resolve identically.
  */
 export function matchPattern(pattern: string, model: string): boolean {
@@ -121,11 +121,9 @@ export const MODEL_CAPABILITIES: Record<string, Partial<Caps>> = {
  * Provider-specific capability overrides. Keyed by provider alias/id.
  */
 export const PROVIDER_CAPABILITIES: Record<string, Record<string, Partial<Caps>>> = {
-  // CodeBuddy.cn — authoritative per-model metadata from the gateway's model
-  // config (contextWindow=maxInputTokens, maxOutput=maxOutputTokens, vision=
-  // supportsImages). Every model reasons via OpenAI-style reasoning_effort
-  // (see registry thinkingFormat). `onlyReasoning` models can't turn thinking
-  // off → thinkingCanDisable:false (clamped to minimal instead of disabled).
+  // CodeBuddy.cn — wraps all models behind OpenAI-compatible API, so thinking
+  // uses reasoning_effort (openai format) regardless of native format. Limits
+  // are provider-specific. Vision is a model property — see MODEL_CAPABILITIES.
   "codebuddy-cn": {
     "glm-5.2":            { vision: true, reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 1000000, maxOutput: 48000 },
     "glm-5.1":            { reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 200000, maxOutput: 48000 },

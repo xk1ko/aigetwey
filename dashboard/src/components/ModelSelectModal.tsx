@@ -31,7 +31,8 @@ export function ModelSelectModal({
 
   const shown = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    return q ? models.filter((m) => m.id.toLowerCase().includes(q)) : models;
+    const base = q ? models.filter((m) => m.id.toLowerCase().includes(q)) : models;
+    return [...base].sort((a, b) => Number(b.added) - Number(a.added));
   }, [models, filter]);
 
   function toggle(id: string) {
@@ -43,14 +44,15 @@ export function ModelSelectModal({
     });
   }
 
-  const shownPickedCount = shown.filter((m) => picked.has(m.id)).length;
-  const allShownPicked = shown.length > 0 && shownPickedCount === shown.length;
+  const pickable = shown.filter((m) => !m.added);
+  const shownPickedCount = pickable.filter((m) => picked.has(m.id)).length;
+  const allShownPicked = pickable.length > 0 && shownPickedCount === pickable.length;
   const someShownPicked = shownPickedCount > 0 && !allShownPicked;
   function toggleAllShown() {
     setPicked((s) => {
       const next = new Set(s);
-      if (allShownPicked) shown.forEach((m) => next.delete(m.id));
-      else shown.forEach((m) => next.add(m.id));
+      if (allShownPicked) pickable.forEach((m) => next.delete(m.id));
+      else pickable.forEach((m) => next.add(m.id));
       return next;
     });
   }
@@ -58,7 +60,7 @@ export function ModelSelectModal({
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-6" onClick={onClose}>
       <div
-        className="flex max-h-[80vh] w-full max-w-[480px] flex-col overflow-hidden rounded-brand-lg border border-border bg-surface shadow-elevated"
+        className="flex max-h-[80vh] w-full max-w-[480px] flex-col overflow-hidden rounded-brand-lg glass-strong modal-card"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center justify-between border-b border-border-subtle px-4 py-3">
@@ -81,7 +83,7 @@ export function ModelSelectModal({
             <Checkbox checked={allShownPicked} indeterminate={someShownPicked} onChange={toggleAllShown} ariaLabel="Select all" />
             <span className="text-[13px] font-medium text-text">Select all{filter ? " (filtered)" : ""}</span>
             <span className="ml-auto tnum text-[11px] text-text-subtle">
-              {shownPickedCount}/{shown.length}
+              {shownPickedCount}/{pickable.length}
             </span>
           </button>
         )}
@@ -92,6 +94,18 @@ export function ModelSelectModal({
           ) : (
             shown.map((m) => {
               const sel = picked.has(m.id);
+              if (m.added) {
+                return (
+                  <div
+                    key={m.id}
+                    className="flex w-full cursor-not-allowed items-center gap-2.5 rounded-brand border border-transparent px-2.5 py-2 opacity-40"
+                  >
+                    <div className="h-[18px] w-[18px] flex-none rounded-[5px] border border-border bg-bg" />
+                    <span className="flex-1 truncate text-[13px] text-text">{m.id}</span>
+                    <span className="text-[11px] text-text-subtle">in catalog</span>
+                  </div>
+                );
+              }
               return (
                 <button
                   key={m.id}
@@ -102,7 +116,6 @@ export function ModelSelectModal({
                 >
                   <Checkbox checked={sel} onChange={() => toggle(m.id)} ariaLabel={m.id} />
                   <span className="flex-1 truncate text-[13px] text-text">{m.id}</span>
-                  {m.added && <span className="text-[11px] text-text-subtle">in catalog</span>}
                 </button>
               );
             })
