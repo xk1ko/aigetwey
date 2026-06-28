@@ -139,11 +139,23 @@ export async function callUpstream(
   return { stream: false, response: adapter.responseToCanonical(json) };
 }
 
+export type PingErrorType = "auth" | "rate_limit" | "server_error" | "network" | "unknown";
+
 export interface PingResult {
   reachable: boolean;
   status?: number;
   ok: boolean; // 2xx — endpoint + key both good
   error?: string;
+  latencyMs?: number;
+  errorType?: PingErrorType;
+}
+
+function classifyError(status: number | undefined, msg: string): PingErrorType {
+  if (status === 401 || status === 403) return "auth";
+  if (status === 429) return "rate_limit";
+  if (status && status >= 500) return "server_error";
+  if (/timeout|econnreset|enotfound|econnrefused|fetch failed/i.test(msg)) return "network";
+  return "unknown";
 }
 
 /**
@@ -155,12 +167,28 @@ export async function pingProvider(provider: Provider, key: string | undefined):
   const base = provider.base_url.replace(/\/$/, "");
   const url = `${base}/models`;
   const headers = buildHeaders(provider, key);
+  const t0 = Date.now();
   try {
     const res = await request(url, { method: "GET", headers, headersTimeout: 10_000, bodyTimeout: 10_000 });
     await res.body.dump();
-    return { reachable: true, status: res.statusCode, ok: res.statusCode >= 200 && res.statusCode < 300 };
+    const latencyMs = Date.now() - t0;
+    const ok = res.statusCode >= 200 && res.statusCode < 300;
+    return {
+      reachable: true,
+      status: res.statusCode,
+      ok,
+      latencyMs,
+      errorType: ok ? undefined : classifyError(res.statusCode, ""),
+    };
   } catch (e) {
-    return { reachable: false, ok: false, error: (e as Error).message };
+    const msg = (e as Error).message;
+    return {
+      reachable: false,
+      ok: false,
+      error: msg,
+      latencyMs: Date.now() - t0,
+      errorType: classifyError(undefined, msg),
+    };
   }
 }
 
