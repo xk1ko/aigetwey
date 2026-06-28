@@ -11,12 +11,14 @@ import { Empty } from "@/components/ui";
 import { adminApi, cliConfig, type CliStatus } from "@/lib/client";
 import { toolById } from "@/lib/cliTools";
 import { modalitiesForModel } from "@/lib/capabilities";
+import { useCapsTables } from "@/lib/useCaps";
 import type { EndpointPayload, MaskedConfig } from "@/lib/gateway";
 
 /** Step-by-step setup for one CLI tool, with copy-ready env (real key inlined). */
 export function ToolDetail({ id }: { id: string }) {
   const router = useRouter();
   const tool = toolById(id);
+  const capsTables = useCapsTables();
   const [ep, setEp] = useState<EndpointPayload | null>(null);
   const [combos, setCombos] = useState<string[]>([]);
   const [comboModels, setComboModels] = useState<Record<string, string[]>>({});
@@ -196,9 +198,11 @@ export function ToolDetail({ id }: { id: string }) {
   // it's clear nothing else gets replaced (other providers + your other keys stay).
   const ocModels = picked.length ? picked : cli?.models ?? [];
   const modalitiesFor = (m: string) => {
+    const fallback = { input: ["text"], output: ["text"] };
+    if (!capsTables) return fallback;
     const refs = comboModels[m];
-    if (!refs || refs.length === 0) return modalitiesForModel(m);
-    const all = refs.map((r) => modalitiesForModel(r));
+    if (!refs || refs.length === 0) return modalitiesForModel(m, capsTables);
+    const all = refs.map((r) => modalitiesForModel(r, capsTables));
     return {
       input: [...new Set(all.flatMap((a) => a.input))],
       output: [...new Set(all.flatMap((a) => a.output))],

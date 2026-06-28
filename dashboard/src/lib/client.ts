@@ -21,6 +21,7 @@ import type {
   ProviderSnapshot,
   WireFormat,
 } from "./gateway";
+import type { CapsTables } from "./capabilities";
 
 export interface ApiResult<T> {
   ok: boolean;
@@ -58,6 +59,7 @@ export const adminApi = {
   providers: () => api<{ providers: ProviderSnapshot[] }>("GET", "/admin/providers"),
   budgets: () => api<{ budgets: BudgetStatus[] }>("GET", "/admin/budgets"),
   models: () => api<ModelsPayload>("GET", "/admin/models"),
+  capabilities: () => api<CapsTables>("GET", "/admin/capabilities"),
   keys: () => api<Array<{ fingerprint: string; name: string; masked: string }>>("GET", "/admin/keys"),
   keysUsage: () => api<{ keys: KeyUsageRow[] }>("GET", "/admin/keys/usage"),
 

@@ -24,6 +24,7 @@ export interface UsageRow {
   tokens_out: number;
   reasoning_tokens: number;
   cached_tokens: number;
+  cache_creation_tokens: number;
   cost: number;
   status: number;
   latency_ms: number;
@@ -84,6 +85,7 @@ export class UsageDB {
         tokens_out INTEGER NOT NULL DEFAULT 0,
         reasoning_tokens INTEGER NOT NULL DEFAULT 0,
         cached_tokens INTEGER NOT NULL DEFAULT 0,
+        cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
         cost REAL NOT NULL DEFAULT 0,
         status INTEGER NOT NULL,
         latency_ms INTEGER NOT NULL DEFAULT 0,
@@ -116,10 +118,13 @@ export class UsageDB {
     if (!cols.some((c) => String(c.name) === "reasoning_tokens")) {
       this.db.exec(`ALTER TABLE usage ADD COLUMN reasoning_tokens INTEGER NOT NULL DEFAULT 0`);
     }
+    if (!cols.some((c) => String(c.name) === "cache_creation_tokens")) {
+      this.db.exec(`ALTER TABLE usage ADD COLUMN cache_creation_tokens INTEGER NOT NULL DEFAULT 0`);
+    }
     this.now = now;
     this.insertUsage = this.db.prepare(`
-      INSERT INTO usage (ts, alias, provider, model, tokens_in, tokens_out, reasoning_tokens, cached_tokens, cost, status, latency_ms, stream, client_key)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO usage (ts, alias, provider, model, tokens_in, tokens_out, reasoning_tokens, cached_tokens, cache_creation_tokens, cost, status, latency_ms, stream, client_key)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     this.insertLog = this.db.prepare(`
       INSERT INTO logs (ts, direction, provider, status, request_summary, response_summary)
@@ -127,7 +132,7 @@ export class UsageDB {
     `);
   }
 
-  record(row: Omit<UsageRow, "ts" | "client_key" | "reasoning_tokens"> & { ts?: number; client_key?: string; reasoning_tokens?: number }): void {
+  record(row: Omit<UsageRow, "ts" | "client_key" | "reasoning_tokens" | "cache_creation_tokens"> & { ts?: number; client_key?: string; reasoning_tokens?: number; cache_creation_tokens?: number }): void {
     this.insertUsage.run(
       row.ts ?? this.now(),
       row.alias,
@@ -137,6 +142,7 @@ export class UsageDB {
       row.tokens_out,
       row.reasoning_tokens ?? 0,
       row.cached_tokens,
+      row.cache_creation_tokens ?? 0,
       row.cost,
       row.status,
       row.latency_ms,
@@ -274,8 +280,8 @@ export class UsageDB {
   recent(limit = 100): UsageRow[] {
     const rows = this.db
       .prepare(
-        `SELECT ts, alias, provider, model, tokens_in, tokens_out, reasoning_tokens, cached_tokens,
-                cost, status, latency_ms, stream, client_key
+        `SELECT ts, alias, provider, model, tokens_in, tokens_out, reasoning_tokens, cached_tokens, cache_creation_tokens,
+                 cost, status, latency_ms, stream, client_key
          FROM usage ORDER BY id DESC LIMIT ?`,
       )
       .all(Math.max(1, Math.min(limit, 1000))) as SqlRow[];
@@ -288,6 +294,7 @@ export class UsageDB {
       tokens_out: num(r.tokens_out),
       reasoning_tokens: num(r.reasoning_tokens),
       cached_tokens: num(r.cached_tokens),
+      cache_creation_tokens: num(r.cache_creation_tokens),
       cost: num(r.cost),
       status: num(r.status),
       latency_ms: num(r.latency_ms),
@@ -301,10 +308,26 @@ export class UsageDB {
   }
 }
 
-/** Estimated cost: (tokensIn / 1M × priceIn) + (tokensOut / 1M × priceOut). */
-export function computeCost(tokensIn: number, tokensOut: number, priceIn?: number, priceOut?: number): number {
+export interface CostBreakdown {
+  tokensIn: number;
+  tokensOut: number;
+  cachedTokens: number;
+  cacheCreationTokens: number;
+  reasoningTokens: number;
+  priceIn: number;
+  priceOut: number;
+  priceCached: number;
+  priceCacheCreation: number;
+  priceReasoning: number;
+}
+
+export function computeCost(b: CostBreakdown): number {
+  const nonCachedInput = Math.max(0, b.tokensIn - b.cachedTokens - b.cacheCreationTokens);
   let cost = 0;
-  if (priceIn) cost += (tokensIn / 1_000_000) * priceIn;
-  if (priceOut) cost += (tokensOut / 1_000_000) * priceOut;
+  cost += nonCachedInput * (b.priceIn / 1_000_000);
+  if (b.cachedTokens > 0) cost += b.cachedTokens * (b.priceCached / 1_000_000);
+  if (b.cacheCreationTokens > 0) cost += b.cacheCreationTokens * (b.priceCacheCreation / 1_000_000);
+  cost += b.tokensOut * (b.priceOut / 1_000_000);
+  if (b.reasoningTokens > 0) cost += b.reasoningTokens * (b.priceReasoning / 1_000_000);
   return cost;
 }
