@@ -1,18 +1,16 @@
-# Secrets & local state
+node_modules/
+dist/
+.next/
 config.yaml
 config.yaml.bak
 config.yaml.tmp
-.env
-.env.local
-dashboard/.env.local
 data/
 *.sqlite
 *.sqlite-journal
+.env
+.env.local
+dashboard/node_modules/
+dashboard/.env.local
 *.log
 tests/
 *.test.ts
-.claude/
-.gstack/
-.omo/
-CLAUDE.md
-logo-previews/
