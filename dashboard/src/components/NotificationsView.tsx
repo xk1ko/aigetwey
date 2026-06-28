@@ -66,7 +66,10 @@ export function NotificationsView() {
   }
 
   function patch(id: string, p: Partial<NotificationConfig>) {
-    setConfigs((prev) => ({ ...prev, [id]: { ...getCfg(id), ...p } }));
+    setConfigs((prev) => {
+      const existing = prev[id] ?? { id, enabled: false, url: "", token: "", chat_id: "", events: [], updated_at: 0 };
+      return { ...prev, [id]: { ...existing, ...p } };
+    });
   }
 
   async function save(id: string) {
@@ -122,11 +125,12 @@ export function NotificationsView() {
                     icon={<span className="flex h-8 w-8 items-center justify-center rounded-brand bg-surface-2 text-text-muted"><Icon name={ch.icon} size={18} /></span>}
                   />
                   <button
+                    type="button"
                     onClick={() => patch(ch.id, { enabled: !cfg.enabled })}
                     className={`relative h-6 w-11 rounded-full transition-colors ${cfg.enabled ? "bg-accent" : "bg-surface-3"}`}
                     aria-label={cfg.enabled ? "disable" : "enable"}
                   >
-                    <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${cfg.enabled ? "translate-x-[22px]" : "translate-x-0.5"}`} />
+                    <span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${cfg.enabled ? "translate-x-5" : "translate-x-0"}`} />
                   </button>
                 </>
               }

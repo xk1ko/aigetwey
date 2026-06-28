@@ -65,13 +65,13 @@ export function Sidebar() {
 
       <div className="nav-isle-divider nav-isle-divider-brand" />
 
-      <nav className="flex flex-col items-center gap-4">
+      <nav className="flex flex-col items-center gap-1.5">
         {MAIN.map(link)}
         <div className="nav-isle-divider" />
         {SYSTEM.map(link)}
       </nav>
 
-      <button onClick={logout} className="nav-isle mt-4" data-label="Disconnect">
+      <button onClick={logout} className="nav-isle mt-2" data-label="Disconnect">
         <Icon name="logout" size={19} />
       </button>
     </aside>
