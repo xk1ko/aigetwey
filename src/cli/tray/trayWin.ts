@@ -1,10 +1,5 @@
-/**
- * Windows system tray via PowerShell NotifyIcon. No native binary needed —
- * uses the .NET System.Windows.Forms.NotifyIcon available on every Windows
- * install. A long-running PowerShell process hosts the icon + menu and
- * communicates via stdout (menu-click events).
- */
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { EventEmitter } from "node:events";
 import { TRAY_ICON_ICO_BASE64 } from "./icon.js";
 
 interface WinTrayConfig {
@@ -16,42 +11,89 @@ interface WinTrayConfig {
 interface WinTrayHandle {
   kill(): void;
   updateItem(i: number, title: string, enabled: boolean): void;
+  setTooltip(text: string): void;
 }
 
-export function initWinTray(cfg: WinTrayConfig): WinTrayHandle {
-  const tooltip = cfg.tooltip.replace(/"/g, '`"');
-  const itemsJson = JSON.stringify(cfg.items.map((it) => ({ title: it.title, enabled: it.enabled })));
-  const script = `
+const PS_SCRIPT = `
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
-$icon = [System.Convert]::FromBase64String("${TRAY_ICON_ICO_BASE64}")
-$ms = New-Object System.IO.MemoryStream(,$icon)
+
+$ErrorActionPreference = "Stop"
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::InputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
+$iconBytes = [System.Convert]::FromBase64String("${TRAY_ICON_ICO_BASE64}")
+$ms = New-Object System.IO.MemoryStream(,$iconBytes)
 $ni = New-Object System.Windows.Forms.NotifyIcon
 $ni.Icon = New-Object System.Drawing.Icon($ms)
 $ni.Visible = $true
-$ni.Text = "${tooltip}"
 $menu = New-Object System.Windows.Forms.ContextMenuStrip
 $items = @()
-${itemsJson} | ForEach-Object {
-  $item = $menu.Items.Add($_.title)
-  $item.Enabled = $_.enabled
-  $item.Tag = $items.Count
-  $items += $item
-  $item.add_Click({
-    param($s)
-    Write-Output $s.Tag
-    [Console]::Out.Flush()
-  })
+
+function Write-Event($obj) {
+  $json = $obj | ConvertTo-Json -Compress
+  [Console]::Out.WriteLine($json)
+  [Console]::Out.Flush()
 }
-$ni.ContextMenuStrip = $menu
-while ($true) { Start-Sleep -Milliseconds 200 }
+
+function Add-MenuItem($index, $title, $enabled) {
+  $item = New-Object System.Windows.Forms.ToolStripMenuItem
+  $item.Text = $title
+  $item.Enabled = $enabled
+  $idx = $index
+  $item.Add_Click({ Write-Event @{ type = "click"; index = $idx } }.GetNewClosure())
+  $menu.Items.Add($item) | Out-Null
+  $items += $item
+}
+
+function Update-MenuItem($index, $title, $enabled) {
+  if ($index -lt $items.Count) {
+    $items[$index].Text = $title
+    $items[$index].Enabled = $enabled
+  }
+}
+
+function Set-Tooltip($text) {
+  if ($text.Length -gt 63) { $text = $text.Substring(0, 63) }
+  $ni.Text = $text
+}
+
+$timer = New-Object System.Windows.Forms.Timer
+$timer.Interval = 100
+$timer.Add_Tick({
+  try {
+    while ([Console]::In.Peek() -ne -1) {
+      $line = [Console]::In.ReadLine()
+      if ([string]::IsNullOrWhiteSpace($line)) { continue }
+      $cmd = $line | ConvertFrom-Json
+      switch ($cmd.action) {
+        "add-item"    { Add-MenuItem $cmd.index $cmd.title $cmd.enabled }
+        "update-item" { Update-MenuItem $cmd.index $cmd.title $cmd.enabled }
+        "set-tooltip" { Set-Tooltip $cmd.text }
+        "kill"        { $ni.Visible = $false; $ni.Dispose(); [System.Windows.Forms.Application]::Exit() }
+      }
+    }
+  } catch {
+    Write-Event @{ type = "error"; message = $_.Exception.Message }
+  }
+})
+$timer.Start()
+
+Write-Event @{ type = "started" }
+[System.Windows.Forms.Application]::Run()
 `;
+
+export function initWinTray(cfg: WinTrayConfig): WinTrayHandle {
+  const tooltip = cfg.tooltip.replace(/"/g, '`"');
 
   const proc: ChildProcessWithoutNullStreams = spawn(
     "powershell.exe",
-    ["-NoProfile", "-NonInteractive", "-Command", script],
-    { windowsHide: true },
+    ["-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-InputFormat", "Text", "-OutputFormat", "Text", "-Command", PS_SCRIPT],
+    { windowsHide: true, stdio: ["pipe", "pipe", "pipe"] },
   );
+
+  const ee = new EventEmitter();
 
   let buffer = "";
   proc.stdout.on("data", (data: Buffer) => {
@@ -60,9 +102,12 @@ while ($true) { Start-Sleep -Milliseconds 200 }
     buffer = lines.pop() ?? "";
     for (const line of lines) {
       const trimmed = line.trim();
-      if (trimmed && /^\d+$/.test(trimmed)) {
-        cfg.onClick(parseInt(trimmed, 10));
-      }
+      if (!trimmed) continue;
+      try {
+        const evt = JSON.parse(trimmed);
+        if (evt.type === "click") cfg.onClick(evt.index);
+        else ee.emit(evt.type, evt);
+      } catch { /* ignore non-JSON */ }
     }
   });
 
@@ -70,15 +115,32 @@ while ($true) { Start-Sleep -Milliseconds 200 }
     process.stderr.write(`[tray-win] ${data}`);
   });
 
+  proc.on("error", () => { /* gone */ });
+
+  function sendCommand(cmd: Record<string, unknown>): void {
+    if (proc.stdin.writable) {
+      proc.stdin.write(`${JSON.stringify(cmd)}\n`, "utf8");
+    }
+  }
+
+  cfg.items.forEach((item, index) => {
+    sendCommand({ action: "add-item", index, title: item.title, enabled: item.enabled });
+  });
+
   return {
     kill() {
       try {
-        proc.kill();
+        sendCommand({ action: "kill" });
       } catch { /* gone */ }
+      setTimeout(() => {
+        try { proc.kill(); } catch { /* gone */ }
+      }, 300);
     },
     updateItem(i: number, title: string, enabled: boolean) {
-      // PowerShell doesn't support live menu updates without IPC; re-launch
-      // is overkill for the autostart toggle — the menu refreshes on next start.
+      sendCommand({ action: "update-item", index: i, title, enabled });
+    },
+    setTooltip(text: string) {
+      sendCommand({ action: "set-tooltip", text });
     },
   };
 }
