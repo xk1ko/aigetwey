@@ -164,10 +164,18 @@ export function ProviderDetail({ id }: { id: string }) {
           </div>
 
           {ping && (
-            <div className={`mt-3 rounded-brand border px-3 py-2 text-[12px] ${ping.ok ? "border-live/30 bg-live/5 text-live" : "border-danger/30 bg-danger/5 text-danger"}`}>
-              {ping.ok
-                ? `connected (${ping.status})`
-                : ping.error || (ping.reachable ? `server returned ${ping.status}` : "could not reach the endpoint")}
+            <div className={`mt-3 flex items-center gap-2 rounded-brand border px-3 py-2 text-[12px] ${ping.ok ? "border-live/30 bg-live/5 text-live" : "border-danger/30 bg-danger/5 text-danger"}`}>
+              <span>
+                {ping.ok
+                  ? `connected (${ping.status})`
+                  : ping.error || (ping.reachable ? `server returned ${ping.status}` : "could not reach the endpoint")}
+              </span>
+              {ping.latencyMs != null && (
+                <span className="opacity-60">· {ping.latencyMs}ms</span>
+              )}
+              {!ping.ok && ping.errorType && (
+                <span className="rounded px-1.5 py-0.5 text-[10px] uppercase opacity-70 bg-current/10">{ping.errorType}</span>
+              )}
             </div>
           )}
           {actionErr && (
@@ -368,9 +376,17 @@ export function ProviderDetail({ id }: { id: string }) {
                           <span className="block truncate font-mono text-[13px] text-text">{revealedKeys[i] ?? k}</span>
                         </div>
                         {tested && (
-                          <Badge tone={tested.ok ? "live" : tested.reachable ? "warn" : "down"}>
-                            {tested.ok ? "valid" : tested.reachable ? `reachable (${tested.status})` : "invalid"}
-                          </Badge>
+                          <div className="flex items-center gap-1.5">
+                            {tested.latencyMs != null && (
+                              <span className="text-[10px] text-dim">{tested.latencyMs}ms</span>
+                            )}
+                            <Badge tone={tested.ok ? "live" : tested.reachable ? "warn" : "down"}>
+                              {tested.ok ? "valid" : tested.reachable ? `reachable (${tested.status})` : "invalid"}
+                            </Badge>
+                            {!tested.ok && tested.errorType && (
+                              <span className="text-[10px] uppercase text-danger/60">{tested.errorType}</span>
+                            )}
+                          </div>
                         )}
                         {revealedKeys[i] && (
                           <button

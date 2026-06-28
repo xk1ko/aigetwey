@@ -16,6 +16,7 @@ import type {
   KeyUsageRow,
   ModelsPayload,
   PingResult,
+  BatchTestResponse,
   PricingPayload,
   ProviderSnapshot,
   WireFormat,
@@ -106,6 +107,7 @@ export const adminApi = {
   setModelPrice: (id: string, model: string, price: { price_in?: number | null; price_out?: number | null }) =>
     api<ConfigReply>("PUT", `/admin/providers/${encodeURIComponent(id)}/models/price`, { model, ...price }),
   testProvider: (id: string) => api<PingResult>("POST", `/admin/providers/${encodeURIComponent(id)}/test`),
+  testAllProviders: () => api<BatchTestResponse>("POST", "/admin/providers/test-all"),
   testKey: (id: string, index: number) =>
     api<PingResult>("POST", `/admin/providers/${encodeURIComponent(id)}/keys/${index}/test`),
   checkKey: (id: string, key: string) =>

@@ -415,6 +415,22 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     reply.send(await pingProvider(provider, key));
   });
 
+  app.post("/admin/providers/test-all", requireAdmin, async (_req, reply) => {
+    const providers = deps.state.config.raw.providers.filter((p) => !p.disabled);
+    const results = await Promise.all(
+      providers.map(async (p) => {
+        const key = p.api_keys?.[0] ?? p.api_key;
+        const result = await pingProvider(p, key);
+        return { id: p.id, name: p.name ?? p.id, ...result };
+      }),
+    );
+    const passed = results.filter((r) => r.ok).length;
+    reply.send({
+      results,
+      summary: { total: results.length, passed, failed: results.length - passed },
+    });
+  });
+
   // Test ONE key: ping the provider's /models with that specific key, so the
   // operator can tell which of several keys is live. Index is numeric (no slash
   // hazard), so it stays a path param.

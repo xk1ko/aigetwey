@@ -24,7 +24,7 @@ import { Button, Input, Field } from "@/components/Button";
 import { Icon } from "@/components/Icon";
 import { Empty } from "@/components/ui";
 import { ConfirmModal } from "@/components/ConfirmModal";
-import type { MaskedConfig, PingResult, ProviderSnapshot, WireFormat, ImportResult } from "@/lib/gateway";
+import type { MaskedConfig, PingResult, ProviderSnapshot, WireFormat, ImportResult, BatchTestResponse, BatchTestResult } from "@/lib/gateway";
 
 interface Loaded {
   config: MaskedConfig;
@@ -50,6 +50,8 @@ export function ProviderManager() {
   const [busy, setBusy] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const importInput = useRef<HTMLInputElement>(null);
+  const [batchTesting, setBatchTesting] = useState(false);
+  const [batchResult, setBatchResult] = useState<BatchTestResponse | null>(null);
 
   const reload = useCallback(async () => {
     const [cfg, prov] = await Promise.all([
@@ -148,6 +150,14 @@ export function ProviderManager() {
     setBusy(false);
   }
 
+  async function testAll() {
+    setBatchTesting(true);
+    setBatchResult(null);
+    const r = await adminApi.testAllProviders();
+    if (r.ok && r.data) setBatchResult(r.data);
+    setBatchTesting(false);
+  }
+
   if (error) return <Empty>{error}</Empty>;
   if (!data) return <Empty>Loading…</Empty>;
 
@@ -177,9 +187,14 @@ export function ProviderManager() {
               <Icon name="download" size={15} /> Export
             </Button>
           )}
-          <Button variant="ghost" disabled={busy} onClick={() => importInput.current?.click()} title="Import providers from JSON (merge)">
+          <Button variant="ghost" disabled={busy || batchTesting} onClick={() => importInput.current?.click()} title="Import providers from JSON (merge)">
             <Icon name="upload" size={15} /> Import
           </Button>
+          {orderedProviders.length > 0 && (
+            <Button variant="ghost" disabled={batchTesting} onClick={testAll}>
+              <Icon name="network_check" size={16} /> {batchTesting ? "Testing…" : "Test All"}
+            </Button>
+          )}
           {orderedProviders.length > 0 && (
             <>
               {selectMode && (
@@ -229,6 +244,41 @@ export function ProviderManager() {
           <ProviderStat label="Total" value={orderedProviders.length} icon="dns" />
           <ProviderStat label="Active" value={activeCount} icon="check_circle" tone="success" />
           <ProviderStat label="Disabled" value={disabledCount} icon="block" tone={disabledCount > 0 ? "danger" : "neutral"} />
+        </div>
+      )}
+
+      {batchResult && (
+        <div className="mb-5 rounded-brand border border-border/60 bg-surface/50 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-3 text-[13px]">
+              <span className="font-medium text-text">Test Results</span>
+              <span className="text-live">{batchResult.summary.passed} passed</span>
+              <span className="text-danger">{batchResult.summary.failed} failed</span>
+              <span className="text-dim">{batchResult.summary.total} total</span>
+            </div>
+            <Button variant="ghost" onClick={() => setBatchResult(null)}>
+              <Icon name="close" size={14} />
+            </Button>
+          </div>
+          <div className="space-y-1.5">
+            {batchResult.results.map((r) => (
+              <div key={r.id} className="flex items-center gap-2 text-[12px]">
+                <span className={r.ok ? "text-live" : "text-danger"}>
+                  {r.ok ? "✓" : "✗"}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-text">{r.name}</span>
+                {r.latencyMs != null && (
+                  <span className="text-dim">{r.latencyMs}ms</span>
+                )}
+                {!r.ok && r.errorType && (
+                  <span className="text-danger/70">{r.errorType}</span>
+                )}
+                {!r.ok && r.error && (
+                  <span className="truncate text-danger/50" title={r.error}>{r.error}</span>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

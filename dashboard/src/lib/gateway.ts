@@ -220,11 +220,31 @@ export interface HeadroomStatusReply {
   compress_user_messages: boolean;
 }
 
+export type PingErrorType = "auth" | "rate_limit" | "server_error" | "network" | "unknown";
+
 export interface PingResult {
   reachable: boolean;
   status?: number;
   ok: boolean;
   error?: string;
+  latencyMs?: number;
+  errorType?: PingErrorType;
+}
+
+export interface BatchTestResult {
+  id: string;
+  name: string;
+  reachable: boolean;
+  status?: number;
+  ok: boolean;
+  error?: string;
+  latencyMs?: number;
+  errorType?: PingErrorType;
+}
+
+export interface BatchTestResponse {
+  results: BatchTestResult[];
+  summary: { total: number; passed: number; failed: number };
 }
 
 export interface PricingModel {
