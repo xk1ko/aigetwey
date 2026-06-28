@@ -17,8 +17,6 @@ export function PricingEditor() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
   const [edits, setEdits] = useState<Record<string, { in: string; out: string }>>({});
-  const [rtModel, setRtModel] = useState("");
-  const [rtEdits, setRtEdits] = useState<Record<string, Record<string, string>>>({});
 
   const load = useCallback(async () => {
     const r = await adminApi.pricing();
@@ -79,46 +77,6 @@ export function PricingEditor() {
     await load();
   }
 
-  async function saveRuntime(model: string) {
-    const e = rtEdits[model] ?? {};
-    const body: Record<string, number | null> = {};
-    for (const k of ["input", "output", "cached", "cache_creation", "reasoning"] as const) {
-      const v = (e[k] ?? "").trim();
-      body[k] = v === "" ? null : Number(v);
-    }
-    setBusy(`rt/${model}`);
-    const r = await adminApi.setRuntimePrice(model, body);
-    setBusy("");
-    if (!r.ok) { setError(r.error ?? "save failed"); return; }
-    setRtEdits((s) => { const n = { ...s }; delete n[model]; return n; });
-    await load();
-  }
-
-  async function deleteRuntime(model: string) {
-    setBusy(`rt/${model}`);
-    await adminApi.deleteRuntimePrice(model);
-    setBusy("");
-    await load();
-  }
-
-  function rtField(model: string, key: string): string {
-    return rtEdits[model]?.[key] ?? "";
-  }
-  function setRtField(model: string, key: string, val: string) {
-    setRtEdits((s) => ({ ...s, [model]: { ...(s[model] ?? {}), [key]: val } }));
-  }
-
-  async function addRuntime() {
-    const m = rtModel.trim();
-    if (!m) return;
-    setBusy("rt/add");
-    const r = await adminApi.setRuntimePrice(m, {});
-    setBusy("");
-    if (!r.ok) { setError(r.error ?? "failed to add override"); return; }
-    setRtModel("");
-    await load();
-  }
-
   const providers = data?.providers.filter((p) => p.models.length > 0) ?? [];
 
   const overrideCount = providers.reduce(
@@ -137,39 +95,6 @@ export function PricingEditor() {
       </summary>
       <div className="border-t border-border-subtle p-4">
       {error && <p className="mb-2 text-[12px] text-danger">{error}</p>}
-      {Object.keys(data?.overrides ?? {}).length > 0 && (
-        <div className="mb-4 overflow-hidden rounded-brand border border-border-subtle">
-          <div className="bg-bg-alt px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-text-subtle">Runtime overrides (all tariffs)</div>
-          {Object.entries(data?.overrides ?? {}).map(([model, o]) => (
-            <div key={model} className="flex flex-wrap items-center gap-2 border-b border-border-subtle px-3 py-2 last:border-b-0">
-              <span className="tnum min-w-[120px] flex-1 truncate text-[13px] text-text">{model}</span>
-              {(["input", "output", "cached", "cache_creation", "reasoning"] as const).map((k) => (
-                <label key={k} className="flex items-center gap-1 text-[10px] text-text-subtle">
-                  {k === "cache_creation" ? "cc" : k.slice(0, 4)}
-                  <input
-                    value={rtField(model, k)}
-                    onChange={(e) => setRtField(model, k, e.target.value)}
-                    placeholder={o[k] == null ? "—" : String(o[k])}
-                    inputMode="decimal"
-                    className="w-14 rounded border border-border bg-bg px-1 py-0.5 text-right tnum text-[11px] text-text placeholder:text-text-subtle focus:border-accent focus:outline-none"
-                  />
-                </label>
-              ))}
-              <button onClick={() => saveRuntime(model)} disabled={busy === `rt/${model}`} className="rounded p-1 text-[11px] text-text-subtle hover:text-accent disabled:opacity-50">save</button>
-              <button onClick={() => deleteRuntime(model)} disabled={busy === `rt/${model}`} className="rounded p-1 text-[11px] text-text-subtle hover:text-danger disabled:opacity-50">✕</button>
-            </div>
-          ))}
-        </div>
-      )}
-      <div className="mb-4 flex items-center gap-2">
-        <input
-          value={rtModel}
-          onChange={(e) => setRtModel(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && rtModel.trim()) { void addRuntime(); } }}
-          placeholder="model id for runtime override…"
-          className="min-w-0 flex-1 rounded border border-border bg-bg px-2 py-1 text-[12px] text-text placeholder:text-text-subtle focus:border-accent focus:outline-none"
-        />
-      </div>
       {providers.length === 0 ? (
         <Empty>No models yet. Add models to a provider to price them.</Empty>
       ) : (
