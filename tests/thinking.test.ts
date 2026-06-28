@@ -6,7 +6,7 @@ import {
   type ThinkingConfig,
 } from "../src/translator/thinkingUnified.js";
 
-// Mirror of aigetwey's tests/translator/thinking-unified.test.js, adapted to the
+// Mirror of aigloo's tests/translator/thinking-unified.test.js, adapted to the
 // models in our ported capabilities table. Guards that thinking normalizes into
 // the right provider-native shape per format.
 function apply(

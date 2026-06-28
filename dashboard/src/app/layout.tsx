@@ -9,8 +9,8 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "sw
 const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains-mono", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "aigetwey",
-  description: "Console for the aigetwey AI gateway",
+  title: "aigloo",
+  description: "Console for the aigloo AI gateway",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,10 +1,10 @@
 /**
  * Headroom CLI detection. "Headroom" is an external context-compression proxy
- * (a Python tool, `headroom proxy`, default http://localhost:8787) that aigetwey
+ * (a Python tool, `headroom proxy`, default http://localhost:8787) that aigloo
  * pipes request messages through. This module only DETECTS it — install, python
  * interpreter, and whether a proxy is already reachable.
  *
- * aigetwey's own implementation.
+ * aigloo's own implementation.
  */
 import { execSync } from "node:child_process";
 import { delimiter } from "node:path";

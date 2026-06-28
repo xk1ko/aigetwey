@@ -4,7 +4,7 @@
  * out of the tarball avoids antivirus false positives (e.g. Kaspersky) and
  * per-arch packaging in the published package.
  *
- * macOS/Linux: install systray2 into ~/.aigetwey/runtime/node_modules.
+ * macOS/Linux: install systray2 into ~/.aigloo/runtime/node_modules.
  * Windows: no binary — a PowerShell NotifyIcon is used instead (see trayWin).
  */
 import { spawnSync } from "node:child_process";
@@ -15,13 +15,13 @@ import { join } from "node:path";
 const SYSTRAY_PKG = "systray2";
 const SYSTRAY_VERSION = "2.1.4";
 
-/** ~/.aigetwey (or %APPDATA%/aigetwey on Windows) — holds the tray runtime. */
+/** ~/.aigloo (or %APPDATA%/aigloo on Windows) — holds the tray runtime. */
 export function getRuntimeDir(): string {
   const base =
     process.platform === "win32"
       ? process.env.APPDATA || homedir()
       : homedir();
-  return join(base, process.platform === "win32" ? "aigetwey" : ".aigetwey", "runtime");
+  return join(base, process.platform === "win32" ? "aigloo" : ".aigloo", "runtime");
 }
 
 export function getRuntimeNodeModules(): string {
@@ -55,7 +55,7 @@ function ensureRuntimeDir(): string {
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   const pkg = join(dir, "package.json");
   if (!existsSync(pkg)) {
-    writeFileSync(pkg, JSON.stringify({ name: "aigetwey-runtime", version: "1.0.0", private: true }, null, 2));
+    writeFileSync(pkg, JSON.stringify({ name: "aigloo-runtime", version: "1.0.0", private: true }, null, 2));
   }
   return dir;
 }

@@ -4,9 +4,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Icon } from "./Icon";
 
-// Floating icon-rail (user's preferred chrome), carrying aigloo's IA: Endpoint
-// is the landing, routing lives in Combos, and operational pages sit below a
-// divider. Labels surface as hover tooltips (data-label).
 type NavItem = { href: string; label: string; icon: string };
 
 const MAIN: NavItem[] = [
@@ -24,7 +21,7 @@ const SYSTEM: NavItem[] = [
   { href: "/config", label: "Settings", icon: "settings" },
 ];
 
-export function Rail() {
+export function Sidebar() {
   const path = usePathname();
   const router = useRouter();
 
@@ -34,8 +31,6 @@ export function Rail() {
     router.refresh();
   }
 
-  // Endpoint owns both "/" (landing) and "/endpoint"; others match the segment
-  // and its sub-routes (e.g. /providers/[id]).
   const isActive = (href: string) =>
     href === "/"
       ? path === "/" || path.startsWith("/endpoint")
@@ -47,9 +42,8 @@ export function Rail() {
       <Link
         key={item.href}
         href={item.href}
+        className={`nav-isle${active ? " nav-isle-active" : ""}`}
         data-label={item.label}
-        className={`rail-icon${active ? " rail-icon-active" : ""}`}
-        aria-label={item.label}
       >
         <Icon name={item.icon} size={20} fill={active} />
       </Link>
@@ -57,27 +51,28 @@ export function Rail() {
   };
 
   return (
-    <>
-      <Link href="/" className="rail-brand" aria-label="aigloo">
-        {/* "a»" mark — ink on the lime tile (CSS provides the tile) */}
-        <svg viewBox="0 0 512 512" width="26" height="26" aria-hidden>
-          <text x="120" y="338" fontFamily="ui-sans-serif, Arial, sans-serif" fontSize="260" fontWeight="800" textAnchor="middle" fill="#14140f">a</text>
-          <g fill="none" stroke="#14140f" strokeWidth="34" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="276,182 352,256 276,330" />
-            <polyline points="346,182 422,256 346,330" />
+    <aside className="app-sidebar">
+      <Link href="/" className="brand-isle" data-label="aigloo">
+        <svg viewBox="0 0 512 512" width="26" height="26" fill="none" aria-hidden>
+          <g transform="translate(60, 60) scale(14)" stroke="currentColor" strokeLinecap="round">
+            <path d="M4 20C4 12.268 8.477 6 14 6C19.523 6 24 12.268 24 20" strokeWidth="2"/>
+            <path d="M8 20C8 14.477 10.686 10 14 10C17.314 10 20 14.477 20 20" strokeWidth="1.5" opacity="0.5"/>
+            <line x1="3" y1="20" x2="25" y2="20" strokeWidth="2"/>
           </g>
         </svg>
       </Link>
 
-      <nav className="flex flex-col items-center gap-3">
+      <div className="nav-isle-divider nav-isle-divider-brand" />
+
+      <nav className="flex flex-col items-center gap-4">
         {MAIN.map(link)}
-        <div className="rail-divider" />
+        <div className="nav-isle-divider" />
         {SYSTEM.map(link)}
       </nav>
 
-      <button onClick={logout} data-label="Disconnect" className="rail-icon" aria-label="Disconnect">
+      <button onClick={logout} className="nav-isle mt-4" data-label="Disconnect">
         <Icon name="logout" size={19} />
       </button>
-    </>
+    </aside>
   );
 }

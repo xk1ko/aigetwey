@@ -7,16 +7,18 @@ interface ConfirmModalProps {
   title: string;
   message: string;
   confirmLabel?: string;
+  error?: string;
   onConfirm: () => void;
   onCancel: () => void;
   busy?: boolean;
 }
 
-export function ConfirmModal({ title, message, confirmLabel = "Delete", onConfirm, onCancel, busy }: ConfirmModalProps) {
+export function ConfirmModal({ title, message, confirmLabel = "Delete", error, onConfirm, onCancel, busy }: ConfirmModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6" onClick={onCancel}>
       <div
-        className="w-full max-w-sm rounded-brand-lg border border-border bg-surface p-5 shadow-elevated"
+        className="w-full max-w-sm rounded-brand-lg glass-strong modal-card p-5"
+        style={{ boxShadow: "var(--shadow-elevated), 0 0 0 1px var(--color-border)" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-2 flex items-center gap-2">
@@ -26,6 +28,12 @@ export function ConfirmModal({ title, message, confirmLabel = "Delete", onConfir
           <h2 className="text-[15px] font-semibold text-text">{title}</h2>
         </div>
         <p className="mb-4 text-[13px] text-text-muted">{message}</p>
+        {error && (
+          <div className="mb-4 flex items-start gap-2 rounded-brand border border-danger/30 bg-danger/10 p-3 text-[12px] text-danger">
+            <Icon name="error" size={14} className="mt-0.5 flex-none" />
+            <span>{error}</span>
+          </div>
+        )}
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onCancel}>Cancel</Button>
           <Button variant="danger" disabled={busy} onClick={onConfirm}>{confirmLabel}</Button>

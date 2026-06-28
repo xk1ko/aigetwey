@@ -45,7 +45,7 @@ export interface Caps {
 }
 
 /**
- * Glob (* = wildcard) match, anchored + case-insensitive. aigetwey's
+ * Glob (* = wildcard) match, anchored + case-insensitive. aigloo's
  * pricing.matchPattern so capabilities resolve identically.
  */
 export function matchPattern(pattern: string, model: string): boolean {
@@ -275,7 +275,7 @@ export const PATTERN_CAPABILITIES: Array<{ pattern: string; caps: Partial<Caps> 
 /**
  * models.dev-style modalities for a model ref, derived from its capabilities.
  * Ref may be a `provider/model` (vendor prefix tolerated) or a bare combo alias.
- * Mirrors what opencode/aigetwey store per model in opencode.json.
+ * Mirrors what opencode/aigloo store per model in opencode.json.
  */
 export function modalitiesForModel(ref: string): { input: string[]; output: string[] } {
   const slash = ref.indexOf("/");

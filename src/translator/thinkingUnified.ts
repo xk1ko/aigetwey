@@ -3,10 +3,10 @@
  * Config-driven: thinking format/limits come from capabilities.ts, never hardcoded
  * per-model here.
  *
- * aigetwey's own implementation. The one
- * adaptation for aigetwey: there is no provider registry carrying a thinkingFormat,
+ * aigloo's own implementation. The one
+ * adaptation for aigloo: there is no provider registry carrying a thinkingFormat,
  * so resolveFormat relies on the capabilities table + the wire format alone, and
- * FORMAT_TO_NATIVE also maps aigetwey's "anthropic" wire format. See
+ * FORMAT_TO_NATIVE also maps aigloo's "anthropic" wire format. See
  * 
  */
 import { getCapabilitiesForModel, type Caps } from "../providers/capabilities.js";

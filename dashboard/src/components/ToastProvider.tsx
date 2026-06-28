@@ -37,12 +37,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`flex items-center gap-2 rounded-brand border px-4 py-2.5 text-[13px] shadow-elevated animate-[slideIn_0.2s_ease] ${
+            className={`flex items-center gap-2 rounded-brand-lg border px-4 py-2.5 text-[13px] shadow-elevated animate-[slideIn_0.2s_ease] ${
               t.type === "success"
-                ? "border-success/30 bg-success/10 text-success"
+                ? "border-success/25 bg-success/8 text-success"
                 : t.type === "error"
-                  ? "border-danger/30 bg-danger/10 text-danger"
-                  : "border-info/30 bg-info/10 text-info"
+                  ? "border-danger/25 bg-danger/8 text-danger"
+                  : "border-info/25 bg-info/8 text-info"
             }`}
           >
             <Icon

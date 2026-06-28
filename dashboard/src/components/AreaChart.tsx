@@ -79,11 +79,11 @@ export function AreaChart({ series }: { series: SeriesPoint[] }) {
   const hp = hoverIdx !== null ? series[hoverIdx] : null;
 
   return (
-    <div className="overflow-hidden rounded-brand-lg border border-border bg-surface shadow-soft">
+    <div className="overflow-hidden rounded-brand-lg card">
       <header className="flex items-center justify-between gap-3 border-b border-border-subtle px-4 py-3">
         <div className="flex items-center gap-2.5">
           <span className="text-[13px] font-semibold text-text">Over time</span>
-          <span className="tnum text-[12px] text-text-muted">{fmtVal(total, metric)} total</span>
+          <span className="tnum text-[13px] text-text-subtle">{fmtVal(total, metric)} total</span>
         </div>
         <div className="flex items-center gap-1">
           {METRICS.map((m) => (
@@ -157,16 +157,16 @@ export function AreaChart({ series }: { series: SeriesPoint[] }) {
             </svg>
             {hoverIdx !== null && hp && (
               <div
-                className="pointer-events-none absolute top-2 z-10 rounded-lg border border-border bg-surface-2 px-3 py-2 shadow-lg"
+                className="pointer-events-none absolute top-2 z-10 rounded-lg border border-accent/20 bg-bg/95 px-3.5 py-2.5 shadow-xl"
                 style={{ left: `${Math.min(85, Math.max(5, (hoverIdx / (n - 1)) * 100))}%`, transform: "translateX(-50%)" }}
               >
-                <div className="text-[11px] text-text-muted">{fmtDate(hp.ts)}</div>
-                <div className="mt-1 flex flex-col gap-0.5 tnum text-[12px]">
-                  <span className="text-text">{fmtVal(valueOf(hp, metric), metric)} <span className="text-text-muted">{metric}</span></span>
+                <div className="text-[12px] font-medium text-text">{fmtDate(hp.ts)}</div>
+                <div className="mt-1 flex flex-col gap-1 tnum">
+                  <span className="text-[15px] font-bold text-text">{fmtVal(valueOf(hp, metric), metric)} <span className="text-text-muted text-[12px] font-normal">{metric}</span></span>
                   {metric === "tokens" && (
-                    <span className="text-text-subtle text-[11px]">in: {fmtVal(hp.tokens_in, "tokens")} · out: {fmtVal(hp.tokens_out, "tokens")}</span>
+                    <span className="text-[12px] text-text-muted">in: {fmtVal(hp.tokens_in, "tokens")} · out: {fmtVal(hp.tokens_out, "tokens")}</span>
                   )}
-                  <span className="text-text-subtle text-[11px]">{hp.requests} req · ${hp.cost.toFixed(4)}</span>
+                  <span className="text-[12px] text-text-muted">{hp.requests} req · ${hp.cost.toFixed(4)}</span>
                 </div>
               </div>
             )}
@@ -175,9 +175,9 @@ export function AreaChart({ series }: { series: SeriesPoint[] }) {
       </div>
 
       {n > 0 && total > 0 && peak >= 0 && (
-        <div className="flex justify-between border-t border-border-subtle px-4 py-2 tnum text-[11px] text-text-subtle">
+        <div className="flex justify-between border-t border-border-subtle px-4 py-2 tnum text-[12px] text-text-subtle">
           <span>{fmtTime(series[0]!.ts)}</span>
-          <span>
+          <span className="font-medium">
             peak {fmtVal(vals[peak]!, metric)} @ {fmtTime(series[peak]!.ts)}
           </span>
           <span>{fmtTime(series[n - 1]!.ts)}</span>

@@ -1,7 +1,7 @@
 /**
  * Admin password store — the single source of truth for the admin password,
  * persisted as a scrypt hash (no plaintext, no native deps). Seeded once from
- * AIGETWEY_ADMIN_PASSWORD (default 123456 via the launcher); after that it is
+ * AIGLOO_ADMIN_PASSWORD (default 123456 via the launcher); after that it is
  * changed at runtime from the dashboard and the env var is only a fallback seed.
  *
  * File: <dataDir>/auth.json — { algo, salt, hash } (all hex). Absent → seeded.
@@ -49,7 +49,7 @@ export class AuthStore {
 
   /** In-memory store seeded from a password — for tests (file under tmpdir). */
   static memory(seed: string): AuthStore {
-    const store = new AuthStore(join(tmpdir(), `aigetwey-auth-${randomBytes(4).toString("hex")}.json`));
+    const store = new AuthStore(join(tmpdir(), `aigloo-auth-${randomBytes(4).toString("hex")}.json`));
     store.record = makeRecord(seed);
     return store;
   }

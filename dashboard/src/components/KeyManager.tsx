@@ -4,14 +4,11 @@ import { useEffect, useState, useCallback } from "react";
 import { adminApi } from "@/lib/client";
 import { Button, Input } from "@/components/Button";
 import { Icon } from "@/components/Icon";
-import { Badge } from "@/components/Badge";
+import { Empty } from "@/components/ui";
 import { ConfirmModal } from "@/components/ConfirmModal";
-import { Empty, fmt } from "@/components/ui";
 import { KeyScopeModal } from "@/components/KeyScopeModal";
 import type { EndpointPayload, MaskedConfig } from "@/lib/gateway";
 import type { ModelGroup } from "@/components/ModelPicker";
-
-type ServerKey = EndpointPayload["keys"][number];
 
 function generateKey(): string {
   const bytes = new Uint8Array(24);
@@ -91,21 +88,36 @@ export function KeyManager() {
   if (!ep) return <Empty>Loading…</Empty>;
 
   const activeKey = scopeKey !== null ? ep.keys[scopeKey] : null;
+  const filtered = ep.keys.filter((k) => {
+    if (!keyName) return true;
+    return (k.name ?? "").toLowerCase().includes(keyName.toLowerCase()) || k.key.toLowerCase().includes(keyName.toLowerCase());
+  });
+
+  const activeCount = ep.keys.filter((k) => !k.expires || Date.now() < k.expires).length;
+  const expiredCount = ep.keys.length - activeCount;
 
   return (
     <div>
       <div className="mb-6 flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-[22px] font-semibold tracking-tight text-text">Access Keys</h1>
-          <p className="mt-1 text-[13px] text-text-muted">Client API keys — each can have its own models, rate limit, and budget.</p>
+          <h1 className="text-[30px] font-bold tracking-tight heading-gradient heading-accent">Access Keys</h1>
         </div>
         <div className="flex items-center gap-2">
-          <Input value={keyName} onChange={(e) => setKeyName(e.target.value)} placeholder="Search or name new key…" className="w-48" />
+          <Input value={keyName} onChange={(e) => setKeyName(e.target.value)} placeholder="Search or name new key…" className="w-52" />
           <Button disabled={busy === "genkey"} onClick={() => addKey(keyName, generateKey())} className="whitespace-nowrap">
             <Icon name="add" size={16} />{busy === "genkey" ? "Adding…" : "Add key"}
           </Button>
         </div>
       </div>
+
+      {/* stats strip */}
+      {ep.keys.length > 0 && (
+        <div className="mb-5 grid grid-cols-3 gap-3">
+          <StatBlock label="Total" value={ep.keys.length} icon="key" />
+          <StatBlock label="Active" value={activeCount} icon="check_circle" tone="success" />
+          <StatBlock label="Expired" value={expiredCount} icon="schedule" tone={expiredCount > 0 ? "danger" : "neutral"} />
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 flex items-center justify-between gap-2 rounded-brand border border-danger/30 bg-danger/8 px-4 py-2.5 text-[13px] text-danger">
@@ -117,66 +129,71 @@ export function KeyManager() {
       {ep.keys.length === 0 ? (
         <Empty>No keys — auth is DISABLED (localhost only). Add one above.</Empty>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {ep.keys.map((k, i) => {
-            if (keyName && !(k.name ?? "").toLowerCase().includes(keyName.toLowerCase()) && !k.key.toLowerCase().includes(keyName.toLowerCase())) return null;
-            const expired = !!k.expires && Date.now() > k.expires;
-            const budget = keyBudgets[k.fingerprint];
-            return (
-              <div
-                key={i}
-                className={`group flex flex-col rounded-brand-lg border bg-surface p-4 shadow-soft transition-colors ${
-                  expired ? "border-danger/35 opacity-70" : "border-border hover:border-text-subtle"
-                }`}
-              >
-                {/* header row */}
-                <div className="flex items-start justify-between gap-2">
-                  <KeyRevealInline
-                    name={k.name || "Unnamed key"}
-                    masked={k.key}
-                    reveal={async () => { const r = await adminApi.revealServerKey(i); return r.ok ? r.data?.key ?? null : null; }}
-                  />
-                  <Badge tone={expired ? "danger" : "live"}>{expired ? "expired" : "active"}</Badge>
-                </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {filtered.length === 0 ? (
+            <div className="col-span-full px-1 py-8 text-center text-[13px] text-text-muted">No keys match "{keyName}"</div>
+          ) : (
+            filtered.map((k) => {
+              const i = ep.keys.indexOf(k);
+              const expired = !!k.expires && Date.now() > k.expires;
+              const budget = keyBudgets[k.fingerprint];
+              return (
+                <div
+                  key={i}
+                  className={`group card rounded-brand-lg p-0 overflow-hidden transition-[box-shadow,opacity] duration-150 ${expired ? "opacity-60" : ""}`}
+                >
+                  {/* top: name + status */}
+                  <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <span
+                        className={`h-2.5 w-2.5 flex-none rounded-full ${expired ? "bg-danger" : "bg-success"}`}
+                        style={{ boxShadow: expired ? "none" : "0 0 6px 1px var(--color-success)" }}
+                      />
+                      <span className="truncate text-[16px] font-bold text-text">{k.name || "Unnamed key"}</span>
+                    </div>
+                    <span className={`flex-none text-[11px] font-semibold uppercase tracking-wider ${expired ? "text-danger" : "text-success"}`}>
+                      {expired ? "Expired" : "Active"}
+                    </span>
+                  </div>
 
-                {/* info pills */}
-                <div className="mt-3 flex flex-col items-start gap-1.5">
-                  <span className="inline-flex items-center rounded-brand bg-bg px-2 py-0.5 text-[12px] text-text-muted">
-                    {k.models?.length ? `${k.models.length} model${k.models.length > 1 ? "s" : ""}` : "all models"}
-                  </span>
-                  {k.rpm && (
-                    <span className="inline-flex items-center rounded-brand bg-bg px-2 py-0.5 text-[12px] tnum text-text-muted">
-                      {k.rpm}/min
-                    </span>
-                  )}
-                  {budget && (
-                    <span className="inline-flex items-center rounded-brand bg-accent-soft px-2 py-0.5 text-[12px] tnum text-accent">
-                      ${budget.limit} / {budget.window.replace("day", " days").replace("h", "h")}
-                    </span>
-                  )}
-                  {k.expires && !expired && (
-                    <span className="inline-flex items-center rounded-brand bg-bg px-2 py-0.5 text-[12px] tnum text-text-subtle">
-                      expires {fmt.date(k.expires)}
-                    </span>
-                  )}
-                </div>
+                  {/* key reveal */}
+                  <div className="px-5 pb-3">
+                    <KeyRevealInline
+                      masked={k.key}
+                      reveal={async () => { const r = await adminApi.revealServerKey(i); return r.ok ? r.data?.key ?? null : null; }}
+                    />
+                  </div>
 
-                {/* actions */}
-                <div className="mt-auto flex items-center gap-2 pt-4">
-                  <button onClick={() => { setScopeKey(i); }} className="inline-flex items-center gap-1.5 rounded-brand border border-border px-3 py-1.5 text-[13px] text-text-muted hover:border-text-subtle hover:text-text">
-                    <Icon name="edit" size={14} /> Edit
-                  </button>
-                  <button onClick={() => setPendingDel({ i, label: k.name || k.key })} className="inline-flex items-center gap-1.5 rounded-brand border border-border px-3 py-1.5 text-[13px] text-text-muted hover:border-danger/40 hover:text-danger">
-                    <Icon name="delete" size={14} /> Remove
-                  </button>
+                  {/* meta badges */}
+                  <div className="flex flex-wrap items-center gap-2 px-5 pb-3">
+                    <MetaChip icon="layers" label={k.models?.length ? `${k.models.length} models` : "all models"} />
+                    {k.rpm && <MetaChip icon="speed" label={`${k.rpm}/min`} />}
+                    {budget && <MetaChip icon="payments" label={`$${budget.limit}/${budget.window.replace("day", "D").replace("h", "H")}`} accent />}
+                    {k.expires && <MetaChip icon="event" label={`exp ${new Date(k.expires).toLocaleDateString("en-GB")}`} />}
+                  </div>
+
+                  {/* actions */}
+                  <div className="flex items-center gap-2 border-t border-border-subtle px-5 py-2.5">
+                    <button
+                      onClick={() => setScopeKey(i)}
+                      className="inline-flex items-center gap-1.5 rounded-brand px-3 py-1.5 text-[12px] font-medium text-text-muted transition-colors hover:bg-surface-3 hover:text-text"
+                    >
+                      <Icon name="edit" size={14} /> Edit scope
+                    </button>
+                    <button
+                      onClick={() => setPendingDel({ i, label: k.name || k.key })}
+                      className="inline-flex items-center gap-1.5 rounded-brand px-3 py-1.5 text-[12px] font-medium text-text-muted transition-colors hover:bg-danger/10 hover:text-danger ml-auto"
+                    >
+                      <Icon name="delete" size={14} /> Remove
+                    </button>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       )}
 
-      {/* Scope modal */}
       {scopeKey !== null && activeKey && (
         <KeyScopeModal
           keyIndex={scopeKey}
@@ -189,10 +206,9 @@ export function KeyManager() {
         />
       )}
 
-      {/* New key reveal modal */}
       {created && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6" onClick={() => setCreated(null)}>
-          <div className="w-full max-w-lg rounded-brand-lg border border-border bg-surface p-5 shadow-elevated" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-lg rounded-brand-lg glass-strong modal-card p-5" onClick={(e) => e.stopPropagation()}>
             <h2 className="mb-2 text-[14px] font-semibold text-text">Key created — copy it now</h2>
             <p className="mb-3 text-[12px] text-text-muted">Copy your key now. You can reveal it later, but storing it saves time.</p>
             <div className="flex items-center gap-2 rounded-brand bg-bg px-3 py-2">
@@ -204,7 +220,6 @@ export function KeyManager() {
         </div>
       )}
 
-      {/* Delete confirm */}
       {pendingDel && (
         <ConfirmModal
           title="Remove key?"
@@ -219,7 +234,29 @@ export function KeyManager() {
   );
 }
 
-function KeyRevealInline({ name, masked, reveal }: { name: string; masked: string; reveal: () => Promise<string | null> }) {
+function StatBlock({ label, value, icon, tone }: { label: string; value: number; icon: string; tone?: "success" | "danger" | "neutral" }) {
+  const color = tone === "success" ? "var(--color-success)" : tone === "danger" ? "var(--color-danger)" : "var(--color-accent)";
+  return (
+    <div className="card rounded-brand-lg px-5 py-3.5">
+      <div className="flex items-center justify-between">
+        <div className="text-[11px] font-medium uppercase tracking-wider text-text-subtle">{label}</div>
+        <Icon name={icon} size={16} className="text-text-subtle" />
+      </div>
+      <div className="mt-0.5 tnum text-[24px] font-bold tracking-tight" style={{ color: value > 0 ? color : "var(--color-text)" }}>{value}</div>
+    </div>
+  );
+}
+
+function MetaChip({ icon, label, accent }: { icon: string; label: string; accent?: boolean }) {
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium ${accent ? "bg-accent-soft text-accent" : "bg-surface-2 text-text-muted"}`}>
+      <Icon name={icon} size={12} />
+      {label}
+    </span>
+  );
+}
+
+function KeyRevealInline({ masked, reveal }: { masked: string; reveal: () => Promise<string | null> }) {
   const [real, setReal] = useState<string | null>(null);
   const [shown, setShown] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -238,31 +275,28 @@ function KeyRevealInline({ name, masked, reveal }: { name: string; masked: strin
   }
 
   return (
-    <div className="min-w-0">
-      <span className="flex items-center gap-1.5">
-        <span className="truncate text-[14px] font-semibold text-text">{name}</span>
-      </span>
-      <span className={`flex items-center gap-1.5 text-[12px] text-text-subtle tnum ${shown ? "break-all" : ""}`}>
+    <div className="flex items-center gap-2 rounded-brand border border-border-subtle bg-bg/50 px-3 py-2">
+      <button
+        onClick={toggle}
+        disabled={loading}
+        className="flex flex-none items-center justify-center text-text-muted transition-colors hover:text-accent disabled:opacity-40"
+        aria-label={shown ? "Hide key" : "Show key"}
+        title={shown ? "Hide key" : "Show key"}
+      >
+        <Icon name={loading ? "hourglass_empty" : shown ? "visibility_off" : "visibility"} size={16} />
+      </button>
+      <code className={`flex-1 truncate tnum text-[13px] ${shown ? "text-text break-all" : "text-text-subtle"}`}>
+        {shown && real ? real : masked}
+      </code>
+      {shown && real && (
         <button
-          onClick={toggle}
-          disabled={loading}
-          className="flex flex-none items-center justify-center leading-none text-text-muted transition-colors hover:text-accent disabled:opacity-40"
-          aria-label={shown ? "Hide key" : "Show key"}
-          title={shown ? "Hide key" : "Show key"}
+          onClick={() => { void navigator.clipboard.writeText(real); setCopied(true); setTimeout(() => setCopied(false), 1200); }}
+          className="flex-none text-text-subtle transition-colors hover:text-text"
+          title="Copy"
         >
-          <Icon name={loading ? "hourglass_empty" : shown ? "visibility_off" : "visibility"} size={14} />
+          <Icon name={copied ? "check" : "content_copy"} size={14} />
         </button>
-        <span className={shown ? "" : "truncate"}>{shown && real ? real : masked}</span>
-        {shown && real && (
-          <button
-            onClick={() => { void navigator.clipboard.writeText(real); setCopied(true); setTimeout(() => setCopied(false), 1200); }}
-            className="flex-none text-text-subtle hover:text-text"
-            title="Copy"
-          >
-            <Icon name={copied ? "check" : "content_copy"} size={13} />
-          </button>
-        )}
-      </span>
+      )}
     </div>
   );
 }

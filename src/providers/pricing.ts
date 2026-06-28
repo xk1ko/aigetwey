@@ -6,7 +6,7 @@
 //   3. PATTERN_PRICING                    — glob pattern match (e.g. "codex-*")
 
 /**
- * All rates in $/1M tokens. Implemented for aigetwey so cost auto-resolves per model the same way. See
+ * All rates in $/1M tokens. Implemented for aigloo so cost auto-resolves per model the same way. See
  * 
  */
 export interface Pricing {

@@ -1,14 +1,14 @@
 <p align="center">
-  <img src="./assets/wordmark.svg" width="420" alt="aigetwey">
+  <img src="./assets/wordmark.svg" width="420" alt="aigloo">
 </p>
 
 <p align="center">
-  <strong>Personal AI gateway — one endpoint, every app</strong><br>
+  <strong>All your AI, in one place</strong><br>
   One endpoint · format translation · fallback routing · token saving · spend control
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/aigetwey"><img src="https://img.shields.io/npm/v/aigetwey.svg" alt="npm"></a>
+  <a href="https://www.npmjs.com/package/aigloo"><img src="https://img.shields.io/npm/v/aigloo.svg" alt="npm"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT"></a>
   <img src="https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg" alt="Node ≥22">
 </p>
@@ -19,14 +19,14 @@
 
 ---
 
-## Why aigetwey?
+## Why aigloo?
 
 Every AI app speaks a different API format. Every provider has different keys, models, and rate limits. You juggle configs, hit quota walls mid-session, and lose track of spend.
 
-**aigetwey fixes this.** One local endpoint, one key. Point any app at it — Claude Code, opencode, Cursor, Codex, or anything that supports a custom base URL. It translates formats, routes across providers with automatic fallback, compresses token-heavy context, and tracks every cent.
+**aigloo fixes this.** One local endpoint, one key. Point any app at it — Claude Code, opencode, Cursor, Codex, or anything that supports a custom base URL. It translates formats, routes across providers with automatic fallback, compresses token-heavy context, and tracks every cent.
 
 ```bash
-npm install -g aigetwey && aigetwey
+npm install -g aigloo && aigloo
 ```
 
 First run bootstraps everything. Subsequent runs start instantly.
@@ -40,7 +40,7 @@ First run bootstraps everything. Subsequent runs start instantly.
 - **Token savers** — RTK compresses tool results, caveman trims prose, ponytail nudges minimal code, headroom compresses context
 - **Access keys** — share gateway keys with model allowlist, rate limit, spend cap, and expiry
 - **Budgets** — rolling spend caps (global/provider/model/key) with live countdown and per-token-type cost tracking
-- **Dashboard** — providers, combos, usage, budgets, CLI tools, live console, settings — all drag-to-reorder
+- **Dashboard** — glassmorphic aigloo design: providers, combos, usage, budgets, CLI tools, live console, settings — all drag-to-reorder
 
 <p align="center">
   <img src="./assets/screenshot-endpoint.png" width="860" alt="Endpoint page">
@@ -62,8 +62,8 @@ First run bootstraps everything. Subsequent runs start instantly.
 ### Quick start
 
 ```bash
-npm install -g aigetwey
-aigetwey
+npm install -g aigloo
+aigloo
 ```
 
 The CLI seeds `config.yaml`, builds the dashboard, opens your browser. One URL serves everything — dashboard, API, and admin: `http://localhost:18080`.
@@ -74,8 +74,8 @@ Flags: `-p/--port`, `-n/--no-browser`, `-y/--yes`, `-t/--tray`.
 ### From source
 
 ```bash
-git clone https://github.com/xk1ko/aigetwey.git
-cd aigetwey && npm install
+git clone https://github.com/xk1ko/aigloo.git
+cd aigloo && npm install
 cp config.example.yaml config.yaml   # add providers + a server key
 npm install --prefix dashboard
 ./run.sh                              # Ctrl-C stops both
@@ -97,7 +97,7 @@ The dashboard's **CLI Tools** page detects installed tools and writes configs fo
 
 **Model resolution** (in order): combo alias → `provider/model`.
 
-Any app that supports a custom base URL + API key can use aigetwey — just set the model to `provider/model`.
+Any app that supports a custom base URL + API key can use aigloo — just set the model to `provider/model`.
 
 ---
 
@@ -170,10 +170,10 @@ Headroom is the only external dependency — install from [chopratejas/headroom]
 
 | Variable | Purpose |
 |----------|---------|
-| `AIGETWEY_CONFIG` | Config file path |
-| `AIGETWEY_DATA_DIR` | Usage DB directory |
-| `AIGETWEY_ADMIN_PASSWORD` | Admin + dashboard auth |
-| `AIGETWEY_PORT` | Listen port |
+| `AIGLOO_CONFIG` | Config file path |
+| `AIGLOO_DATA_DIR` | Usage DB directory |
+| `AIGLOO_ADMIN_PASSWORD` | Admin + dashboard auth |
+| `AIGLOO_PORT` | Listen port |
 
 Dashboard (`dashboard/.env.local`): `GATEWAY_URL`, `ADMIN_PASSWORD`, `SESSION_SECRET`.
 
@@ -196,8 +196,8 @@ npm run build           # compile to dist/
 ### Mulai cepat
 
 ```bash
-npm install -g aigetwey
-aigetwey
+npm install -g aigloo
+aigloo
 ```
 
 Run pertama bootstrap otomatis — buat `config.yaml`, build dashboard, buka browser. Satu URL untuk semuanya: `http://localhost:18080`.
@@ -241,7 +241,7 @@ RTK, Caveman, Ponytail = **built-in**. Hanya Headroom yang **eksternal** (Python
 
 ### Environment
 
-Gateway: `AIGETWEY_CONFIG`, `AIGETWEY_DATA_DIR`, `AIGETWEY_ADMIN_PASSWORD`, `AIGETWEY_PORT`.
+Gateway: `AIGLOO_CONFIG`, `AIGLOO_DATA_DIR`, `AIGLOO_ADMIN_PASSWORD`, `AIGLOO_PORT`.
 Dashboard: `GATEWAY_URL`, `ADMIN_PASSWORD`, `SESSION_SECRET`.
 
 Password admin dan key provider tidak pernah sampai ke browser.
@@ -250,7 +250,7 @@ Password admin dan key provider tidak pernah sampai ke browser.
 
 ## ⭐ Star this repo
 
-If aigetwey helps you, consider giving it a star — it helps others discover it.
+If aigloo helps you, consider giving it a star — it helps others discover it.
 
 ---
 
@@ -264,4 +264,4 @@ Inspired by [9router](https://github.com/decolua/9router) — its feature set an
 
 ## Contributing
 
-Issues and ideas welcome: <https://github.com/xk1ko/aigetwey/issues>
+Issues and ideas welcome: <https://github.com/xk1ko/aigloo/issues>

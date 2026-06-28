@@ -41,13 +41,12 @@ export function CliToolConfig() {
 
   if (error) return <Empty>{error}</Empty>;
 
+  const baseUrl = port ? `http://localhost:${port}` : "http://localhost:PORT";
+
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-[22px] font-semibold tracking-tight text-text">CLI Tools</h1>
-        <p className="mt-1 text-[13px] text-text-muted">
-          Point your coding tools at the gateway. {port ? `Listening on port ${port}.` : ""}
-        </p>
+      <div className="mb-5">
+        <h1 className="text-[30px] font-bold tracking-tight heading-gradient heading-accent">CLI Tools</h1>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -57,24 +56,49 @@ export function CliToolConfig() {
             <Link
               key={t.id}
               href={`/tools/${t.id}`}
-              className="group rounded-brand-lg border border-border bg-surface p-4 shadow-soft transition-colors hover:border-text-subtle"
+              className={`group card flex flex-col overflow-hidden rounded-brand-lg transition-[box-shadow] duration-200 hover:shadow-lift`}
             >
-              <div className="flex items-center justify-between gap-2">
-                <span className="flex items-center gap-2.5">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-brand bg-surface-2 text-text-muted group-hover:text-text">
-                    <Icon name={t.icon} size={18} />
+              {/* icon + name + status */}
+              <div className="flex-1 px-5 pt-4 pb-3">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-11 w-11 flex-none items-center justify-center rounded-brand bg-surface-2 text-text-muted transition-colors group-hover:text-accent">
+                    <Icon name={t.icon} size={22} />
                   </span>
-                  <span className="text-[14px] font-semibold text-text">{t.name}</span>
-                </span>
-                {st === "loading" ? (
-                  <Badge tone="neutral">…</Badge>
-                ) : st === "detected" ? (
-                  <Badge tone="live">detected</Badge>
-                ) : (
-                  <Badge tone="neutral">not detected</Badge>
-                )}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[15px] font-bold text-text">{t.name}</div>
+                    <div className="mt-0.5">
+                      {st === "loading" ? (
+                        <Badge tone="neutral">detecting…</Badge>
+                      ) : st === "detected" ? (
+                        <Badge tone="live">detected</Badge>
+                      ) : (
+                        <Badge tone="neutral">not detected</Badge>
+                      )}
+                    </div>
+                  </div>
+                  <Icon name="chevron_right" size={18} className="flex-none text-text-subtle transition-colors group-hover:text-text" />
+                </div>
+
+                <p className="mt-3 text-[12px] leading-relaxed text-text-muted">{t.blurb}</p>
               </div>
-              <p className="mt-2 text-[13px] text-text-muted">{t.blurb}</p>
+
+              {/* format badge */}
+              <div className="flex items-center gap-2 border-t border-border-subtle px-5 py-2.5">
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${t.format === "openai" ? "bg-success/12 text-success" : "bg-warning/12 text-warning"}`}>
+                  {t.format}
+                </span>
+                {t.autoConfig && (
+                  <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent">auto-config</span>
+                )}
+                <span className="ml-auto text-[11px] text-text-subtle">{t.slots.length} model{t.slots.length > 1 ? "s" : ""}</span>
+              </div>
+
+              {/* config preview */}
+              <div className="border-t border-border-subtle bg-bg/40 px-5 py-2.5">
+                <code className="block truncate text-[11px] text-text-subtle">
+                  {t.format === "anthropic" ? "ANTHROPIC_BASE_URL" : "OPENAI_BASE_URL"}={t.format === "openai" ? `${baseUrl}/v1` : baseUrl}
+                </code>
+              </div>
             </Link>
           );
         })}

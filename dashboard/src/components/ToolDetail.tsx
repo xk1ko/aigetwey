@@ -209,13 +209,13 @@ export function ToolDetail({ id }: { id: string }) {
       ? JSON.stringify(
           {
             provider: {
-              aigetwey: {
+              aigloo: {
                 npm: "@ai-sdk/openai-compatible",
-                options: { baseURL: `${base}/v1`, apiKey: realKey || "aigetwey" },
+                options: { baseURL: `${base}/v1`, apiKey: realKey || "aigloo" },
                 models: Object.fromEntries(ocModels.map((m) => [m, { name: m, modalities: modalitiesFor(m) }])),
               },
             },
-            model: `aigetwey/${active || ocModels[0] || ""}`,
+            model: `aigloo/${active || ocModels[0] || ""}`,
           },
           null,
           2,
@@ -252,7 +252,7 @@ export function ToolDetail({ id }: { id: string }) {
         <span className="flex h-9 w-9 items-center justify-center rounded-brand bg-surface-2 text-text-muted">
           <Icon name={tool.icon} size={20} />
         </span>
-        <h1 className="text-[22px] font-semibold tracking-tight text-text">{tool.name}</h1>
+        <h1 className="text-[30px] font-bold tracking-tight heading-gradient heading-accent">{tool.name}</h1>
         <Badge tone="info">{tool.format}</Badge>
       </div>
 
@@ -620,7 +620,7 @@ export function ToolDetail({ id }: { id: string }) {
   );
 }
 
-/** label → control row used by the Local setup card (matches aigetwey's layout). */
+/** label → control row used by the Local setup card (matches aigloo's layout). */
 function SetupRow({ label, children, top }: { label: string; children: React.ReactNode; top?: boolean }) {
   return (
     <div className={`grid grid-cols-[7rem_1fr] gap-3 ${top ? "items-start" : "items-center"}`}>

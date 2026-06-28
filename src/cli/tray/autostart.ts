@@ -1,10 +1,10 @@
 /**
- * Run-on-OS-startup, toggled from the tray menu — registers the aigetwey CLI to
+ * Run-on-OS-startup, toggled from the tray menu — registers the aigloo CLI to
  * launch with `--tray` at login.
  *
- *   macOS  → ~/Library/LaunchAgents/com.aigetwey.autostart.plist (launchd)
- *   Windows→ %APPDATA%/.../Startup/aigetwey.vbs
- *   Linux  → ~/.config/autostart/aigetwey.desktop
+ *   macOS  → ~/Library/LaunchAgents/com.aigloo.autostart.plist (launchd)
+ *   Windows→ %APPDATA%/.../Startup/aigloo.vbs
+ *   Linux  → ~/.config/autostart/aigloo.desktop
  */
 import { existsSync, mkdirSync, writeFileSync, unlinkSync } from "node:fs";
 import { homedir } from "node:os";
@@ -12,8 +12,8 @@ import { join, dirname, basename, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execSync } from "node:child_process";
 
-const APP_NAME = "aigetwey";
-const APP_LABEL = "com.aigetwey.autostart";
+const APP_NAME = "aigloo";
+const APP_LABEL = "com.aigloo.autostart";
 const here = dirname(fileURLToPath(import.meta.url));
 
 /** Absolute path to the launcher script (dist/cli.js). */
@@ -116,7 +116,7 @@ function enableLinux(node: string, script: string): boolean {
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   const desktop = `[Desktop Entry]
 Type=Application
-Name=aigetwey
+Name=aigloo
 Comment=Personal AI gateway
 Exec=${node} ${script} --tray --skip-update
 Hidden=false

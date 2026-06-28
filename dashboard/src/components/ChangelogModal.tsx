@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { marked } from "marked";
 import { Icon } from "./Icon";
 
-const CHANGELOG_URL = "https://raw.githubusercontent.com/xk1ko/aigetwey/main/CHANGELOG.md";
+const CHANGELOG_URL = "https://raw.githubusercontent.com/xk1ko/aigloo/main/CHANGELOG.md";
 
 marked.setOptions({ gfm: true, breaks: false });
 
@@ -33,7 +33,7 @@ export function ChangelogModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6" onClick={onClose}>
       <div
-        className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-brand-lg border border-border bg-surface shadow-elevated"
+        className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-brand-lg glass-strong modal-card"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-border-subtle px-5 py-3">
@@ -54,7 +54,7 @@ export function ChangelogModal({ onClose }: { onClose: () => void }) {
           <div className="px-5 py-8 text-center text-[13px] text-text-muted">
             Could not load changelog. Check{" "}
             <a
-              href="https://github.com/xk1ko/aigetwey/blob/main/CHANGELOG.md"
+              href="https://github.com/xk1ko/aigloo/blob/main/CHANGELOG.md"
               target="_blank"
               rel="noopener noreferrer"
               className="text-accent hover:underline"

@@ -1,12 +1,10 @@
 node_modules/
-node_modules
 dist/
+.next/
 config.yaml
 config.yaml.bak
 config.yaml.tmp
-.next/
 data/
-data-dev/
 *.sqlite
 *.sqlite-journal
 .env
@@ -15,4 +13,3 @@ dashboard/.next/
 dashboard/node_modules/
 dashboard/.env.local
 *.log
-.gstack/

@@ -45,7 +45,7 @@ function isTraySupported(): boolean {
 
 function menuItems(autostart: boolean): Array<{ title: string; tooltip: string; enabled: boolean }> {
   return [
-    { title: `aigetwey (port ${0})`, tooltip: "gateway + dashboard running", enabled: false },
+    { title: `aigloo (port ${0})`, tooltip: "gateway + dashboard running", enabled: false },
     { title: "Open Dashboard", tooltip: "open the console in your browser", enabled: true },
     { title: autostart ? "✓ Auto-start enabled" : "Enable auto-start", tooltip: "run on OS startup", enabled: true },
     { title: "Quit", tooltip: "stop the gateway + dashboard and exit", enabled: true },
@@ -85,14 +85,14 @@ function initUnixTray(opts: TrayOptions): boolean {
     }
     const autostart = isAutoStartEnabled();
     const items = menuItems(autostart).map((it, i) =>
-      i === MENU.STATUS ? { ...it, title: `aigetwey (port ${opts.port})` } : it,
+      i === MENU.STATUS ? { ...it, title: `aigloo (port ${opts.port})` } : it,
     );
     tray = new SysTray({
       menu: {
         icon: TRAY_ICON_PNG_BASE64,
         isTemplateIcon: false,
         title: "",
-        tooltip: `aigetwey — port ${opts.port}`,
+        tooltip: `aigloo — port ${opts.port}`,
         items,
       },
       debug: false,
@@ -125,9 +125,9 @@ function initWindowsTray(opts: TrayOptions): boolean {
     };
     const autostart = isAutoStartEnabled();
     winTray = initWinTray({
-      tooltip: `aigetwey - port ${opts.port}`,
+      tooltip: `aigloo - port ${opts.port}`,
       items: menuItems(autostart).map((it, i) =>
-        i === MENU.STATUS ? { ...it, title: `aigetwey (port ${opts.port})` } : it,
+        i === MENU.STATUS ? { ...it, title: `aigloo (port ${opts.port})` } : it,
       ),
       onClick: (index: number) =>
         handleClick(index, opts, (enabled) =>

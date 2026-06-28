@@ -17,9 +17,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { adminApi } from "@/lib/client";
-import { Lamp } from "@/components/Lamp";
 import { Badge } from "@/components/Badge";
-import { RichCard, CardTitle } from "@/components/RichCard";
 import { Button, Input, Select, Field } from "@/components/Button";
 import { ModelPicker, type ModelGroup } from "@/components/ModelPicker";
 import { Icon } from "@/components/Icon";
@@ -27,60 +25,13 @@ import { ConfirmModal } from "@/components/ConfirmModal";
 import { fmt, Empty } from "@/components/ui";
 import type { MaskedConfig, MaskedRoute, ProviderSnapshot } from "@/lib/gateway";
 
-/** Upstream model id for the i-th target of a route (mirrors GatewayConfig). */
 function modelFor(route: MaskedRoute, i: number): string {
   if (Array.isArray(route.model)) return route.model[i] ?? route.model[0] ?? route.alias;
   if (typeof route.model === "string") return route.model;
   return route.alias;
 }
 
-const COLLAPSE_AT = 5;
-
-function ChainList({
-  route,
-  healthy,
-  chainTest,
-  chainBusy,
-}: {
-  route: MaskedRoute;
-  healthy: (pid: string) => boolean;
-  chainTest: Record<string, Record<number, "testing" | "ok" | "fail">>;
-  chainBusy: string | null;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const total = route.target.length;
-  const show = expanded || total <= COLLAPSE_AT ? total : COLLAPSE_AT;
-
-  return (
-    <div>
-      <ol className="space-y-1.5">
-        {route.target.slice(0, show).map((pid, i) => {
-          const ct = chainTest[route.alias]?.[i];
-          const testLamp = ct === "ok" ? "live" : ct === "fail" ? "down" : ct === "testing" ? "idle" : null;
-          return (
-            <li key={pid + i} className="flex items-center gap-2.5 rounded-brand border border-border-subtle px-3 py-2">
-              <span className="tnum text-[11px] text-text-subtle">#{i + 1}</span>
-              <Lamp state={testLamp ?? (healthy(pid) ? "live" : "down")} />
-              <span className="text-[13px] text-text">{pid}</span>
-              <span className="ml-auto tnum text-[12px] text-text-muted">{modelFor(route, i)}</span>
-              {ct === "ok" && <Icon name="check_circle" size={14} className="text-success" />}
-              {ct === "fail" && <Icon name="cancel" size={14} className="text-danger" />}
-              {ct === "testing" && <Icon name="progress_activity" size={14} className="text-text-subtle" />}
-            </li>
-          );
-        })}
-      </ol>
-      {total > COLLAPSE_AT && (
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          className="mt-1.5 w-full rounded-brand py-1.5 text-[12px] font-medium text-text-muted transition-colors hover:bg-surface-2 hover:text-text"
-        >
-          {expanded ? "Show less" : `Show all ${total}`}
-        </button>
-      )}
-    </div>
-  );
-}
+const COLLAPSE_AT = 6;
 
 export function RoutingView() {
   const [config, setConfig] = useState<MaskedConfig | null>(null);
@@ -142,10 +93,7 @@ export function RoutingView() {
     <div>
       <div className="mb-5 flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-[22px] font-semibold tracking-tight text-text">Combos</h1>
-          <p className="mt-1 text-[13px] text-text-muted">
-            Aliases your CLI tools call, routed across a chain of providers.
-          </p>
+          <h1 className="text-[30px] font-bold tracking-tight heading-gradient heading-accent">Combos</h1>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setShowInfo((v) => !v)} className="flex h-8 w-8 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-surface-2 hover:text-text" aria-label="Strategy info">
@@ -159,7 +107,7 @@ export function RoutingView() {
       </div>
 
       {showInfo && (
-        <div className="mb-5 rounded-brand-lg border border-border bg-surface p-4 shadow-soft">
+        <div className="mb-5 rounded-brand-lg card p-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <h3 className="text-[13px] font-semibold text-text">Fallback</h3>
@@ -195,50 +143,34 @@ export function RoutingView() {
         />
       )}
 
+      {/* section header */}
+      <div className="mb-2 flex items-center gap-2">
+        <Icon name="alt_route" size={16} className="text-text-subtle" />
+        <h2 className="text-[13px] font-semibold uppercase tracking-wider text-text-subtle">Combos</h2>
+        <span className="text-[11px] text-text-muted">{config.models.length} total</span>
+        <div className="ml-2 h-px flex-1 bg-border-subtle" />
+      </div>
+
       {config.models.length === 0 ? (
         <Empty>No combos yet. Add one to expose a model alias to your CLI tools.</Empty>
       ) : (
-        <div className="grid gap-3 lg:grid-cols-2">
-          {config.models.map((route) => (
-            <RichCard
-              key={route.alias}
-              header={
-                <>
-                  <CardTitle title={route.alias} sub={`${route.target.length} in chain`} />
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => testChain(route)}
-                      disabled={chainBusy === route.alias}
-                      className="inline-flex items-center gap-1 rounded-brand border border-border bg-surface-2 px-2.5 py-1 text-[12px] font-medium text-text-muted transition-colors hover:bg-surface-3 hover:text-text disabled:opacity-60"
-                      title="Test each provider in this chain"
-                    >
-                      <Icon name={chainBusy === route.alias ? "progress_activity" : "sync"} size={14} />
-                      Test
-                    </button>
-                    <Badge tone={route.strategy === "round-robin" ? "info" : "neutral"}>{route.strategy}</Badge>
-                    {(route.price_in !== undefined || route.price_out !== undefined) && (
-                      <Badge tone="neutral">
-                        {fmt.cost(route.price_in ?? 0)}/{fmt.cost(route.price_out ?? 0)} per 1M
-                      </Badge>
-                    )}
-                    <button onClick={() => { setEditing(route); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="flex h-7 w-7 items-center justify-center rounded-brand text-text-muted transition-colors hover:bg-surface-2 hover:text-text" aria-label="Edit combo">
-                      <Icon name="edit" size={16} />
-                    </button>
-                    <button onClick={() => setPendingDelete(route.alias)} disabled={busy === route.alias} className="flex h-7 w-7 items-center justify-center rounded-brand text-text-muted transition-colors hover:bg-surface-2 hover:text-danger" aria-label="Remove alias">
-                      <Icon name="delete" size={16} />
-                    </button>
-                  </div>
-                </>
-              }
-            >
-              <ChainList
+        <div className="space-y-2.5">
+          {config.models.map((route) => {
+            const ct = chainTest[route.alias];
+            return (
+              <RouteCard
+                key={route.alias}
                 route={route}
                 healthy={healthy}
-                chainTest={chainTest}
+                chainTest={ct}
                 chainBusy={chainBusy}
+                onTest={() => testChain(route)}
+                onEdit={() => { setEditing(route); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                onDelete={() => setPendingDelete(route.alias)}
+                deleteBusy={busy === route.alias}
               />
-            </RichCard>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -258,9 +190,123 @@ export function RoutingView() {
   );
 }
 
-// Combo create form, for aigetwey's ComboFormModal: a name + ONE ordered
-// list of concrete `provider/model` entries (fallback priority), picked from the
-// providers' catalogs. On save each entry splits into target[i]/model[i].
+function RouteCard({
+  route,
+  healthy,
+  chainTest,
+  chainBusy,
+  onTest,
+  onEdit,
+  onDelete,
+  deleteBusy,
+}: {
+  route: MaskedRoute;
+  healthy: (pid: string) => boolean;
+  chainTest?: Record<number, "testing" | "ok" | "fail">;
+  chainBusy: string | null;
+  onTest: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  deleteBusy: boolean;
+}) {
+  const isTesting = chainBusy === route.alias;
+  const total = route.target.length;
+  const [expanded, setExpanded] = useState(false);
+  const show = expanded || total <= COLLAPSE_AT ? total : COLLAPSE_AT;
+
+  return (
+    <div className="card overflow-hidden rounded-brand-lg">
+      {/* row 1 — identity + actions */}
+      <div className="flex items-center justify-between gap-3 border-b border-border-subtle px-5 py-3">
+        <div className="flex items-center gap-3">
+          <code className="truncate text-[16px] font-bold text-text">{route.alias}</code>
+          <Badge tone={route.strategy === "round-robin" ? "info" : "neutral"}>{route.strategy}</Badge>
+          <div className="flex items-center gap-2 text-[11px] text-text-subtle">
+            {route.sticky && route.sticky > 1 && <span>sticky {route.sticky}</span>}
+            {(route.price_in !== undefined || route.price_out !== undefined) && (
+              <span className="tnum">{fmt.cost(route.price_in ?? 0)}/{fmt.cost(route.price_out ?? 0)}/1M</span>
+            )}
+            <span>{total} in chain</span>
+          </div>
+        </div>
+        <div className="flex flex-none items-center gap-1">
+          <button
+            onClick={onTest}
+            disabled={isTesting}
+            className="inline-flex items-center gap-1 rounded-brand border border-border bg-surface-2 px-2.5 py-1 text-[11px] font-medium text-text-muted transition-colors hover:bg-surface-3 hover:text-text disabled:opacity-60"
+            title="Test each provider in this chain"
+          >
+            <Icon name={isTesting ? "progress_activity" : "sync"} size={13} className={isTesting ? "animate-spin" : ""} />
+            Test
+          </button>
+          <button onClick={onEdit} className="flex h-7 w-7 items-center justify-center rounded-brand text-text-muted transition-colors hover:bg-surface-2 hover:text-text" aria-label="Edit combo">
+            <Icon name="edit" size={15} />
+          </button>
+          <button onClick={onDelete} disabled={deleteBusy} className="flex h-7 w-7 items-center justify-center rounded-brand text-text-muted transition-colors hover:bg-danger/10 hover:text-danger" aria-label="Remove alias">
+            <Icon name="delete" size={15} />
+          </button>
+        </div>
+      </div>
+
+      {/* row 2 — vertical timeline */}
+      <div className="px-5 py-4">
+        <div className="relative">
+          {route.target.slice(0, show).map((pid, i) => {
+            const ct = chainTest?.[i];
+            const isHealthy = healthy(pid);
+            const isLast = i === show - 1;
+
+            const dotColor = ct === "ok" ? "var(--color-success)"
+              : ct === "fail" ? "var(--color-danger)"
+              : ct === "testing" ? "var(--color-accent)"
+              : isHealthy ? "var(--color-success)"
+              : "var(--color-danger)";
+
+            const circleBorder = ct === "ok" ? "border-success/50 bg-success/5"
+              : ct === "fail" ? "border-danger/50 bg-danger/5"
+              : ct === "testing" ? "border-accent/50 bg-accent/5"
+              : "border-border-subtle bg-surface-2";
+
+            return (
+              <div key={pid + i} className="relative flex items-center gap-3 pb-3 last:pb-0">
+                {!isLast && (
+                  <div className="absolute left-[13px] top-7 bottom-0 w-px bg-border-subtle" />
+                )}
+                <div className={`relative z-10 flex h-7 w-7 flex-none items-center justify-center rounded-full border ${circleBorder} ${ct === "testing" ? "animate-pulse" : ""}`}>
+                  {ct === "ok" ? (
+                    <Icon name="check" size={14} className="text-success" />
+                  ) : ct === "fail" ? (
+                    <Icon name="close" size={14} className="text-danger" />
+                  ) : ct === "testing" ? (
+                    <Icon name="progress_activity" size={13} className="animate-spin text-accent" />
+                  ) : (
+                    <span className="tnum text-[11px] font-medium text-text-muted">{i + 1}</span>
+                  )}
+                </div>
+                <div className="flex flex-1 items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[13px] font-medium text-text">{pid}</span>
+                    <span className="tnum text-[11px] text-text-subtle">{modelFor(route, i)}</span>
+                  </div>
+                  <span className="h-2 w-2 flex-none rounded-full" style={{ background: dotColor, boxShadow: `0 0 5px ${dotColor}` }} />
+                </div>
+              </div>
+            );
+          })}
+          {total > COLLAPSE_AT && (
+            <button
+              onClick={() => setExpanded((v) => !v)}
+              className="mt-1 w-full rounded-brand py-1.5 text-[12px] font-medium text-text-muted transition-colors hover:bg-surface-2 hover:text-text"
+            >
+              {expanded ? "Show less" : `Show all ${total}`}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 type ProviderOption = { id: string; models: { id: string }[] };
 
 function RouteForm({ providers, onDone, initial, onCancel }: { providers: ProviderOption[]; onDone: () => void; initial?: MaskedRoute; onCancel?: () => void }) {
@@ -279,7 +325,6 @@ function RouteForm({ providers, onDone, initial, onCancel }: { providers: Provid
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
-  // aigetwey-style picker: provider-grouped, click a model to add/remove it.
   const groups: ModelGroup[] = providers
     .filter((p) => p.models.length > 0)
     .map((p) => ({ label: p.id, items: p.models.map((m) => ({ value: `${p.id}/${m.id}`, label: `${p.id}/${m.id}` })) }));
@@ -317,7 +362,6 @@ function RouteForm({ providers, onDone, initial, onCancel }: { providers: Provid
       strategy,
       sticky: strategy === "round-robin" ? sticky : undefined,
     });
-    // rename: the new alias is saved above; drop the old one so it doesn't linger.
     if (r.ok && isEdit && initial!.alias !== alias) {
       await adminApi.removeRoute(initial!.alias);
     }
@@ -327,7 +371,7 @@ function RouteForm({ providers, onDone, initial, onCancel }: { providers: Provid
   }
 
   return (
-    <form onSubmit={submit} className="mb-5 rounded-brand-lg border border-border bg-surface p-4 shadow-soft">
+    <form onSubmit={submit} className="mb-5 rounded-brand-lg card p-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Alias" hint="the name your CLI requests as a model">
           <Input value={alias} onChange={(e) => setAlias(e.target.value)} placeholder="my-combo" />

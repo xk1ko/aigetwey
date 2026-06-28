@@ -45,9 +45,9 @@ export const fmt = {
 /** A labelled stat block — number over a caption. */
 export function Stat({ label, value, sub }: { label: string; value: React.ReactNode; sub?: string }) {
   return (
-    <div className="rounded-brand-lg border border-border bg-surface px-4 py-3.5 shadow-soft">
+    <div className="card rounded-brand-lg px-4 py-4">
       <div className="text-[11px] font-medium uppercase tracking-wider text-text-subtle">{label}</div>
-      <div className="mt-1 tnum text-[22px] font-semibold tracking-tight text-text">{value}</div>
+      <div className="mt-1 tnum text-[28px] font-bold tracking-tight text-text">{value}</div>
       {sub && <div className="mt-0.5 text-[12px] text-text-muted">{sub}</div>}
     </div>
   );

@@ -10,7 +10,7 @@ export interface ModelGroup {
 }
 
 /**
- * aigetwey-style model picker: a search box + provider-grouped chips you click to
+ * aigloo-style model picker: a search box + provider-grouped chips you click to
  * toggle in/out of a selection. Used by the combo form and the CLI-tool model
  * selection so both add models the same way (click to add, click again to drop).
  */
@@ -52,7 +52,7 @@ export function ModelPicker({
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-6 sm:p-10" onClick={onClose}>
       <div
-        className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-brand-lg border border-border bg-surface shadow-elevated"
+        className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-brand-lg glass-strong modal-card"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-border-subtle px-4 py-3">

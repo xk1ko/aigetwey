@@ -21,20 +21,27 @@ export function Checkbox({
 }) {
   const on = checked || indeterminate;
   return (
-    <button
-      type="button"
+    <div
       role="checkbox"
+      tabIndex={0}
       aria-checked={indeterminate ? "mixed" : checked}
       aria-label={ariaLabel}
       onClick={(e) => {
         e.stopPropagation();
         onChange();
       }}
+      onKeyDown={(e) => {
+        if (e.key === " " || e.key === "Enter") {
+          e.preventDefault();
+          e.stopPropagation();
+          onChange();
+        }
+      }}
       className={`flex h-[18px] w-[18px] flex-none items-center justify-center rounded-[5px] border transition-colors ${
         on ? "border-accent bg-accent text-accent-ink" : "border-border bg-bg text-transparent hover:border-text-subtle"
       }${className ? ` ${className}` : ""}`}
     >
       <Icon name={indeterminate ? "remove" : "check"} size={13} />
-    </button>
+    </div>
   );
 }

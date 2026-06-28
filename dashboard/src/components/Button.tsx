@@ -4,9 +4,9 @@ import { useState, useEffect, useRef, Children, isValidElement } from "react";
 type Variant = "primary" | "ghost" | "danger";
 
 const VARIANTS: Record<Variant, string> = {
-  primary: "bg-accent text-accent-ink shadow-warm hover:bg-accent-hover border border-transparent font-semibold",
-  ghost: "bg-transparent text-text-muted border border-border hover:text-text hover:border-text-subtle",
-  danger: "bg-transparent text-text-muted border border-border hover:text-danger hover:border-danger/50",
+  primary: "bg-accent text-accent-ink shadow-warm hover:bg-accent-hover hover:shadow-glow border border-transparent font-semibold",
+  ghost: "glass text-text-muted border-transparent hover:text-text",
+  danger: "glass text-text-muted border-transparent hover:text-danger",
 };
 
 export function Button({
@@ -16,7 +16,7 @@ export function Button({
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }) {
   return (
     <button
-      className={`inline-flex items-center justify-center gap-1.5 rounded-brand px-3.5 py-2 text-[13px] font-medium transition-colors duration-150 cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed ${VARIANTS[variant]}${className ? ` ${className}` : ""}`}
+      className={`inline-flex items-center justify-center gap-1.5 rounded-brand px-3.5 py-2 text-[13px] font-medium transition-all duration-150 cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed ${VARIANTS[variant]}${className ? ` ${className}` : ""}`}
       {...props}
     />
   );
@@ -80,7 +80,7 @@ export function Select({
         <svg className={`ml-2 h-4 w-4 shrink-0 text-text-subtle transition-transform ${open ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
       </button>
       {open && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-brand border border-border bg-surface shadow-lg">
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-brand glass-strong modal-card">
           {options.map((o) => (
             <button
               key={o.value}

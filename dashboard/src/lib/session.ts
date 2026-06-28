@@ -16,14 +16,14 @@ import { cookies } from "next/headers";
 const _port = (() => {
   try { return new URL(process.env.GATEWAY_URL ?? "").port || "18080"; } catch { return "18080"; }
 })();
-const COOKIE = `aigetwey_session_${_port}`;
+const COOKIE = `aigloo_session_${_port}`;
 
 function secret(): string {
   return process.env.SESSION_SECRET ?? "";
 }
 
 function aesKey(): Buffer {
-  return scryptSync(secret(), "aigetwey-session-aes", 32);
+  return scryptSync(secret(), "aigloo-session-aes", 32);
 }
 
 export function sign(value: string): string {

@@ -2,14 +2,14 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { AreaChart, type SeriesPoint } from "@/components/AreaChart";
-import { Stat, fmt, Empty } from "@/components/ui";
 import { Icon } from "@/components/Icon";
-import { RichCard } from "@/components/RichCard";
+import { fmt, Empty } from "@/components/ui";
 import type { UsageSummary } from "@/lib/gateway";
+
+const PAGE_SIZE = 8;
 
 type Window = { label: string; key: "today" | "24h" | "7d" | "30d" | "60d"; bucketMs: number };
 
-// window -> chart bucket size. Buckets keep ~24-60 points per range.
 const WINDOWS: Window[] = [
   { label: "Today", key: "today", bucketMs: 15 * 60_000 },
   { label: "24H", key: "24h", bucketMs: 3600_000 },
@@ -18,8 +18,6 @@ const WINDOWS: Window[] = [
   { label: "60D", key: "60d", bucketMs: 2 * 86400_000 },
 ];
 
-/** Lookback start (ms epoch) for a window. "Today" is since local midnight; the
- *  rest are rolling lookbacks from now. */
 function sinceFor(key: Window["key"]): number {
   const now = Date.now();
   switch (key) {
@@ -71,10 +69,9 @@ export function UsageView() {
     <div>
       <div className="mb-6 flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-[22px] font-semibold tracking-tight text-text">Usage</h1>
-          <p className="mt-1 text-[13px] text-text-muted">Tokens and cost across providers and models.</p>
+          <h1 className="text-[30px] font-bold tracking-tight heading-gradient heading-accent">Usage</h1>
         </div>
-        <div className="flex items-center gap-1 rounded-full border border-border bg-surface p-1">
+        <div className="flex items-center gap-0.5 rounded-full bg-surface-2 p-1">
           {WINDOWS.map((w) => (
             <button
               key={w.label}
@@ -93,42 +90,46 @@ export function UsageView() {
         <Empty>{error}</Empty>
       ) : (
         <>
-          <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Stat label="Requests" value={fmt.int(total?.requests ?? 0)} />
-            <Stat label="Tokens in" value={fmt.compact(total?.tokens_in ?? 0)} />
-            <Stat label="Tokens out" value={fmt.compact(total?.tokens_out ?? 0)} />
-            <Stat label="Cost" value={fmt.cost(total?.cost ?? 0)} />
+          <div className="mb-4 overflow-hidden rounded-brand-lg glass-premium">
+            <div className="grid sm:grid-cols-4">
+              <div className="border-b border-border-subtle px-6 py-5 sm:border-b-0 sm:border-r">
+                <div className="text-[11px] font-medium uppercase tracking-wider text-text-subtle">Requests</div>
+                <div className="mt-1 tnum text-[28px] font-bold tracking-tight text-text">{fmt.int(total?.requests ?? 0)}</div>
+              </div>
+              <div className="border-b border-border-subtle px-6 py-5 sm:border-b-0 sm:border-r">
+                <div className="text-[11px] font-medium uppercase tracking-wider text-text-subtle">Tokens In</div>
+                <div className="mt-1 tnum text-[28px] font-bold tracking-tight text-text">{fmt.compact(total?.tokens_in ?? 0)}</div>
+              </div>
+              <div className="border-b border-border-subtle px-6 py-5 sm:border-b-0 sm:border-r">
+                <div className="text-[11px] font-medium uppercase tracking-wider text-text-subtle">Tokens Out</div>
+                <div className="mt-1 tnum text-[28px] font-bold tracking-tight text-text">{fmt.compact(total?.tokens_out ?? 0)}</div>
+              </div>
+              <div className="px-6 py-5">
+                <div className="text-[11px] font-medium uppercase tracking-wider text-text-subtle">Est. Cost</div>
+                <div className="mt-1 heading-gradient tnum text-[40px] font-bold tracking-tight">~{fmt.cost(total?.cost ?? 0)}</div>
+              </div>
+            </div>
           </div>
 
-          <div className="mb-5">
+          {/* chart — AreaChart renders its own card + header */}
+          <div className="mb-4">
             <AreaChart series={series} />
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-2">
-            <RichCard header={<span className="text-[13px] font-semibold text-text">By provider</span>}>
-              {summary?.by_provider.length ? (
-                <BreakdownTable
-                  key={win.key}
-                  rows={summary.by_provider.map((p) => ({ label: p.provider, ...p }))}
-                  loading={loading}
-                  firstCol="Provider"
-                />
-              ) : (
-                <Empty>No usage in this window.</Empty>
-              )}
-            </RichCard>
-            <RichCard header={<span className="text-[13px] font-semibold text-text">By model</span>}>
-              {summary?.by_model.length ? (
-                <BreakdownTable
-                  key={win.key}
-                  rows={summary.by_model.map((m) => ({ label: `${m.alias} → ${m.model}`, ...m }))}
-                  loading={loading}
-                  firstCol="Model"
-                />
-              ) : (
-                <Empty>No usage in this window.</Empty>
-              )}
-            </RichCard>
+          {/* breakdown — horizontal bars */}
+          <div className="grid gap-3 lg:grid-cols-2">
+            <BreakdownPanel
+              title="By Provider"
+              icon="dns"
+              rows={summary?.by_provider.map((p) => ({ label: p.provider, requests: p.requests, tokens_in: p.tokens_in, tokens_out: p.tokens_out, cost: p.cost })) ?? []}
+              loading={loading}
+            />
+            <BreakdownPanel
+              title="By Model"
+              icon="model_training"
+              rows={summary?.by_model.map((m) => ({ label: m.alias, requests: m.requests, tokens_in: m.tokens_in, tokens_out: m.tokens_out, cost: m.cost })) ?? []}
+              loading={loading}
+            />
           </div>
         </>
       )}
@@ -136,82 +137,82 @@ export function UsageView() {
   );
 }
 
-const PAGE_SIZE = 8;
-
-function BreakdownTable({
+function BreakdownPanel({
+  title,
+  icon,
   rows,
   loading,
-  firstCol,
 }: {
+  title: string;
+  icon: string;
   rows: Array<{ label: string; requests: number; tokens_in: number; tokens_out: number; cost: number }>;
   loading: boolean;
-  firstCol: string;
 }) {
   const [page, setPage] = useState(0);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [minH, setMinH] = useState(0);
   const totalPages = Math.ceil(rows.length / PAGE_SIZE);
-  const paged = rows.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+
+  useEffect(() => { setPage(0); }, [rows.length]);
+
+  const pageRows = rows.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
 
   useEffect(() => {
-    if (wrapRef.current && paged.length === PAGE_SIZE) {
+    if (wrapRef.current && pageRows.length === PAGE_SIZE) {
       const h = wrapRef.current.offsetHeight;
       if (h > minH) setMinH(h);
     }
-  }, [paged, minH]);
+  }, [pageRows, minH]);
 
   return (
-    <div className={loading ? "opacity-50" : ""}>
-      <div ref={wrapRef} className="table-wrap" style={minH ? { minHeight: minH } : undefined}>
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="text-text-subtle">
-              <th className="pb-2 text-left text-[11px] font-medium uppercase tracking-wider">{firstCol}</th>
-              {["Reqs", "In", "Out", "Cost"].map((h, i) => (
-                <th
-                  key={h + i}
-                  className="pb-2 text-right text-[11px] font-medium uppercase tracking-wider"
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {paged.map((r) => (
-              <tr key={r.label} className="border-t border-border-subtle">
-                <td className="max-w-[180px] truncate py-2 text-[13px] text-text" title={r.label}>{r.label}</td>
-                <td className="py-2 text-right tnum text-[13px] text-text-muted">{fmt.int(r.requests)}</td>
-                <td className="py-2 text-right tnum text-[13px] text-text-muted">{fmt.compact(r.tokens_in)}</td>
-                <td className="py-2 text-right tnum text-[13px] text-text-muted">{fmt.compact(r.tokens_out)}</td>
-                <td className="py-2 text-right tnum text-[13px] text-text">{fmt.cost(r.cost)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div className="flex flex-col overflow-hidden rounded-brand-lg card">
+      <div className="flex items-center gap-2 border-b border-border-subtle px-5 py-3">
+        <Icon name={icon} size={15} className="text-text-subtle" />
+        <h2 className="text-[13px] font-semibold text-text">{title}</h2>
+        <span className="ml-auto text-[11px] text-text-subtle">{rows.length} total</span>
       </div>
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between pt-3">
-          <span className="text-[11px] text-text-subtle">{rows.length} total</span>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-              disabled={page === 0}
-              className="flex h-7 w-7 items-center justify-center rounded-brand border border-border text-text-muted transition-colors hover:bg-surface-2 hover:text-text disabled:opacity-30"
-              aria-label="Previous page"
-            >
-              <Icon name="chevron_left" size={16} />
-            </button>
-            <span className="tnum px-1 text-[11px] text-text-muted">{page + 1}/{totalPages}</span>
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              disabled={page === totalPages - 1}
-              className="flex h-7 w-7 items-center justify-center rounded-brand border border-border text-text-muted transition-colors hover:bg-surface-2 hover:text-text disabled:opacity-30"
-              aria-label="Next page"
-            >
-              <Icon name="chevron_right" size={16} />
-            </button>
+      <div
+        ref={wrapRef}
+        className={`flex-1 px-5 py-3 ${loading ? "opacity-50" : ""}`}
+        style={minH ? { minHeight: minH } : undefined}
+      >
+        {rows.length === 0 ? (
+          <div className="py-6 text-center text-[13px] text-text-muted">No usage in this window.</div>
+        ) : (
+          <div className="space-y-2.5">
+            {pageRows.map((r, i) => (
+              <div key={`${r.label}-${page}-${i}`} className="group">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate text-[13px] font-medium text-text" title={r.label}>{r.label}</span>
+                  <span className="tnum flex-none text-[13px] font-semibold text-text">{fmt.cost(r.cost)}</span>
+                </div>
+                <div className="mt-0.5 flex items-center gap-3 tnum text-[11px] text-text-subtle">
+                  <span>{fmt.int(r.requests)} req</span>
+                  <span>in {fmt.compact(r.tokens_in)}</span>
+                  <span>out {fmt.compact(r.tokens_out)}</span>
+                </div>
+              </div>
+            ))}
           </div>
+        )}
+      </div>
+      {rows.length > 0 && (
+        <div className="flex items-center justify-between border-t border-border-subtle px-5 py-2">
+          <button
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={page === 0 || totalPages <= 1}
+            className="text-text-subtle transition-colors hover:text-text disabled:opacity-30"
+          >
+            <Icon name="chevron_left" size={16} />
+          </button>
+          <span className="tnum text-[11px] text-text-subtle">{page + 1}/{Math.max(1, totalPages)}</span>
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+            disabled={page === totalPages - 1 || totalPages <= 1}
+            className="text-text-subtle transition-colors hover:text-text disabled:opacity-30"
+          >
+            <Icon name="chevron_right" size={16} />
+          </button>
         </div>
       )}
     </div>

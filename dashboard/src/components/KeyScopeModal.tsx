@@ -83,7 +83,7 @@ export function KeyScopeModal({ keyIndex, k, fingerprint, groups, keyBudget, onC
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6" onClick={onClose}>
       <div
-        className="w-full max-w-md rounded-brand-lg border border-border bg-surface p-5 shadow-elevated"
+        className="w-full max-w-md rounded-brand-lg glass-strong modal-card p-5"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between gap-3">

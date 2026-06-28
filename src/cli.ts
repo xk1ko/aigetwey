@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * `aigetwey` launcher — one command brings up the whole stack:
+ * `aigloo` launcher — one command brings up the whole stack:
  *   - the gateway (Fastify) on its configured port (default 18080)
  *   - the dashboard (Next.js) on port 3000, pointed at the gateway
  *
@@ -26,7 +26,7 @@ import { getDataDir, getConfigPath } from "./appDirs.js";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const dashboardDir = join(root, "dashboard");
 
-// ── CLI flags (aigetwey-style): -p/--port, -n/--no-browser, -y/--yes, -h/--help ──
+// ── CLI flags (aigloo-style): -p/--port, -n/--no-browser, -y/--yes, -h/--help ──
 interface CliOpts {
   port?: number;
   noBrowser: boolean;
@@ -53,9 +53,9 @@ function parseArgs(argv: string[]): CliOpts {
 const opts = parseArgs(process.argv.slice(2));
 
 const HELP = `
-  aigetwey — personal AI gateway + dashboard
+  aigloo — personal AI gateway + dashboard
 
-  Usage: aigetwey [options]
+  Usage: aigloo [options]
 
   Options:
     -p, --port <n>    port for the gateway + dashboard, one URL (default 18080)
@@ -68,11 +68,11 @@ const HELP = `
   With a TTY and no --yes, a menu lets you pick: Web UI / Terminal / Hide to Tray / Exit.
 `;
 
-const GATEWAY_PORT = opts.port ?? Number(process.env.AIGETWEY_PORT ?? 18080);
+const GATEWAY_PORT = opts.port ?? Number(process.env.AIGLOO_PORT ?? 18080);
 const DASHBOARD_PORT = Number(process.env.DASHBOARD_PORT ?? 18081);
 
-const adminPassword = process.env.AIGETWEY_ADMIN_PASSWORD ?? "123456";
-const generatedPw = !process.env.AIGETWEY_ADMIN_PASSWORD;
+const adminPassword = process.env.AIGLOO_ADMIN_PASSWORD ?? "123456";
+const generatedPw = !process.env.AIGLOO_ADMIN_PASSWORD;
 
 /**
  * The dashboard session cookie is signed+encrypted with SESSION_SECRET. A fresh
@@ -190,7 +190,7 @@ async function ensurePortFree(port: number, envVar: string): Promise<void> {
     // ps failed — fall through to the unknown-owner branch
   }
 
-  if (!/aigetwey/.test(cmd)) {
+  if (!/aigloo/.test(cmd)) {
     console.error(
       `  port ${port} is in use by another process (pid ${pid}). free it or set ${envVar}.`,
     );
@@ -233,11 +233,11 @@ function spawnGateway(): ChildProcess {
     detached: true, // own process group → killTree reaps tsx→node grandchildren
     env: {
       ...process.env,
-      AIGETWEY_ADMIN_PASSWORD: adminPassword,
-      AIGETWEY_PORT: String(GATEWAY_PORT),
-      AIGETWEY_DATA_DIR: getDataDir(),
-      AIGETWEY_CONFIG: getConfigPath(),
-      AIGETWEY_DASHBOARD_PORT: String(DASHBOARD_PORT),
+      AIGLOO_ADMIN_PASSWORD: adminPassword,
+      AIGLOO_PORT: String(GATEWAY_PORT),
+      AIGLOO_DATA_DIR: getDataDir(),
+      AIGLOO_CONFIG: getConfigPath(),
+      AIGLOO_DASHBOARD_PORT: String(DASHBOARD_PORT),
     },
   });
 }
@@ -283,7 +283,7 @@ function spawnDashboard(): ChildProcess {
 }
 
 /**
- * One-time bootstrap so a fresh `npm i -g aigetwey` runs with a single command.
+ * One-time bootstrap so a fresh `npm i -g aigloo` runs with a single command.
  * Seeds a working config from the example, installs the dashboard's own deps
  * (npm doesn't install nested package node_modules for us), and builds the
  * dashboard if the published .next is absent. Each step is skipped once done, so
@@ -343,14 +343,14 @@ function prompt(q: string): Promise<string> {
 }
 
 /**
- * aigetwey-style launch menu. With a TTY (and no --yes), let the operator pick
+ * aigloo-style launch menu. With a TTY (and no --yes), let the operator pick
  * how to run; otherwise honor the flags. "web" opens the browser, "terminal"
  * runs with live logs only, "exit" quits before starting anything.
  */
 async function chooseMode(): Promise<"web" | "terminal" | "hide" | "exit"> {
   if (opts.yes || !process.stdin.isTTY) return opts.noBrowser ? "terminal" : "web";
   console.log(
-    "\n  aigetwey\n\n" +
+    "\n  aigloo\n\n" +
       "  [1] Web UI        start + open the dashboard in your browser\n" +
       "  [2] Terminal      start with live logs only (no browser)\n" +
       "  [3] Hide to Tray  run in the background with a tray icon\n" +
@@ -366,7 +366,7 @@ async function chooseMode(): Promise<"web" | "terminal" | "hide" | "exit"> {
 /**
  * "Hide to Tray": re-launch ourselves detached with --tray (which runs the stack
  * + tray icon and survives the terminal closing), then exit so the background
- * copy claims the ports. Also enables run-on-startup, matching aigetwey.
+ * copy claims the ports. Also enables run-on-startup, matching aigloo.
  */
 function hideToTray(): void {
   try { enableAutoStart(); } catch { /* optional */ }
@@ -381,14 +381,14 @@ function hideToTray(): void {
     stdio: "ignore",
     env: {
       ...process.env,
-      AIGETWEY_ADMIN_PASSWORD: adminPassword,
+      AIGLOO_ADMIN_PASSWORD: adminPassword,
       SESSION_SECRET: sessionSecret,
-      AIGETWEY_DATA_DIR: getDataDir(),
-      AIGETWEY_CONFIG: getConfigPath(),
+      AIGLOO_DATA_DIR: getDataDir(),
+      AIGLOO_CONFIG: getConfigPath(),
     },
   });
   bg.unref();
-  console.log(`  aigetwey now running in the background (pid ${bg.pid}).`);
+  console.log(`  aigloo now running in the background (pid ${bg.pid}).`);
   console.log("  right-click the tray icon → Open Dashboard / Quit. You can close this terminal.\n");
 }
 
@@ -419,11 +419,11 @@ async function main(): Promise<void> {
   }
   const wantBrowser = mode === "web";
 
-  console.log("\n  aigetwey — starting gateway + dashboard\n");
+  console.log("\n  aigloo — starting gateway + dashboard\n");
 
   if (mode === "tray") ensureSetup();
 
-  await ensurePortFree(GATEWAY_PORT, "AIGETWEY_PORT");
+  await ensurePortFree(GATEWAY_PORT, "AIGLOO_PORT");
 
   const gw = spawnGateway();
   children.push(gw);
@@ -465,10 +465,10 @@ async function main(): Promise<void> {
   // check would mistake for ready and open the browser into a wall of 500s.
   const appUrl = `http://localhost:${GATEWAY_PORT}`;
   await waitForGateway(`http://127.0.0.1:${DASHBOARD_PORT}/login`, 30000, (s) => s > 0 && s < 500);
-  console.log(`\n  aigetwey   ${appUrl}   (dashboard + API, one URL)`);
+  console.log(`\n  aigloo   ${appUrl}   (dashboard + API, one URL)`);
   if (generatedPw) {
     console.log(`\n  admin password (generated): ${adminPassword}`);
-    console.log("  set AIGETWEY_ADMIN_PASSWORD to keep it stable across runs.\n");
+    console.log("  set AIGLOO_ADMIN_PASSWORD to keep it stable across runs.\n");
   }
   if (mode === "tray") {
     ensureTrayRuntime({ silent: false });

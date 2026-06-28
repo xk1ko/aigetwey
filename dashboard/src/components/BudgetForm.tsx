@@ -104,7 +104,7 @@ export function BudgetForm({
     }
   }
 
-  const panel = "mb-5 rounded-brand-lg border border-border bg-surface p-5 shadow-soft";
+  const panel = "mb-5 rounded-brand-lg card p-5";
 
   // step 1 (add only): pick the scope.
   if (scopeType === null) {

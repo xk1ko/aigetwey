@@ -176,7 +176,7 @@ describe("unmaskSecrets", () => {
 
 describe("writeConfigFile — atomic write + backup", () => {
   it("writes YAML and backs up an existing file", () => {
-    const dir = mkdtempSync(join(tmpdir(), "aigetwey-cfg-"));
+    const dir = mkdtempSync(join(tmpdir(), "aigloo-cfg-"));
     const path = join(dir, "config.yaml");
     const c1 = validateConfig({ providers: [baseProvider] }).raw;
 
