@@ -98,10 +98,6 @@ export function EndpointView() {
               <p className="mt-1 text-[12px] leading-relaxed text-text-muted">
                 Compress bulky tool_result blocks (diffs, grep, listings) in the request.
               </p>
-              <div className="mt-2 flex items-center gap-1.5">
-                <span className={`h-1.5 w-1.5 rounded-full ${ep.rtk ? "bg-success" : "bg-text-muted"}`} />
-                <span className="text-[11px] font-medium uppercase tracking-wider text-text-subtle">{ep.rtk ? "active" : "off"}</span>
-              </div>
             </div>
 
             {/* Caveman */}
