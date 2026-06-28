@@ -205,7 +205,7 @@ export function NotificationsView() {
                 <div className="min-w-0 flex-1">
                   <div className="text-[12px] text-text">{a.message}</div>
                   <div className="text-[11px] text-text-subtle">
-                    {new Date(a.ts).toLocaleString()} · {a.scope}
+                    {new Date(a.ts).toLocaleString()}{a.channel ? ` · ${a.channel}` : ""} · {a.scope}
                     {!a.delivered && a.error ? ` · ${a.error}` : ""}
                   </div>
                 </div>

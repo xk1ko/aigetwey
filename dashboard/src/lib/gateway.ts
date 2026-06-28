@@ -352,6 +352,7 @@ export interface AlertLogEntry {
   ts: number;
   type: string;
   scope: string;
+  channel: string;
   message: string;
   delivered: boolean;
   error: string;

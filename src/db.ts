@@ -143,6 +143,7 @@ export class UsageDB {
         ts INTEGER NOT NULL,
         type TEXT NOT NULL,
         scope TEXT NOT NULL,
+        channel TEXT NOT NULL DEFAULT '',
         message TEXT NOT NULL,
         delivered INTEGER NOT NULL DEFAULT 0,
         error TEXT NOT NULL DEFAULT ''
@@ -164,6 +165,10 @@ export class UsageDB {
     }
     if (!cols.some((c) => String(c.name) === "cache_creation_tokens")) {
       this.db.exec(`ALTER TABLE usage ADD COLUMN cache_creation_tokens INTEGER NOT NULL DEFAULT 0`);
+    }
+    const alertCols = this.db.prepare(`PRAGMA table_info(alert_log)`).all() as SqlRow[];
+    if (!alertCols.some((c) => String(c.name) === "channel")) {
+      this.db.exec(`ALTER TABLE alert_log ADD COLUMN channel TEXT NOT NULL DEFAULT ''`);
     }
     this.now = now;
     this.insertUsage = this.db.prepare(`
@@ -193,8 +198,8 @@ export class UsageDB {
     this.getNotification = this.db.prepare(`SELECT * FROM notifications WHERE id = ?`);
     this.getAllNotifications = this.db.prepare(`SELECT * FROM notifications ORDER BY id`);
     this.insertAlertLog = this.db.prepare(`
-      INSERT INTO alert_log (ts, type, scope, message, delivered, error)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO alert_log (ts, type, scope, channel, message, delivered, error)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
     this.getRecentAlerts = this.db.prepare(`SELECT * FROM alert_log ORDER BY id DESC LIMIT ?`);
     this.getAlertStateStmt = this.db.prepare(`SELECT * FROM alert_state WHERE scope = ?`);
@@ -419,8 +424,8 @@ export class UsageDB {
     });
   }
 
-  logAlert(type: string, scope: string, message: string, delivered: boolean, error?: string): void {
-    this.insertAlertLog.run(this.now(), type, scope, message, delivered ? 1 : 0, error ?? "");
+  logAlert(type: string, scope: string, channel: string, message: string, delivered: boolean, error?: string): void {
+    this.insertAlertLog.run(this.now(), type, scope, channel, message, delivered ? 1 : 0, error ?? "");
   }
 
   recentAlerts(limit = 50): AlertLogRow[] {
@@ -429,6 +434,7 @@ export class UsageDB {
       ts: num(r.ts),
       type: String(r.type),
       scope: String(r.scope),
+      channel: String(r.channel ?? ""),
       message: String(r.message),
       delivered: num(r.delivered) === 1,
       error: String(r.error ?? ""),
@@ -488,6 +494,7 @@ export interface AlertLogRow {
   ts: number;
   type: string;
   scope: string;
+  channel: string;
   message: string;
   delivered: boolean;
   error: string;
