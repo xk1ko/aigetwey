@@ -5,6 +5,34 @@ All notable changes to **aigloo** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] — 2026-06-28
+
+### Added
+- **Exact cost tracking (5 tariffs)** — input, cached, cache_creation, output,
+  reasoning. Cost is now exact, not estimated. Removed "Est." label from dashboard
+- **Capabilities via API** — `GET /admin/capabilities` serves model/provider/pattern
+  tables from backend as single source of truth. Dashboard fetches via API, no
+  duplicate data
+- **Runtime pricing overrides** — `PUT/DELETE /admin/pricing/:model` stores
+  overrides in SQLite. Set any of 5 tariffs per model, no restart needed.
+  Fallback: only set input/output → cached/cache_creation/reasoning auto-resolve
+  from pricing table
+- **Batch test all providers** — `POST /admin/providers/test-all` pings every
+  enabled provider in parallel, returns latency + error classification
+  (auth, rate_limit, server_error, network, unknown)
+- **Pricing updated from models.dev** — GPT-5 series (e.g. gpt-5 $3→$1.25,
+  gpt-5.2 $5→$1.75), Gemini 2.5 Pro ($2→$1.25). Fixed reasoning=output
+  (was 1.5×), Anthropic cache_creation=1.25×input (was =input)
+
+### Fixed
+- glm-5.2 vision detection — added to `MODEL_CAPABILITIES` (provider-independent)
+- Windows tray — live menu updates via stdin JSON IPC
+- Removed `migrateDataDir()` + `OC_LEGACY` fallback
+
+### Changed
+- README cleanup + tagline update
+- Pricing table: all reasoning prices corrected to =output for OpenAI/Gemini/o-series
+
 ## [1.0.0] — 2026-06-28
 
 **aigloo** — rebranded from aigetwey. New name, new dashboard, same gateway.
