@@ -227,30 +227,27 @@ export function matchPattern(pattern: string, model: string): boolean {
   return regex.test(model);
 }
 
-/**
- * Resolve pricing for a model using the 3-step fallback chain:
- *   1. PROVIDER_PRICING[provider][model]
- *   2. MODEL_PRICING[model]
- *   3. PATTERN_PRICING (glob match)
- *
- * @param {string} provider
- * @param {string} model
- * @returns {object|null}
- */
+let runtimeOverrides: Record<string, Pricing> = {};
+
+export function setRuntimePricingOverrides(overrides: Record<string, Pricing>): void {
+  runtimeOverrides = overrides;
+}
+
 export function getPricingForModel(provider: string | null, model: string): Pricing | null {
   if (!model) return null;
 
-  // 1. Provider-specific override
+  const baseModel = (model.includes("/") ? model.split("/").pop() : model) ?? model;
+
+  if (runtimeOverrides[baseModel]) return runtimeOverrides[baseModel];
+  if (runtimeOverrides[model]) return runtimeOverrides[model];
+
   if (provider && PROVIDER_PRICING[provider]?.[model]) {
     return PROVIDER_PRICING[provider][model];
   }
 
-  // 2. Canonical model pricing (strip vendor prefix if needed: "deepseek/deepseek-chat" → "deepseek-chat")
-  const baseModel = (model.includes("/") ? model.split("/").pop() : model) ?? model;
   if (MODEL_PRICING[baseModel]) return MODEL_PRICING[baseModel];
   if (MODEL_PRICING[model]) return MODEL_PRICING[model];
 
-  // 3. Pattern match
   for (const { pattern, pricing } of PATTERN_PRICING) {
     if (matchPattern(pattern, baseModel) || matchPattern(pattern, model)) {
       return pricing;
