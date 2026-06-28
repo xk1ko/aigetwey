@@ -70,6 +70,7 @@ export interface AdminDeps {
   state: GatewayState;
   db?: UsageDB;
   auth: AdminVerifier & { change(current: string, next: string): { ok: boolean; error?: string } };
+  notifier?: import("../core/notifier.js").Notifier;
 }
 
 function reloadPricingOverrides(deps: AdminDeps): void {
@@ -937,6 +938,27 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
       deps.db?.close();
       process.exit(0);
     }, 300);
+  });
+
+  app.get("/admin/notifications", requireAdmin, (_req, reply) => {
+    const configs = deps.db?.listNotificationConfigs() ?? [];
+    const alerts = deps.db?.recentAlerts(50) ?? [];
+    reply.send({ configs, alerts });
+  });
+
+  app.put("/admin/notifications/:id", requireAdmin, (req, reply) => {
+    const { id } = req.params as { id: string };
+    const b = req.body as { enabled?: boolean; url?: string; token?: string; chat_id?: string; events?: string[] };
+    if (!deps.db) return reply.code(500).send({ error: "db not available" });
+    deps.db.setNotificationConfig({ id, enabled: b.enabled ?? false, url: b.url, token: b.token, chat_id: b.chat_id, events: b.events });
+    reply.send({ ok: true });
+  });
+
+  app.post("/admin/notifications/:id/test", requireAdmin, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    if (!deps.notifier) return reply.code(500).send({ error: "notifier not available" });
+    const result = await deps.notifier.test(id);
+    reply.send(result);
   });
 }
 

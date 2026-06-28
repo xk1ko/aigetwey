@@ -72,6 +72,14 @@ export class UsageDB {
   private readonly upsertPricing;
   private readonly deletePricing;
   private readonly getAllPricing;
+  private readonly upsertNotification;
+  private readonly getNotification;
+  private readonly getAllNotifications;
+  private readonly insertAlertLog;
+  private readonly getRecentAlerts;
+  private readonly getAlertStateStmt;
+  private readonly upsertAlertState;
+  private readonly clearAlertStateStmt;
   private readonly now: () => number;
 
   constructor(path: string, now: () => number = Date.now) {
@@ -121,6 +129,30 @@ export class UsageDB {
         reasoning REAL,
         updated_at INTEGER NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS notifications (
+        id TEXT PRIMARY KEY,
+        enabled INTEGER NOT NULL DEFAULT 0,
+        url TEXT NOT NULL DEFAULT '',
+        token TEXT NOT NULL DEFAULT '',
+        chat_id TEXT NOT NULL DEFAULT '',
+        events TEXT NOT NULL DEFAULT '[]',
+        updated_at INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS alert_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ts INTEGER NOT NULL,
+        type TEXT NOT NULL,
+        scope TEXT NOT NULL,
+        message TEXT NOT NULL,
+        delivered INTEGER NOT NULL DEFAULT 0,
+        error TEXT NOT NULL DEFAULT ''
+      );
+      CREATE TABLE IF NOT EXISTS alert_state (
+        scope TEXT PRIMARY KEY,
+        alerted_at INTEGER NOT NULL,
+        window_start INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_alert_log_ts ON alert_log(ts);
     `);
     // migrate older DBs created before client_key existed.
     const cols = this.db.prepare(`PRAGMA table_info(usage)`).all() as SqlRow[];
@@ -151,6 +183,27 @@ export class UsageDB {
     `);
     this.deletePricing = this.db.prepare(`DELETE FROM pricing_overrides WHERE model = ?`);
     this.getAllPricing = this.db.prepare(`SELECT * FROM pricing_overrides ORDER BY model`);
+    this.upsertNotification = this.db.prepare(`
+      INSERT INTO notifications (id, enabled, url, token, chat_id, events, updated_at)
+      VALUES (@id, @enabled, @url, @token, @chat_id, @events, @ts)
+      ON CONFLICT(id) DO UPDATE SET
+        enabled = @enabled, url = @url, token = @token, chat_id = @chat_id,
+        events = @events, updated_at = @ts
+    `);
+    this.getNotification = this.db.prepare(`SELECT * FROM notifications WHERE id = ?`);
+    this.getAllNotifications = this.db.prepare(`SELECT * FROM notifications ORDER BY id`);
+    this.insertAlertLog = this.db.prepare(`
+      INSERT INTO alert_log (ts, type, scope, message, delivered, error)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    this.getRecentAlerts = this.db.prepare(`SELECT * FROM alert_log ORDER BY id DESC LIMIT ?`);
+    this.getAlertStateStmt = this.db.prepare(`SELECT * FROM alert_state WHERE scope = ?`);
+    this.upsertAlertState = this.db.prepare(`
+      INSERT INTO alert_state (scope, alerted_at, window_start)
+      VALUES (@scope, @alerted_at, @window_start)
+      ON CONFLICT(scope) DO UPDATE SET alerted_at = @alerted_at, window_start = @window_start
+    `);
+    this.clearAlertStateStmt = this.db.prepare(`DELETE FROM alert_state WHERE scope = ?`);
   }
 
   record(row: Omit<UsageRow, "ts" | "client_key" | "reasoning_tokens" | "cache_creation_tokens"> & { ts?: number; client_key?: string; reasoning_tokens?: number; cache_creation_tokens?: number }): void {
@@ -328,6 +381,74 @@ export class UsageDB {
     this.db.close();
   }
 
+  getNotificationConfig(id: string): NotificationConfigRow | null {
+    const r = this.getNotification.get(id) as SqlRow | undefined;
+    if (!r) return null;
+    return {
+      id: String(r.id),
+      enabled: num(r.enabled) === 1,
+      url: String(r.url ?? ""),
+      token: String(r.token ?? ""),
+      chat_id: String(r.chat_id ?? ""),
+      events: JSON.parse(String(r.events ?? "[]")) as string[],
+      updated_at: num(r.updated_at),
+    };
+  }
+
+  listNotificationConfigs(): NotificationConfigRow[] {
+    return (this.getAllNotifications.all() as SqlRow[]).map((r) => ({
+      id: String(r.id),
+      enabled: num(r.enabled) === 1,
+      url: String(r.url ?? ""),
+      token: String(r.token ?? ""),
+      chat_id: String(r.chat_id ?? ""),
+      events: JSON.parse(String(r.events ?? "[]")) as string[],
+      updated_at: num(r.updated_at),
+    }));
+  }
+
+  setNotificationConfig(cfg: { id: string; enabled: boolean; url?: string; token?: string; chat_id?: string; events?: string[] }): void {
+    this.upsertNotification.run({
+      id: cfg.id,
+      enabled: cfg.enabled ? 1 : 0,
+      url: cfg.url ?? "",
+      token: cfg.token ?? "",
+      chat_id: cfg.chat_id ?? "",
+      events: JSON.stringify(cfg.events ?? []),
+      ts: this.now(),
+    });
+  }
+
+  logAlert(type: string, scope: string, message: string, delivered: boolean, error?: string): void {
+    this.insertAlertLog.run(this.now(), type, scope, message, delivered ? 1 : 0, error ?? "");
+  }
+
+  recentAlerts(limit = 50): AlertLogRow[] {
+    return (this.getRecentAlerts.all(Math.max(1, Math.min(limit, 500))) as SqlRow[]).map((r) => ({
+      id: num(r.id),
+      ts: num(r.ts),
+      type: String(r.type),
+      scope: String(r.scope),
+      message: String(r.message),
+      delivered: num(r.delivered) === 1,
+      error: String(r.error ?? ""),
+    }));
+  }
+
+  getAlertState(scope: string): { alerted_at: number; window_start: number } | null {
+    const r = this.getAlertStateStmt.get(scope) as SqlRow | undefined;
+    if (!r) return null;
+    return { alerted_at: num(r.alerted_at), window_start: num(r.window_start) };
+  }
+
+  setAlertState(scope: string, alertedAt: number, windowStart: number): void {
+    this.upsertAlertState.run({ scope, alerted_at: alertedAt, window_start: windowStart });
+  }
+
+  clearAlertState(scope: string): void {
+    this.clearAlertStateStmt.run(scope);
+  }
+
   setPricingOverride(model: string, p: { input?: number | null; output?: number | null; cached?: number | null; cache_creation?: number | null; reasoning?: number | null }): void {
     this.upsertPricing.run({
       model,
@@ -350,6 +471,26 @@ export class UsageDB {
       cache_creation: number | null; reasoning: number | null; updated_at: number;
     }>;
   }
+}
+
+export interface NotificationConfigRow {
+  id: string;
+  enabled: boolean;
+  url: string;
+  token: string;
+  chat_id: string;
+  events: string[];
+  updated_at: number;
+}
+
+export interface AlertLogRow {
+  id: number;
+  ts: number;
+  type: string;
+  scope: string;
+  message: string;
+  delivered: boolean;
+  error: string;
 }
 
 export interface CostBreakdown {

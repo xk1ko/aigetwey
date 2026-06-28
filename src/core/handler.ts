@@ -72,7 +72,14 @@ export interface HandleDeps {
     globalStatus(): { exhausted: boolean; reset_in_ms: number } | null;
     blocks(providerId: string, model: string): { exhausted: true; reset_in_ms: number } | null;
     blocksKey(fp: string): { exhausted: true; reset_in_ms: number } | null;
+    clearCache(): void;
+    checkAlerts(
+      send: (p: { type: "budget_alert" | "budget_exceeded"; scope: string; message: string }) => Promise<void>,
+      getAlertState: (s: string) => { alerted_at: number; window_start: number } | null,
+      setAlertState: (s: string, at: number, ws: number) => void,
+    ): Promise<void>;
   };
+  notifier?: { send(p: { type: "budget_alert" | "budget_exceeded"; scope: string; message: string }): Promise<void> };
   clientKeyModels?: string[];
   clientKeyFp?: string;
   log?: (msg: string) => void;
@@ -117,6 +124,16 @@ function recordUsage(
     stream: stream ? 1 : 0,
     client_key: deps.clientKeyFp ?? "",
   });
+}
+
+function fireAlertCheck(deps: HandleDeps): void {
+  if (!deps.budget || !deps.notifier || !deps.db) return;
+  deps.budget.clearCache();
+  void deps.budget.checkAlerts(
+    (p) => deps.notifier!.send(p),
+    (s) => deps.db!.getAlertState(s),
+    (s, at, ws) => deps.db!.setAlertState(s, at, ws),
+  );
 }
 
 export async function handle(
@@ -246,6 +263,7 @@ export async function handle(
   if (!result.stream) {
     const clientBody = ingress.responseFromCanonical(result.response);
     recordUsage(deps, route, result.response.usage, 200, now() - startedAt, false);
+    fireAlertCheck(deps);
     return { status: 200, json: clientBody };
   }
 
@@ -281,9 +299,8 @@ export async function handle(
         yield encodeSSE(ev);
       }
     } finally {
-      // record once the stream drains (or the client disconnects) so usage is
-      // captured even on early termination.
       recordUsage(deps, route, lastUsage, 200, now() - startedAt, true);
+      fireAlertCheck(deps);
     }
   }
 

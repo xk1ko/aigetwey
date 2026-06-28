@@ -5,6 +5,7 @@ import { registerAdminRoutes } from "./admin.js";
 import type { GatewayState } from "../core/state.js";
 import type { UsageDB } from "../db.js";
 import type { AuthStore } from "../core/authStore.js";
+import { Notifier } from "../core/notifier.js";
 
 export function registerRoutes(
   app: FastifyInstance,
@@ -12,9 +13,10 @@ export function registerRoutes(
   db: UsageDB | undefined,
   auth: AuthStore,
 ): void {
+  const notifier = db ? new Notifier(db) : undefined;
   registerHealthRoute(app);
-  registerV1Routes(app, state, db);
-  registerAdminRoutes(app, { state, db, auth });
+  registerV1Routes(app, state, db, notifier);
+  registerAdminRoutes(app, { state, db, auth, notifier });
 
   if (state.config.server.api_keys.length === 0) {
     app.log.warn(

@@ -7,13 +7,9 @@ import type { WireFormat } from "../core/canonical.js";
 import type { UsageDB } from "../db.js";
 import { RateLimiter } from "../core/ratelimit.js";
 import { handleEmbeddings, type EmbeddingsRequest } from "../core/embeddings.js";
+import type { Notifier } from "../core/notifier.js";
 
-/**
- * /v1 proxy surface. Auth-gates on the gateway's own keys (read from state each
- * request so a hot-reload takes effect immediately), then runs the translation
- * pipeline (non-stream JSON or SSE stream).
- */
-export function registerV1Routes(app: FastifyInstance, state: GatewayState, db?: UsageDB): void {
+export function registerV1Routes(app: FastifyInstance, state: GatewayState, db?: UsageDB, notifier?: Notifier): void {
   const limiter = new RateLimiter();
 
   const requireAuth = {
@@ -50,6 +46,7 @@ export function registerV1Routes(app: FastifyInstance, state: GatewayState, db?:
       pool: state.pool,
       budget: state.budget,
       db,
+      notifier,
       clientKeyModels: presented ? state.config.server.key_models?.[presented] : undefined,
       clientKeyFp: presented ? clientKeyFingerprint(presented) : undefined,
       log: (msg) => app.log.info(msg),

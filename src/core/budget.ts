@@ -24,6 +24,7 @@ export interface BudgetStatus {
   exhausted: boolean;
   est_converse: number | null;
   reset_in_ms: number;
+  window_start: number;
   window: Budget["window"];
 }
 
@@ -123,7 +124,34 @@ export class BudgetTracker {
       exhausted: spent >= limit,
       est_converse,
       reset_in_ms: Math.max(0, nextResetAt(spec, windowStart) - t),
+      window_start: windowStart,
       window: spec.window,
     };
+  }
+
+  /**
+   * Fire alerts for budgets that crossed their alert or exhausted threshold.
+   * Dedup: one notification per scope per window — tracked in alert_state.
+   * Fire-and-forget: the caller wraps this in setImmediate so it never blocks.
+   */
+  async checkAlerts(
+    send: (payload: { type: "budget_alert" | "budget_exceeded"; scope: string; message: string }) => Promise<void>,
+    getAlertState: (scope: string) => { alerted_at: number; window_start: number } | null,
+    setAlertState: (scope: string, alertedAt: number, windowStart: number) => void,
+  ): Promise<void> {
+    for (const s of this.statuses()) {
+      if (!s.alert && !s.exhausted) continue;
+      const existing = getAlertState(s.key);
+      if (existing && existing.window_start === s.window_start) continue;
+
+      const type = s.exhausted ? "budget_exceeded" : "budget_alert";
+      const pctStr = Math.round(s.pct * 100);
+      const spentStr = s.unit === "usd" ? `$${s.spent.toFixed(2)}` : `${s.spent.toLocaleString()} tokens`;
+      const limitStr = s.unit === "usd" ? `$${s.limit.toFixed(2)}` : `${s.limit.toLocaleString()} tokens`;
+      const message = `${s.label}: ${pctStr}% spent (${spentStr} / ${limitStr})${s.note ? ` — ${s.note}` : ""}`;
+
+      await send({ type, scope: s.key, message });
+      setAlertState(s.key, Date.now(), s.window_start);
+    }
   }
 }

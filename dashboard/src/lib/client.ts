@@ -15,6 +15,7 @@ import type {
   InjectLevel,
   KeyUsageRow,
   ModelsPayload,
+  NotificationPayload,
   PingResult,
   BatchTestResponse,
   PricingPayload,
@@ -72,6 +73,12 @@ export const adminApi = {
     note?: string;
   }) => api<ConfigReply>("PUT", "/admin/budgets", body),
   clearBudget: (key: string) => api<ConfigReply>("DELETE", `/admin/budgets/${encodeURIComponent(key)}`),
+
+  notifications: () => api<NotificationPayload>("GET", "/admin/notifications"),
+  setNotification: (id: string, cfg: { enabled?: boolean; url?: string; token?: string; chat_id?: string; events?: string[] }) =>
+    api<{ ok: boolean }>("PUT", `/admin/notifications/${encodeURIComponent(id)}`, cfg),
+  testNotification: (id: string) =>
+    api<{ ok: boolean; error?: string }>("POST", `/admin/notifications/${encodeURIComponent(id)}/test`),
 
   addProvider: (p: {
     id: string;

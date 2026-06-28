@@ -127,6 +127,11 @@ export const gateway = {
   setPonytail: (level: InjectLevel) => call<ConfigReply>("PUT", "/admin/endpoint/ponytail", { level }),
   addServerKey: (key: string) => call<ConfigReply>("POST", "/admin/endpoint/keys", { key }),
   removeServerKey: (index: number) => call<ConfigReply>("DELETE", `/admin/endpoint/keys/${index}`),
+
+  notifications: () => call<NotificationPayload>("GET", "/admin/notifications"),
+  setNotification: (id: string, cfg: { enabled?: boolean; url?: string; token?: string; chat_id?: string; events?: string[] }) =>
+    call<{ ok: boolean }>("PUT", `/admin/notifications/${encodeURIComponent(id)}`, cfg),
+  testNotification: (id: string) => call<{ ok: boolean; error?: string }>("POST", `/admin/notifications/${encodeURIComponent(id)}/test`),
 };
 
 // ---- shapes mirrored from the gateway admin API ----
@@ -331,4 +336,27 @@ export interface UsageSeriesPoint {
   tokens_in: number;
   tokens_out: number;
   cost: number;
+}
+
+export interface NotificationConfig {
+  id: string;
+  enabled: boolean;
+  url: string;
+  token: string;
+  chat_id: string;
+  events: string[];
+  updated_at: number;
+}
+export interface AlertLogEntry {
+  id: number;
+  ts: number;
+  type: string;
+  scope: string;
+  message: string;
+  delivered: boolean;
+  error: string;
+}
+export interface NotificationPayload {
+  configs: NotificationConfig[];
+  alerts: AlertLogEntry[];
 }
