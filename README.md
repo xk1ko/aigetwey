@@ -9,12 +9,13 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/aigloo"><img src="https://img.shields.io/npm/v/aigloo.svg" alt="npm"></a>
+  <a href="https://www.npmjs.com/package/aigloo"><img src="https://img.shields.io/npm/dm/aigloo.svg" alt="npm downloads"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT"></a>
   <img src="https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg" alt="Node ≥22">
 </p>
 
 <p align="center">
-  <a href="#features">Features</a> · <a href="#getting-started">Quick Start</a> · <a href="#token-savers">Token Savers</a> · <a href="#configuration">Config</a> · <a href="#memulai">Bahasa Indonesia</a>
+  <a href="#features">Features</a> · <a href="#getting-started">Quick Start</a> · <a href="#token-savers">Token Savers</a> · <a href="#configuration">Config</a> · <a href="#supported-cli-tools">CLI Tools</a>
 </p>
 
 ---
@@ -68,7 +69,7 @@ aigloo
 
 The CLI seeds `config.yaml`, builds the dashboard, opens your browser. One URL serves everything — dashboard, API, and admin: `http://localhost:18080`.
 
-A terminal menu offers: **Web UI** / **Terminal** (logs) / **Hide to Tray** (macOS + Linux) / **Exit**.
+A terminal menu offers: **Web UI** / **Terminal** (logs) / **Hide to Tray** (macOS · Linux · Windows) / **Exit**.
 Flags: `-p/--port`, `-n/--no-browser`, `-y/--yes`, `-t/--tray`.
 
 ### From source
@@ -98,6 +99,14 @@ The dashboard's **CLI Tools** page detects installed tools and writes configs fo
 **Model resolution** (in order): combo alias → `provider/model`.
 
 Any app that supports a custom base URL + API key can use aigloo — just set the model to `provider/model`.
+
+---
+
+## Supported CLI tools
+
+Claude Code · opencode · Cursor · Codex · Cline · Continue · Roo · Aider · Gemini CLI · Qwen Code · Kilo Code · Crush · Droid · Copilot
+
+Any app that supports a custom base URL + API key works — just set the model to `provider/model`.
 
 ---
 
@@ -181,6 +190,17 @@ Admin password and provider keys never reach the browser — the dashboard proxi
 
 ---
 
+## Data location
+
+| OS | Path |
+|----|------|
+| macOS / Linux | `~/.aigloo/` |
+| Windows | `%APPDATA%\aigloo\` |
+
+Contains `config.yaml` and `usage.sqlite`. Delete the folder to reset everything.
+
+---
+
 ## Development
 
 ```bash
@@ -188,63 +208,6 @@ npm run typecheck       # tsc, no emit
 npm test                # vitest (unit + synthetic E2E)
 npm run build           # compile to dist/
 ```
-
----
-
-## Memulai
-
-### Mulai cepat
-
-```bash
-npm install -g aigloo
-aigloo
-```
-
-Run pertama bootstrap otomatis — buat `config.yaml`, build dashboard, buka browser. Satu URL untuk semuanya: `http://localhost:18080`.
-
-Menu terminal: **Web UI** / **Terminal** (logs) / **Hide to Tray** (macOS + Linux) / **Exit**.
-
-### Hubungkan tool
-
-```bash
-# Claude Code (format Anthropic)
-export ANTHROPIC_BASE_URL=http://localhost:18080
-export ANTHROPIC_API_KEY=my-key
-
-# opencode / Cursor / Cline / Codex (format OpenAI)
-export OPENAI_BASE_URL=http://localhost:18080/v1
-export OPENAI_API_KEY=my-key
-```
-
-Halaman **CLI Tools** di dashboard mendeteksi tool dan menulis config otomatis. App lain yang support custom base URL + API key bisa langsung pakai dengan model `provider/model`.
-
-### Fitur utama
-
-- **Format translation** — translate OpenAI ↔ Anthropic otomatis, termasuk streaming
-- **Fallback routing** — alias model → rantai provider; rotasi key saat 429/5xx/timeout
-- **Token savers** — RTK, Caveman, Ponytail (built-in) + Headroom (eksternal)
-- **Access keys** — bagi key dengan allowlist model, rate limit, batas spend, kedaluwarsa
-- **Budgets** — spend cap rolling (5h/24h/7day/30day) dengan countdown dan tracking per jenis token
-- **Dashboard** — providers, combos, usage, budgets, CLI tools, console live, settings
-
-### Penghemat token
-
-RTK, Caveman, Ponytail = **built-in**. Hanya Headroom yang **eksternal** (Python, `headroom proxy`). Tanpa Headroom toggle-nya mati, sisanya tetap jalan.
-
-### Konfigurasi
-
-`config.yaml` hot-reload — edit lewat dashboard/API langsung berlaku tanpa restart. Lihat `config.example.yaml` untuk semua bentuk provider.
-
-**Combo** = entry `models`: alias → rantai provider. Strategy: `fallback` (default) atau `round-robin`.
-
-**Resolusi model**: alias combo → `provider/model`.
-
-### Environment
-
-Gateway: `AIGLOO_CONFIG`, `AIGLOO_DATA_DIR`, `AIGLOO_ADMIN_PASSWORD`, `AIGLOO_PORT`.
-Dashboard: `GATEWAY_URL`, `ADMIN_PASSWORD`, `SESSION_SECRET`.
-
-Password admin dan key provider tidak pernah sampai ke browser.
 
 ---
 
