@@ -3,8 +3,8 @@
 </p>
 
 <p align="center">
-  <strong>All your AI, in one place</strong><br>
-  One endpoint · format translation · fallback routing · token saving · spend control
+  <strong>Self-hosted AI gateway</strong><br>
+  One endpoint · format translation · fallback routing · token saving · spend control · access keys
 </p>
 
 <p align="center">
