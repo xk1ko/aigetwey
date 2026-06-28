@@ -128,7 +128,6 @@ async function claudeReset() {
 
 // ─── opencode: ~/.config/opencode/opencode.json provider entry ──────────────
 const OC_PROVIDER = "aigloo";
-const OC_LEGACY = "aigetwey";
 const ocDir = () => path.join(os.homedir(), ".config", "opencode");
 const ocPath = () => path.join(ocDir(), "opencode.json");
 
@@ -142,9 +141,9 @@ async function opencodeStatus() {
     cfg = null;
   }
   const providers = (cfg?.provider as Json | undefined) ?? {};
-  const prov = (providers[OC_PROVIDER] ?? providers[OC_LEGACY]) as Json | undefined;
+  const prov = providers[OC_PROVIDER] as Json | undefined;
   const models = prov?.models ? Object.keys(prov.models as Json) : [];
-  const active = typeof cfg?.model === "string" && (cfg.model.startsWith(`${OC_PROVIDER}/`) || cfg.model.startsWith(`${OC_LEGACY}/`))
+  const active = typeof cfg?.model === "string" && cfg.model.startsWith(`${OC_PROVIDER}/`)
     ? cfg.model.split("/").slice(1).join("/")
     : null;
   return {
@@ -170,13 +169,11 @@ async function opencodeApply(body: { base?: string; key?: string; models?: strin
   }
   const baseURL = body.base.endsWith("/v1") ? body.base : `${body.base}/v1`;
   const provider = (cfg.provider as Json | undefined) ?? {};
-  const legacy = provider[OC_LEGACY] as Json | undefined;
-  const existing = (provider[OC_PROVIDER] as Json | undefined) ?? legacy ?? {
+  const existing = (provider[OC_PROVIDER] as Json | undefined) ?? {
     npm: "@ai-sdk/openai-compatible",
     options: {},
     models: {},
   };
-  if (legacy) delete provider[OC_LEGACY];
   existing.options = { ...((existing.options as Json) ?? {}), baseURL, apiKey: body.key || "aigloo" };
   const modelMap: Json = {};
   for (const m of models) modelMap[m] = { name: m, modalities: body.modalities?.[m] ?? modalitiesForModel(m) };
@@ -200,10 +197,9 @@ async function opencodeReset() {
   const provider = cfg.provider as Json | undefined;
   if (provider) {
     delete provider[OC_PROVIDER];
-    delete provider[OC_LEGACY];
   }
   const model = cfg.model as string | undefined;
-  if (typeof model === "string" && (model.startsWith(`${OC_PROVIDER}/`) || model.startsWith(`${OC_LEGACY}/`))) {
+  if (typeof model === "string" && model.startsWith(`${OC_PROVIDER}/`)) {
     delete cfg.model;
   }
   await fs.writeFile(p, JSON.stringify(cfg, null, 2));
