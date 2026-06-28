@@ -29,7 +29,7 @@ interface SysTrayInstance {
 
 const MENU = { STATUS: 0, DASHBOARD: 1, AUTOSTART: 2, QUIT: 3 };
 let tray: SysTrayInstance | null = null;
-let winTray: { kill(): void; updateItem(i: number, t: string, e: boolean): void } | null = null;
+let winTray: { kill(): void; updateItem(i: number, t: string, e: boolean): void; setTooltip(text: string): void } | null = null;
 
 function openBrowser(url: string): void {
   const cmd =
@@ -121,7 +121,7 @@ function initWindowsTray(opts: TrayOptions): boolean {
   try {
     const require = createRequire(import.meta.url);
     const { initWinTray } = require("./trayWin.js") as {
-      initWinTray: (cfg: unknown) => { kill(): void; updateItem(i: number, t: string, e: boolean): void };
+      initWinTray: (cfg: unknown) => { kill(): void; updateItem(i: number, t: string, e: boolean): void; setTooltip(text: string): void };
     };
     const autostart = isAutoStartEnabled();
     winTray = initWinTray({
