@@ -111,6 +111,10 @@ export function PricingEditor() {
   async function addRuntime() {
     const m = rtModel.trim();
     if (!m) return;
+    setBusy("rt/add");
+    const r = await adminApi.setRuntimePrice(m, {});
+    setBusy("");
+    if (!r.ok) { setError(r.error ?? "failed to add override"); return; }
     setRtModel("");
     await load();
   }
