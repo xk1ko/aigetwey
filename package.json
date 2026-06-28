@@ -2,7 +2,7 @@
   "name": "aigloo",
   "version": "1.0.0",
   "type": "module",
-  "description": "Personal AI gateway — route, translate and track requests across Anthropic and OpenAI-compatible providers, with a built-in dashboard.",
+  "description": "Self-hosted AI gateway. Route, translate and track requests across providers, with access keys, budgets, and a built-in dashboard.",
   "keywords": [
     "ai",
     "gateway",
