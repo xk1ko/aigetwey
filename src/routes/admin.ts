@@ -62,6 +62,7 @@ import { handle, GatewayError } from "../core/handler.js";
 import { fetchModels } from "../providers/free.js";
 import { consoleBuffer } from "../core/console-buffer.js";
 import { getPricingForModel } from "../providers/pricing.js";
+import { MODEL_CAPABILITIES, PROVIDER_CAPABILITIES, PATTERN_CAPABILITIES, DEFAULT_CAPABILITIES } from "../providers/capabilities.js";
 import { getHeadroomStatus, isLoopbackHeadroomUrl, DEFAULT_HEADROOM_URL } from "../headroom/detect.js";
 import { startHeadroomProxy, stopHeadroomProxy, getManagedPid, getHeadroomLogTail } from "../headroom/process.js";
 
@@ -557,6 +558,15 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
       }),
     }));
     reply.send({ providers });
+  });
+
+  app.get("/admin/capabilities", requireAdmin, (_req, reply) => {
+    reply.send({
+      default: DEFAULT_CAPABILITIES,
+      model: MODEL_CAPABILITIES,
+      provider: PROVIDER_CAPABILITIES,
+      pattern: PATTERN_CAPABILITIES,
+    });
   });
 
   // set/clear a model's price override (per 1M tokens). model travels in the body

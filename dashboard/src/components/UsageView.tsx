@@ -105,8 +105,8 @@ export function UsageView() {
                 <div className="mt-1 tnum text-[28px] font-bold tracking-tight text-text">{fmt.compact(total?.tokens_out ?? 0)}</div>
               </div>
               <div className="px-6 py-5">
-                <div className="text-[11px] font-medium uppercase tracking-wider text-text-subtle">Est. Cost</div>
-                <div className="mt-1 heading-gradient tnum text-[40px] font-bold tracking-tight">~{fmt.cost(total?.cost ?? 0)}</div>
+                <div className="text-[11px] font-medium uppercase tracking-wider text-text-subtle">Cost</div>
+                <div className="mt-1 heading-gradient tnum text-[40px] font-bold tracking-tight">{fmt.cost(total?.cost ?? 0)}</div>
               </div>
             </div>
           </div>

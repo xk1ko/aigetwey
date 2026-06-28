@@ -5,7 +5,8 @@ import { promisify } from "util";
 import fs from "fs/promises";
 import path from "path";
 import os from "os";
-import { modalitiesForModel } from "@/lib/capabilities";
+import { modalitiesForModel, DEFAULT_CAPABILITIES, type CapsTables } from "@/lib/capabilities";
+import { gateway } from "@/lib/gateway";
 
 /**
  * Local CLI-tool detection + auto-config. These run in the Next.js server (which,
@@ -175,8 +176,12 @@ async function opencodeApply(body: { base?: string; key?: string; models?: strin
     models: {},
   };
   existing.options = { ...((existing.options as Json) ?? {}), baseURL, apiKey: body.key || "aigloo" };
+  const capsRes = await gateway.capabilities();
+  const capsTables: CapsTables = capsRes.ok && capsRes.data
+    ? capsRes.data
+    : { default: DEFAULT_CAPABILITIES, model: {}, provider: {}, pattern: [] };
   const modelMap: Json = {};
-  for (const m of models) modelMap[m] = { name: m, modalities: body.modalities?.[m] ?? modalitiesForModel(m) };
+  for (const m of models) modelMap[m] = { name: m, modalities: body.modalities?.[m] ?? modalitiesForModel(m, capsTables) };
   existing.models = modelMap;
   provider[OC_PROVIDER] = existing;
   cfg.provider = provider;

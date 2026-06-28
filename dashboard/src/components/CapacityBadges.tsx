@@ -1,6 +1,7 @@
 "use client";
 
 import { getCapabilitiesForModel, type Caps } from "@/lib/capabilities";
+import { useCapsTables } from "@/lib/useCaps";
 import { Icon } from "@/components/Icon";
 
 /**
@@ -24,7 +25,9 @@ export function CapacityBadges({
   size?: number;
   className?: string;
 }) {
-  const caps = getCapabilitiesForModel(provider, model);
+  const tables = useCapsTables();
+  if (!tables) return null;
+  const caps = getCapabilitiesForModel(provider, model, tables);
   const active = Object.keys(CAPACITY_META).filter((k) => caps[k as keyof Caps]);
   if (active.length === 0) return null;
 

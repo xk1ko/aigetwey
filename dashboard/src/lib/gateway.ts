@@ -1,5 +1,6 @@
 import "server-only";
 import { currentPassword } from "./session";
+import type { CapsTables } from "./capabilities";
 
 /**
  * Server-side proxy to the gateway admin API. Runs only in Next.js server
@@ -69,6 +70,7 @@ export const gateway = {
   providers: () => call<{ providers: ProviderSnapshot[] }>("GET", "/admin/providers"),
   budgets: () => call<{ budgets: BudgetStatus[] }>("GET", "/admin/budgets"),
   models: () => call<ModelsPayload>("GET", "/admin/models"),
+  capabilities: () => call<CapsTables>("GET", "/admin/capabilities"),
   logs: (limit = 100) => call<{ logs: UsageLog[] }>("GET", `/admin/logs?limit=${limit}`),
   usage: (since = 0) => call<UsageSummary>("GET", `/admin/usage?since=${since}`),
   usageSeries: (since: number, bucket: number) =>

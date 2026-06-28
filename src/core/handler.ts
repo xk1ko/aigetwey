@@ -91,10 +91,14 @@ function recordUsage(
   const tokensOut = usage?.completion_tokens ?? 0;
   const reasoningTokens = usage?.reasoning_tokens ?? 0;
   const cachedTokens = usage?.cached_tokens ?? 0;
+  const cacheCreationTokens = usage?.cache_creation_tokens ?? 0;
   if (!deps.db) return;
   const pricing = getPricingForModel(route.provider.id, route.model);
-  const priceIn = route.price_in ?? pricing?.input;
-  const priceOut = route.price_out ?? pricing?.output;
+  const priceIn = route.price_in ?? pricing?.input ?? 0;
+  const priceOut = route.price_out ?? pricing?.output ?? 0;
+  const priceCached = pricing?.cached ?? priceIn;
+  const priceCacheCreation = pricing?.cache_creation ?? priceIn;
+  const priceReasoning = pricing?.reasoning ?? priceOut;
   deps.db.record({
     alias: route.alias,
     provider: route.provider.id,
@@ -103,7 +107,11 @@ function recordUsage(
     tokens_out: tokensOut,
     reasoning_tokens: reasoningTokens,
     cached_tokens: cachedTokens,
-    cost: computeCost(tokensIn, tokensOut, priceIn, priceOut),
+    cache_creation_tokens: cacheCreationTokens,
+    cost: computeCost({
+      tokensIn, tokensOut, cachedTokens, cacheCreationTokens, reasoningTokens,
+      priceIn, priceOut, priceCached, priceCacheCreation, priceReasoning,
+    }),
     status,
     latency_ms: latencyMs,
     stream: stream ? 1 : 0,
