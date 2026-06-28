@@ -17,7 +17,6 @@ const MAIN: NavItem[] = [
 ];
 
 const SYSTEM: NavItem[] = [
-  { href: "/notifications", label: "Alerts", icon: "notifications" },
   { href: "/console", label: "Server Console", icon: "receipt_long" },
   { href: "/config", label: "Settings", icon: "settings" },
 ];
@@ -65,13 +64,13 @@ export function Sidebar() {
 
       <div className="nav-isle-divider nav-isle-divider-brand" />
 
-      <nav className="flex flex-col items-center gap-1.5">
+      <nav className="flex flex-col items-center gap-4">
         {MAIN.map(link)}
         <div className="nav-isle-divider" />
         {SYSTEM.map(link)}
       </nav>
 
-      <button onClick={logout} className="nav-isle mt-2" data-label="Disconnect">
+      <button onClick={logout} className="nav-isle mt-4" data-label="Disconnect">
         <Icon name="logout" size={19} />
       </button>
     </aside>

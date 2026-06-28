@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import Link from "next/link";
 import { Button } from "@/components/Button";
 import { Badge } from "@/components/Badge";
 import { Icon } from "@/components/Icon";
@@ -122,6 +123,19 @@ export function ConfigEditor() {
 
           <PasswordEditor />
           <AutostartToggle />
+
+          {/* notifications */}
+          <div className="overflow-hidden rounded-brand-lg card">
+            <div className="flex items-center justify-between border-b border-border-subtle px-5 py-3">
+              <div>
+                <h2 className="text-[14px] font-semibold text-text">Alerts &amp; Notifications</h2>
+                <p className="text-[12px] text-text-muted">webhook · telegram · discord</p>
+              </div>
+              <Link href="/notifications" className="inline-flex items-center gap-1.5 rounded-brand px-3 py-1.5 text-[12px] font-medium text-accent transition-colors hover:bg-accent/10">
+                Configure <Icon name="arrow_forward" size={14} />
+              </Link>
+            </div>
+          </div>
         </div>
 
         {/* RIGHT: pricing + backup */}

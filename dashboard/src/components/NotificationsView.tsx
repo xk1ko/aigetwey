@@ -134,6 +134,21 @@ export function NotificationsView() {
                   </button>
                 </>
               }
+              footer={
+                <>
+                  <div className="flex items-center gap-2">
+                    <Button onClick={() => save(ch.id)} disabled={saving === ch.id} className="px-3 py-1.5 text-[12px]">
+                      <Icon name={saving === ch.id ? "progress_activity" : "save"} size={14} />
+                      {saving === ch.id ? "Saving…" : "Save"}
+                    </Button>
+                    <Button variant="ghost" onClick={() => test(ch.id)} disabled={testing === ch.id || !cfg.enabled} className="px-3 py-1.5 text-[12px]">
+                      <Icon name={testing === ch.id ? "progress_activity" : "send"} size={14} />
+                      {testing === ch.id ? "Sending…" : "Test"}
+                    </Button>
+                  </div>
+                  {msg[ch.id] && <span className="text-[12px] text-text-subtle">{msg[ch.id]}</span>}
+                </>
+              }
             >
               <p className="mb-3 text-[12px] text-text-subtle">{ch.blurb}</p>
 
@@ -152,31 +167,24 @@ export function NotificationsView() {
                 ))}
               </div>
 
-              <div className="mt-3 space-y-1.5">
+              <div className="mt-4 space-y-2">
                 <span className="text-[11px] font-medium text-text-subtle">Events</span>
-                {EVENTS.map((ev) => (
-                  <label key={ev.id} className="flex cursor-pointer items-center gap-2 text-[12px] text-text-muted">
-                    <input
-                      type="checkbox"
-                      checked={cfg.events.includes(ev.id)}
-                      onChange={() => toggleEvent(ch.id, ev.id)}
-                      className="h-4 w-4 rounded border-border accent-accent"
-                    />
-                    {ev.label}
-                  </label>
-                ))}
-              </div>
-
-              <div className="mt-3 flex items-center gap-2 border-t border-border-subtle pt-3">
-                <Button onClick={() => save(ch.id)} disabled={saving === ch.id} className="px-3 py-1.5 text-[12px]">
-                  <Icon name={saving === ch.id ? "progress_activity" : "save"} size={14} />
-                  {saving === ch.id ? "Saving…" : "Save"}
-                </Button>
-                <Button variant="ghost" onClick={() => test(ch.id)} disabled={testing === ch.id || !cfg.enabled} className="px-3 py-1.5 text-[12px]">
-                  <Icon name={testing === ch.id ? "progress_activity" : "send"} size={14} />
-                  {testing === ch.id ? "Sending…" : "Test"}
-                </Button>
-                {msg[ch.id] && <span className="text-[12px] text-text-subtle">{msg[ch.id]}</span>}
+                {EVENTS.map((ev) => {
+                  const checked = cfg.events.includes(ev.id);
+                  return (
+                    <label key={ev.id} className="flex cursor-pointer items-center gap-2 text-[12px] text-text-muted">
+                      <span className={`flex h-4 w-4 items-center justify-center rounded-[5px] border transition-all ${checked ? "border-accent bg-accent" : "border-border bg-surface-2"}`}>
+                        {checked && (
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-ink)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </span>
+                      <input type="checkbox" checked={checked} onChange={() => toggleEvent(ch.id, ev.id)} className="sr-only" />
+                      {ev.label}
+                    </label>
+                  );
+                })}
               </div>
             </RichCard>
           );

@@ -225,7 +225,7 @@ html.light select option { background-color: #fff; color: #0c0d12; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 1rem 0;
+  padding: 1.25rem 0;
   z-index: 30;
 }
 
@@ -303,7 +303,7 @@ html.light select option { background-color: #fff; color: #0c0d12; }
   flex: none;
 }
 .nav-isle-divider-brand {
-  margin: 0.5rem 0;
+  margin: 1rem 0;
 }
 
 .nav-isle[data-label]::after,
