@@ -255,9 +255,11 @@ export interface PricingModel {
   price_out: number | null;
   default_in: number | null;
   default_out: number | null;
+  override: { input?: number; output?: number; cached?: number; cache_creation?: number; reasoning?: number } | null;
 }
 export interface PricingPayload {
   providers: Array<{ id: string; models: PricingModel[] }>;
+  overrides: Record<string, { input?: number; output?: number; cached?: number; cache_creation?: number; reasoning?: number }>;
 }
 
 export interface ModelsPayload {

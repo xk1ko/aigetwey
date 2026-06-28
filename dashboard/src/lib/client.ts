@@ -108,6 +108,10 @@ export const adminApi = {
   pricing: () => api<PricingPayload>("GET", "/admin/pricing"),
   setModelPrice: (id: string, model: string, price: { price_in?: number | null; price_out?: number | null }) =>
     api<ConfigReply>("PUT", `/admin/providers/${encodeURIComponent(id)}/models/price`, { model, ...price }),
+  setRuntimePrice: (model: string, price: { input?: number | null; output?: number | null; cached?: number | null; cache_creation?: number | null; reasoning?: number | null }) =>
+    api<{ ok: boolean }>("PUT", `/admin/pricing/${encodeURIComponent(model)}`, price),
+  deleteRuntimePrice: (model: string) =>
+    api<{ ok: boolean }>("DELETE", `/admin/pricing/${encodeURIComponent(model)}`),
   testProvider: (id: string) => api<PingResult>("POST", `/admin/providers/${encodeURIComponent(id)}/test`),
   testAllProviders: () => api<BatchTestResponse>("POST", "/admin/providers/test-all"),
   testKey: (id: string, index: number) =>

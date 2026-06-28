@@ -61,7 +61,7 @@ import { pingProvider } from "../upstream/client.js";
 import { handle, GatewayError } from "../core/handler.js";
 import { fetchModels } from "../providers/free.js";
 import { consoleBuffer } from "../core/console-buffer.js";
-import { getPricingForModel } from "../providers/pricing.js";
+import { getPricingForModel, setRuntimePricingOverrides } from "../providers/pricing.js";
 import { MODEL_CAPABILITIES, PROVIDER_CAPABILITIES, PATTERN_CAPABILITIES, DEFAULT_CAPABILITIES } from "../providers/capabilities.js";
 import { getHeadroomStatus, isLoopbackHeadroomUrl, DEFAULT_HEADROOM_URL } from "../headroom/detect.js";
 import { startHeadroomProxy, stopHeadroomProxy, getManagedPid, getHeadroomLogTail } from "../headroom/process.js";
@@ -70,6 +70,23 @@ export interface AdminDeps {
   state: GatewayState;
   db?: UsageDB;
   auth: AdminVerifier & { change(current: string, next: string): { ok: boolean; error?: string } };
+}
+
+function reloadPricingOverrides(deps: AdminDeps): void {
+  if (!deps.db) return;
+  const rows = deps.db.listPricingOverrides();
+  const map: Record<string, import("../providers/pricing.js").Pricing> = {};
+  for (const r of rows) {
+    const base = getPricingForModel(null, r.model);
+    map[r.model] = {
+      input: r.input ?? base?.input ?? 0,
+      output: r.output ?? base?.output ?? 0,
+      cached: r.cached ?? base?.cached,
+      cache_creation: r.cache_creation ?? base?.cache_creation,
+      reasoning: r.reasoning ?? base?.reasoning,
+    };
+  }
+  setRuntimePricingOverrides(map);
 }
 
 /** Deep-clone the raw config and mask every secret for display. */
@@ -115,6 +132,7 @@ function maskedConfig(config: Config): Config {
 }
 
 export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void {
+  reloadPricingOverrides(deps);
   const requireAdmin = {
     preHandler: (req: FastifyRequest, reply: FastifyReply, done: (e?: Error) => void) => {
       const res = checkAdminAuth(req, deps.auth);
@@ -544,20 +562,50 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
   // pricing overview: every provider/model with its config override (if any) and
   // the auto-resolved default from the pricing table. Drives the Settings editor.
   app.get("/admin/pricing", requireAdmin, (_req, reply) => {
+    const dbOverrides = deps.db?.listPricingOverrides() ?? [];
+    const overrides: Record<string, { input?: number; output?: number; cached?: number; cache_creation?: number; reasoning?: number }> = {};
+    for (const o of dbOverrides) {
+      overrides[o.model] = {
+        ...(o.input !== null ? { input: o.input } : {}),
+        ...(o.output !== null ? { output: o.output } : {}),
+        ...(o.cached !== null ? { cached: o.cached } : {}),
+        ...(o.cache_creation !== null ? { cache_creation: o.cache_creation } : {}),
+        ...(o.reasoning !== null ? { reasoning: o.reasoning } : {}),
+      };
+    }
     const providers = deps.state.config.listProviders().map((p) => ({
       id: p.id,
       models: p.models.map((m) => {
         const def = getPricingForModel(p.id, m.id);
+        const o = overrides[m.id];
         return {
           id: m.id,
           price_in: m.price_in ?? null,
           price_out: m.price_out ?? null,
           default_in: def?.input ?? null,
           default_out: def?.output ?? null,
+          override: o ?? null,
         };
       }),
     }));
-    reply.send({ providers });
+    reply.send({ providers, overrides });
+  });
+
+  app.put("/admin/pricing/:model", requireAdmin, (req, reply) => {
+    const { model } = req.params as { model: string };
+    const b = req.body as { input?: number | null; output?: number | null; cached?: number | null; cache_creation?: number | null; reasoning?: number | null };
+    if (!deps.db) return reply.code(500).send({ error: "db not available" });
+    deps.db.setPricingOverride(model, b);
+    reloadPricingOverrides(deps);
+    reply.send({ ok: true });
+  });
+
+  app.delete("/admin/pricing/:model", requireAdmin, (req, reply) => {
+    const { model } = req.params as { model: string };
+    if (!deps.db) return reply.code(500).send({ error: "db not available" });
+    deps.db.deletePricingOverride(model);
+    reloadPricingOverrides(deps);
+    reply.send({ ok: true });
   });
 
   app.get("/admin/capabilities", requireAdmin, (_req, reply) => {

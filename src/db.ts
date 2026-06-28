@@ -69,6 +69,9 @@ export class UsageDB {
   private readonly db: DatabaseSync;
   private readonly insertUsage;
   private readonly insertLog;
+  private readonly upsertPricing;
+  private readonly deletePricing;
+  private readonly getAllPricing;
   private readonly now: () => number;
 
   constructor(path: string, now: () => number = Date.now) {
@@ -109,6 +112,15 @@ export class UsageDB {
         consumed INTEGER NOT NULL DEFAULT 0,
         last_reset INTEGER NOT NULL DEFAULT 0
       );
+      CREATE TABLE IF NOT EXISTS pricing_overrides (
+        model TEXT PRIMARY KEY,
+        input REAL,
+        output REAL,
+        cached REAL,
+        cache_creation REAL,
+        reasoning REAL,
+        updated_at INTEGER NOT NULL
+      );
     `);
     // migrate older DBs created before client_key existed.
     const cols = this.db.prepare(`PRAGMA table_info(usage)`).all() as SqlRow[];
@@ -130,6 +142,15 @@ export class UsageDB {
       INSERT INTO logs (ts, direction, provider, status, request_summary, response_summary)
       VALUES (?, ?, ?, ?, ?, ?)
     `);
+    this.upsertPricing = this.db.prepare(`
+      INSERT INTO pricing_overrides (model, input, output, cached, cache_creation, reasoning, updated_at)
+      VALUES (@model, @input, @output, @cached, @cache_creation, @reasoning, @ts)
+      ON CONFLICT(model) DO UPDATE SET
+        input = @input, output = @output, cached = @cached,
+        cache_creation = @cache_creation, reasoning = @reasoning, updated_at = @ts
+    `);
+    this.deletePricing = this.db.prepare(`DELETE FROM pricing_overrides WHERE model = ?`);
+    this.getAllPricing = this.db.prepare(`SELECT * FROM pricing_overrides ORDER BY model`);
   }
 
   record(row: Omit<UsageRow, "ts" | "client_key" | "reasoning_tokens" | "cache_creation_tokens"> & { ts?: number; client_key?: string; reasoning_tokens?: number; cache_creation_tokens?: number }): void {
@@ -305,6 +326,29 @@ export class UsageDB {
 
   close(): void {
     this.db.close();
+  }
+
+  setPricingOverride(model: string, p: { input?: number | null; output?: number | null; cached?: number | null; cache_creation?: number | null; reasoning?: number | null }): void {
+    this.upsertPricing.run({
+      model,
+      input: p.input ?? null,
+      output: p.output ?? null,
+      cached: p.cached ?? null,
+      cache_creation: p.cache_creation ?? null,
+      reasoning: p.reasoning ?? null,
+      ts: this.now(),
+    });
+  }
+
+  deletePricingOverride(model: string): void {
+    this.deletePricing.run(model);
+  }
+
+  listPricingOverrides(): Array<{ model: string; input: number | null; output: number | null; cached: number | null; cache_creation: number | null; reasoning: number | null; updated_at: number }> {
+    return this.getAllPricing.all() as Array<{
+      model: string; input: number | null; output: number | null; cached: number | null;
+      cache_creation: number | null; reasoning: number | null; updated_at: number;
+    }>;
   }
 }
 
