@@ -27,7 +27,7 @@ export function ModelSelectModal({
   onClose: () => void;
 }) {
   const [filter, setFilter] = useState("");
-  const [picked, setPicked] = useState<Set<string>>(() => new Set(models.filter((m) => !m.added).map((m) => m.id)));
+  const [picked, setPicked] = useState<Set<string>>(() => new Set());
 
   const shown = useMemo(() => {
     const q = filter.trim().toLowerCase();
