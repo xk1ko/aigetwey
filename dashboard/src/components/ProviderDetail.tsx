@@ -55,6 +55,7 @@ export function ProviderDetail({ id }: { id: string }) {
     setKeyTest((t) => ({ ...t, [i]: "testing" }));
     const r = await adminApi.testKey(id, i);
     setKeyTest((t) => ({ ...t, [i]: r.data ?? { ok: false, reachable: false, status: 0, error: r.error } }));
+    void reload();
   }
 
   async function testAllKeys(count: number) {
@@ -76,6 +77,7 @@ export function ProviderDetail({ id }: { id: string }) {
     }
     setTestingAll(false);
     setTestAllSummary({ total: count, passed, failed });
+    void reload();
   }
 
   const reload = useCallback(async () => {
@@ -444,12 +446,7 @@ export function ProviderDetail({ id }: { id: string }) {
                           <Icon name="delete" size={15} />
                         </button>
                       </div>
-                      {tested?.error && (
-                        <div className="mt-1.5 pl-8 text-[12px]">
-                          <p className="text-danger">{tested.error}</p>
-                        </div>
-                      )}
-                      {!tested && ks?.last_error && (
+                      {ks?.last_error && (
                         <div className="mt-1.5 pl-8 text-[12px]">
                           <p className="text-danger">{ks.last_error.status ? `${ks.last_error.status}: ` : ""}{ks.last_error.message}</p>
                           <span className="text-text-subtle">{new Date(ks.last_error.at).toLocaleTimeString()}</span>

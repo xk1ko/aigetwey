@@ -463,7 +463,16 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     if (!Number.isInteger(i) || i < 0 || i >= keys.length) {
       return reply.code(404).send({ error: "key index out of range" });
     }
-    reply.send(await pingProvider(provider, keys[i]));
+    const result = await pingProvider(provider, keys[i]);
+    if (result.ok) {
+      deps.state.pool.success(provider, keys[i]);
+    } else if (result.reachable && result.status) {
+      deps.state.pool.penalize(provider, keys[i], {
+        message: `upstream returned ${result.status}`,
+        status: result.status,
+      });
+    }
+    reply.send(result);
   });
 
   app.post("/admin/providers/:id/keys/check", requireAdmin, async (req, reply) => {

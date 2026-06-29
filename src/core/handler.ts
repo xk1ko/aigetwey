@@ -266,7 +266,10 @@ export async function handle(
     });
   } catch (e) {
     const err = e as UpstreamError;
-    const status = err.status ?? 502;
+    // Upstream 401/403 = provider rejected the key. Don't forward that status
+    // to the client — the CLI would mistake it for gateway auth failure and
+    // say "invalid API key" when the gateway key is fine.
+    const status = (err.status === 401 || err.status === 403) ? 502 : (err.status ?? 502);
     let payload: unknown = { error: err.message };
     if (err.body) {
       try {
