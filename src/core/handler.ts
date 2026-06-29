@@ -30,12 +30,45 @@ function humanDuration(ms: number): string {
   return rm ? `${h}h ${rm}m` : `${h}h`;
 }
 
-function budgetErrorBody(resetMs: number): { error: string; reset_in_ms: number; reset_at: string } {
+function budgetErrorBody(resetMs: number) {
   const resetAt = new Date(Date.now() + resetMs).toISOString();
   const msg = resetMs > 0
     ? `budget exceeded — resets in ${humanDuration(resetMs)}`
     : "budget exceeded";
-  return { error: msg, reset_in_ms: resetMs, reset_at: resetAt };
+  return buildOpenAIError(402, msg, { reset_in_ms: resetMs, reset_at: resetAt });
+}
+
+const ERROR_TYPES: Record<number, { type: string; code: string }> = {
+  400: { type: "invalid_request_error", code: "bad_request" },
+  401: { type: "authentication_error", code: "invalid_api_key" },
+  402: { type: "billing_error", code: "payment_required" },
+  403: { type: "permission_error", code: "forbidden" },
+  404: { type: "invalid_request_error", code: "model_not_found" },
+  429: { type: "rate_limit_error", code: "rate_limit_exceeded" },
+  500: { type: "server_error", code: "internal_server_error" },
+  502: { type: "server_error", code: "bad_gateway" },
+  503: { type: "server_error", code: "service_unavailable" },
+  504: { type: "server_error", code: "gateway_timeout" },
+};
+
+function buildOpenAIError(status: number, message: string, extra?: Record<string, unknown>) {
+  const info = ERROR_TYPES[status] ?? (status >= 500
+    ? { type: "server_error", code: "internal_server_error" }
+    : { type: "invalid_request_error", code: "" });
+  const error: Record<string, unknown> = { message, type: info.type, code: info.code };
+  if (extra) Object.assign(error, extra);
+  return { error };
+}
+
+function extractUpstreamMessage(body?: string): string {
+  if (!body) return "";
+  try {
+    const json = JSON.parse(body);
+    if (typeof json === "string") return json;
+    return json?.error?.message ?? json?.message ?? json?.error ?? "";
+  } catch {
+    return body.slice(0, 500);
+  }
 }
 import type { CanonicalChunk } from "../stream/chunk.js";
 import type { KeyPool } from "./keypool.js";
@@ -169,7 +202,7 @@ export async function handle(
   const canonical = ingress.requestToCanonical(body);
 
   if (!canonical.model) {
-    throw new GatewayError(400, { error: "missing 'model' in request" });
+    throw new GatewayError(400, buildOpenAIError(400, "missing 'model' in request"));
   }
 
   // Thinking: a model-name suffix like "claude-opus-4-6(high)" or "alias(none)"
@@ -184,7 +217,7 @@ export async function handle(
   // per-key allowlist: a key may be restricted to specific call-strings. Empty/
   // absent → unrestricted. Match the literal clean model the client asked for.
   if (deps.clientKeyModels && deps.clientKeyModels.length > 0 && !deps.clientKeyModels.includes(cleanModel)) {
-    throw new GatewayError(403, { error: "model not allowed for this key" });
+    throw new GatewayError(403, buildOpenAIError(403, "model not allowed for this key"));
   }
 
   const thinkingIntent: ThinkingConfig | null =
@@ -192,7 +225,7 @@ export async function handle(
 
   let routes = config.resolve(canonical.model);
   if (routes.length === 0) {
-    throw new GatewayError(404, { error: `unknown model "${canonical.model}"` });
+    throw new GatewayError(404, buildOpenAIError(404, `unknown model "${canonical.model}"`));
   }
 
   // Budget hard-stop. Global overrun fails fast. Provider/model budgets bar the
@@ -266,19 +299,12 @@ export async function handle(
     });
   } catch (e) {
     const err = e as UpstreamError;
-    // Upstream 401/403 = provider rejected the key. Don't forward that status
-    // to the client — the CLI would mistake it for gateway auth failure and
-    // say "invalid API key" when the gateway key is fine.
     const status = (err.status === 401 || err.status === 403) ? 502 : (err.status ?? 502);
-    let payload: unknown = { error: err.message };
-    if (err.body) {
-      try {
-        payload = JSON.parse(err.body);
-      } catch {
-        payload = { error: err.body };
-      }
-    }
-    throw new GatewayError(status, payload);
+    const providerMatch = err.message.match(/^upstream (\S+)/);
+    const providerId = providerMatch?.[1] ?? null;
+    const upstreamMsg = extractUpstreamMessage(err.body) || `HTTP ${err.status ?? "error"}`;
+    const message = providerId ? `[${providerId}] ${upstreamMsg}` : upstreamMsg;
+    throw new GatewayError(status, buildOpenAIError(status, message));
   }
 
   const { route, result } = won;
