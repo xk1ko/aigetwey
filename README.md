@@ -41,6 +41,7 @@ First run bootstraps everything. Subsequent runs start instantly.
 - **Token savers** — RTK compresses tool results, caveman trims prose, ponytail nudges minimal code, headroom compresses context
 - **Access keys** — share gateway keys with model allowlist, rate limit, spend cap, and expiry
 - **Budgets** — rolling spend caps (global/provider/model/key) with live countdown and per-token-type cost tracking
+- **Alert notifications** — webhook, Telegram, or Discord alerts when budgets hit their threshold or run out. Deduped per budget window
 - **Dashboard** — glassmorphic aigloo design: providers, combos, usage, budgets, CLI tools, live console, settings — all drag-to-reorder
 
 <p align="center">
