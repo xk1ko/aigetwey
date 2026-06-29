@@ -113,10 +113,10 @@ async function main(): Promise<void> {
   process.on("SIGINT", close);
   process.on("SIGTERM", close);
 
-  try {
-    const port = process.env.AIGLOO_PORT ? Number(process.env.AIGLOO_PORT) : config.server.port;
-    const host = config.server.host;
+  const port = process.env.AIGLOO_PORT ? Number(process.env.AIGLOO_PORT) : config.server.port;
+  const host = config.server.host;
 
+  try {
     if (host !== "127.0.0.1" && host !== "localhost" && config.server.api_keys.length === 0) {
       app.log.warn("⚠ SECURITY: binding on %s with NO api_keys — all requests unauthenticated!", host);
       app.log.warn("⚠ Set server.api_keys in config.yaml or AIGLOO_ADMIN_PASSWORD to secure the gateway.");
@@ -125,7 +125,12 @@ async function main(): Promise<void> {
     await app.listen({ host, port });
     app.log.info(`aigloo listening on http://${host}:${port}`);
   } catch (e) {
-    app.log.error(e);
+    const msg = (e as Error).message ?? "";
+    if (msg.includes("EADDRINUSE")) {
+      console.error(`\n  port ${port} is already in use.\n  free it or start with a different port: aigloo -p <port>\n`);
+    } else {
+      app.log.error(e);
+    }
     process.exit(1);
   }
 }
