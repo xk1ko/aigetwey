@@ -135,7 +135,17 @@ export class BudgetTracker {
    * Fire-and-forget: the caller wraps this in setImmediate so it never blocks.
    */
   async checkAlerts(
-    send: (payload: { type: "budget_alert" | "budget_exceeded"; scope: string; message: string }) => Promise<void>,
+    send: (payload: {
+      type: "budget_alert" | "budget_exceeded";
+      scope: string;
+      label: string;
+      message: string;
+      spent: number;
+      limit: number;
+      unit: "usd" | "tokens";
+      pct: number;
+      note?: string;
+    }) => Promise<void>,
     getAlertState: (scope: string) => { alerted_at: number; window_start: number } | null,
     setAlertState: (scope: string, alertedAt: number, windowStart: number) => void,
   ): Promise<void> {
@@ -150,7 +160,17 @@ export class BudgetTracker {
       const limitStr = s.unit === "usd" ? `$${s.limit.toFixed(2)}` : `${s.limit.toLocaleString()} tokens`;
       const message = `${s.label}: ${pctStr}% spent (${spentStr} / ${limitStr})${s.note ? ` — ${s.note}` : ""}`;
 
-      await send({ type, scope: s.key, message });
+      await send({
+        type,
+        scope: s.key,
+        label: s.label,
+        message,
+        spent: s.spent,
+        limit: s.limit,
+        unit: s.unit,
+        pct: s.pct,
+        note: s.note,
+      });
       setAlertState(s.key, Date.now(), s.window_start);
     }
   }

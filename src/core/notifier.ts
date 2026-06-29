@@ -1,10 +1,3 @@
-/**
- * Fire-and-forget notification sender. Three channels: generic webhook,
- * Telegram Bot API, Discord webhook. Each channel is independently configured
- * in the notifications SQLite table; send() reads configs, filters by event
- * type, and POSTs to every matching channel. Failures are logged to alert_log
- * but never thrown — the request that triggered the alert must not fail.
- */
 import type { UsageDB, NotificationConfigRow } from "../db.js";
 
 export type AlertEventType = "budget_alert" | "budget_exceeded";
@@ -12,17 +5,24 @@ export type AlertEventType = "budget_alert" | "budget_exceeded";
 export interface AlertPayload {
   type: AlertEventType;
   scope: string;
+  label: string;
   message: string;
+  spent: number;
+  limit: number;
+  unit: "usd" | "tokens";
+  pct: number;
+  note?: string;
+}
+
+function fmtAmount(v: number, unit: string): string {
+  return unit === "usd" ? `$${v.toFixed(2)}` : `${v.toLocaleString()} tokens`;
+}
+
+function fmtTime(ts: number): string {
+  return new Date(ts).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 async function sendToChannel(cfg: NotificationConfigRow, payload: AlertPayload): Promise<void> {
-  const body = JSON.stringify({
-    type: payload.type,
-    scope: payload.scope,
-    message: payload.message,
-    ts: Date.now(),
-  });
-
   async function post(url: string, headers: Record<string, string>, body: string): Promise<void> {
     const res = await fetch(url, { method: "POST", headers, body });
     if (!res.ok) {
@@ -31,28 +31,68 @@ async function sendToChannel(cfg: NotificationConfigRow, payload: AlertPayload):
     }
   }
 
+  const pctStr = Math.round(payload.pct * 100);
+  const spentStr = fmtAmount(payload.spent, payload.unit);
+  const limitStr = fmtAmount(payload.limit, payload.unit);
+  const title = payload.type === "budget_exceeded" ? "Budget Exceeded" : "Budget Alert";
+  const ts = fmtTime(Date.now());
+
   switch (cfg.id) {
     case "webhook":
-      await post(cfg.url, { "Content-Type": "application/json" }, body);
+      await post(cfg.url, { "Content-Type": "application/json" }, JSON.stringify({
+        type: payload.type,
+        scope: payload.scope,
+        label: payload.label,
+        spent: payload.spent,
+        limit: payload.limit,
+        unit: payload.unit,
+        percentage: pctStr,
+        note: payload.note ?? "",
+        message: payload.message,
+        ts: Date.now(),
+      }));
       break;
 
     case "telegram": {
-      const text = `🚨 <b>${payload.type === "budget_exceeded" ? "Budget Exceeded" : "Budget Alert"}</b>\n${payload.message}`;
+      const lines = [
+        `🚨 <b>${title}</b>`,
+        "",
+        `<b>${payload.label}</b>`,
+        `Spent: <code>${spentStr}</code> / <code>${limitStr}</code> (<code>${pctStr}%</code>)`,
+      ];
+      if (payload.note) lines.push(`Note: ${payload.note}`);
+      lines.push("", `<i>aigloo · ${ts}</i>`);
       await post(
         `https://api.telegram.org/bot${cfg.token}/sendMessage`,
         { "Content-Type": "application/json" },
-        JSON.stringify({ chat_id: cfg.chat_id, text, parse_mode: "HTML" }),
+        JSON.stringify({ chat_id: cfg.chat_id, text: lines.join("\n"), parse_mode: "HTML" }),
       );
       break;
     }
 
-    case "discord":
+    case "discord": {
+      const color = payload.type === "budget_exceeded" ? 0xff0000 : 0xff9900;
+      const fields = [
+        { name: "Spent", value: spentStr, inline: true },
+        { name: "Limit", value: limitStr, inline: true },
+        { name: "Usage", value: `${pctStr}%`, inline: true },
+      ];
+      if (payload.note) fields.push({ name: "Note", value: payload.note, inline: false });
       await post(
         cfg.url,
         { "Content-Type": "application/json" },
-        JSON.stringify({ content: `🚨 **${payload.type === "budget_exceeded" ? "Budget Exceeded" : "Budget Alert"}**\n${payload.message}` }),
+        JSON.stringify({
+          embeds: [{
+            title: `🚨 ${title}`,
+            description: payload.label,
+            color,
+            fields,
+            footer: { text: `aigloo · ${ts}` },
+          }],
+        }),
       );
       break;
+    }
   }
 }
 
@@ -82,7 +122,12 @@ export class Notifier {
     const testPayload: AlertPayload = {
       type: "budget_alert",
       scope: "test",
-      message: "Test notification from aigloo gateway — notifications are working.",
+      label: "Test Budget",
+      message: "Test notification from aigloo — notifications are working.",
+      spent: 8.50,
+      limit: 10.00,
+      unit: "usd",
+      pct: 0.85,
     };
     try {
       await sendToChannel(cfg, testPayload);

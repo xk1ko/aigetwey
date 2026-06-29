@@ -74,12 +74,32 @@ export interface HandleDeps {
     blocksKey(fp: string): { exhausted: true; reset_in_ms: number } | null;
     clearCache(): void;
     checkAlerts(
-      send: (p: { type: "budget_alert" | "budget_exceeded"; scope: string; message: string }) => Promise<void>,
+      send: (p: {
+        type: "budget_alert" | "budget_exceeded";
+        scope: string;
+        label: string;
+        message: string;
+        spent: number;
+        limit: number;
+        unit: "usd" | "tokens";
+        pct: number;
+        note?: string;
+      }) => Promise<void>,
       getAlertState: (s: string) => { alerted_at: number; window_start: number } | null,
       setAlertState: (s: string, at: number, ws: number) => void,
     ): Promise<void>;
   };
-  notifier?: { send(p: { type: "budget_alert" | "budget_exceeded"; scope: string; message: string }): Promise<void> };
+  notifier?: { send(p: {
+    type: "budget_alert" | "budget_exceeded";
+    scope: string;
+    label: string;
+    message: string;
+    spent: number;
+    limit: number;
+    unit: "usd" | "tokens";
+    pct: number;
+    note?: string;
+  }): Promise<void> };
   clientKeyModels?: string[];
   clientKeyFp?: string;
   log?: (msg: string) => void;
