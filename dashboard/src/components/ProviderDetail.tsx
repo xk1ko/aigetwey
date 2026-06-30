@@ -142,6 +142,16 @@ export function ProviderDetail({ id }: { id: string }) {
                 </div>
               </div>
               {provider.disabled && <Badge tone="down">disabled</Badge>}
+              {ping && (
+                <div className="flex items-center gap-1.5">
+                  {ping.latencyMs != null && (
+                    <span className="text-[10px] text-dim">{ping.latencyMs}ms</span>
+                  )}
+                  <Badge tone={ping.ok ? "live" : ping.status === 429 ? "warn" : "down"}>
+                    {ping.ok ? `${ping.status ?? 200}` : ping.reachable ? `${ping.status}` : "—"}
+                  </Badge>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-2">
@@ -155,19 +165,6 @@ export function ProviderDetail({ id }: { id: string }) {
               })}>
                 <Icon name="wifi_tethering" size={16} /> {busy === "test" ? "Testing…" : "Test connection"}
               </Button>
-              {ping && (
-                <div className="flex items-center gap-1.5">
-                  {ping.latencyMs != null && (
-                    <span className="text-[10px] text-dim">{ping.latencyMs}ms</span>
-                  )}
-                  <Badge tone={ping.ok ? "live" : ping.status === 429 ? "warn" : "down"}>
-                    {ping.ok ? `${ping.status ?? 200}` : ping.reachable ? `${ping.status}` : "—"}
-                  </Badge>
-                  {!ping.ok && ping.error && (
-                    <span className="text-[10px] text-danger/70 truncate max-w-[140px]">{ping.error}</span>
-                  )}
-                </div>
-              )}
               <Button variant="ghost" disabled={busy === "discover"} onClick={() => run("discover", async () => {
                 const r = await adminApi.discoverModels(id);
                 if (r.ok) setDiscovered(r.data?.models ?? []);

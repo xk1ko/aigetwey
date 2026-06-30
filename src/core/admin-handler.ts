@@ -321,11 +321,6 @@ export async function handleAdmin(
       providers.map(async (p) => {
         const key = p.api_keys?.[0] ?? p.api_key;
         const result = await pingProvider(p, key);
-        if (result.ok && key) {
-          deps.state.pool.success(p, key);
-        } else if (key && result.reachable && result.status) {
-          deps.state.pool.penalize(p, key, { message: `upstream returned ${result.status}`, status: result.status });
-        }
         return { id: p.id, name: p.name ?? p.id, ...result };
       }),
     );
@@ -401,13 +396,7 @@ export async function handleAdmin(
       const provider = deps.state.config.raw.providers.find((p) => p.id === id);
       if (!provider) return { status: 404, body: { error: `provider "${id}" not found` } };
       const key = provider.api_keys?.[0] ?? provider.api_key;
-      const result = await pingProvider(provider, key);
-      if (result.ok && key) {
-        deps.state.pool.success(provider, key);
-      } else if (key && result.reachable && result.status) {
-        deps.state.pool.penalize(provider, key, { message: `upstream returned ${result.status}`, status: result.status });
-      }
-      return { status: 200, body: result };
+      return { status: 200, body: await pingProvider(provider, key) };
     }
 
     if (m === "POST" && s.length === 3 && s[2] === "connect") {
