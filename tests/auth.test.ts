@@ -1,9 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { isValidKey, extractKey, checkAuth, checkAdminAuth, clientKeyFingerprint, matchKey } from "../src/middleware/auth.js";
-import type { FastifyRequest } from "fastify";
 
-function reqWith(headers: Record<string, string>, ip = "127.0.0.1"): FastifyRequest {
-  return { headers, ip } as unknown as FastifyRequest;
+function headersWith(h: Record<string, string>): Headers {
+  return new Headers(h);
 }
 
 describe("isValidKey", () => {
@@ -20,33 +19,33 @@ describe("isValidKey", () => {
 
 describe("extractKey", () => {
   it("reads a Bearer token", () => {
-    expect(extractKey(reqWith({ authorization: "Bearer sk-123" }))).toBe("sk-123");
+    expect(extractKey(headersWith({ authorization: "Bearer sk-123" }))).toBe("sk-123");
   });
   it("reads x-api-key", () => {
-    expect(extractKey(reqWith({ "x-api-key": "sk-456" }))).toBe("sk-456");
+    expect(extractKey(headersWith({ "x-api-key": "sk-456" }))).toBe("sk-456");
   });
   it("returns null when neither header is present", () => {
-    expect(extractKey(reqWith({}))).toBeNull();
+    expect(extractKey(headersWith({}))).toBeNull();
   });
 });
 
 describe("checkAuth", () => {
   it("passes when no keys are configured (auth disabled)", () => {
-    expect(checkAuth(reqWith({}), [])).toEqual({ ok: true });
+    expect(checkAuth(headersWith({}), "127.0.0.1", [])).toEqual({ ok: true });
   });
   it("401s on a missing key", () => {
-    const r = checkAuth(reqWith({}), ["secret"]);
+    const r = checkAuth(headersWith({}), "127.0.0.1", ["secret"]);
     expect(r.ok).toBe(false);
     expect(r.status).toBe(401);
   });
   it("401s on a wrong key", () => {
-    const r = checkAuth(reqWith({ authorization: "Bearer nope" }), ["secret"]);
+    const r = checkAuth(headersWith({ authorization: "Bearer nope" }), "127.0.0.1", ["secret"]);
     expect(r.ok).toBe(false);
     expect(r.status).toBe(401);
   });
   it("passes a valid key via either header", () => {
-    expect(checkAuth(reqWith({ authorization: "Bearer secret" }), ["secret"]).ok).toBe(true);
-    expect(checkAuth(reqWith({ "x-api-key": "secret" }), ["secret"]).ok).toBe(true);
+    expect(checkAuth(headersWith({ authorization: "Bearer secret" }), "127.0.0.1", ["secret"]).ok).toBe(true);
+    expect(checkAuth(headersWith({ "x-api-key": "secret" }), "127.0.0.1", ["secret"]).ok).toBe(true);
   });
 });
 
@@ -69,14 +68,14 @@ describe("matchKey", () => {
 });
 
 describe("checkAuth keyFp", () => {
-  const req = (key: string) => ({ headers: { authorization: `Bearer ${key}` }, ip: "127.0.0.1" }) as never;
+  const req = (key: string) => headersWith({ authorization: `Bearer ${key}` });
   it("surfaces the matched key's fingerprint", () => {
-    const r = checkAuth(req("k2"), ["k1", "k2"]);
+    const r = checkAuth(req("k2"), "127.0.0.1", ["k1", "k2"]);
     expect(r.ok).toBe(true);
     expect(r.keyFp).toBe(clientKeyFingerprint("k2"));
   });
   it("no keyFp when auth is disabled (empty keys)", () => {
-    const r = checkAuth(req("whatever"), []);
+    const r = checkAuth(req("whatever"), "127.0.0.1", []);
     expect(r.ok).toBe(true);
     expect(r.keyFp).toBeUndefined();
   });
@@ -85,20 +84,20 @@ describe("checkAuth keyFp", () => {
 describe("checkAdminAuth", () => {
   const verifier = (pw: string) => ({ enabled: true, verify: (k: string) => k === pw });
   it("503s when no admin password is set (locked, not open)", () => {
-    const r = checkAdminAuth(reqWith({ authorization: "Bearer x" }), undefined);
+    const r = checkAdminAuth(headersWith({ authorization: "Bearer x" }), undefined);
     expect(r.ok).toBe(false);
     expect(r.status).toBe(503);
   });
   it("503s when the store is disabled", () => {
-    const r = checkAdminAuth(reqWith({ authorization: "Bearer x" }), { enabled: false, verify: () => false });
+    const r = checkAdminAuth(headersWith({ authorization: "Bearer x" }), { enabled: false, verify: () => false });
     expect(r.status).toBe(503);
   });
   it("401s on a wrong password", () => {
-    const r = checkAdminAuth(reqWith({ authorization: "Bearer wrong" }), verifier("pw"));
+    const r = checkAdminAuth(headersWith({ authorization: "Bearer wrong" }), verifier("pw"));
     expect(r.ok).toBe(false);
     expect(r.status).toBe(401);
   });
   it("passes the correct password", () => {
-    expect(checkAdminAuth(reqWith({ authorization: "Bearer pw" }), verifier("pw")).ok).toBe(true);
+    expect(checkAdminAuth(headersWith({ authorization: "Bearer pw" }), verifier("pw")).ok).toBe(true);
   });
 });

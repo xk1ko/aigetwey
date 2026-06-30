@@ -9,7 +9,6 @@
  * Empty `server.api_keys` allows loopback only — remote requests get 403.
  */
 import { createHash, timingSafeEqual } from "node:crypto";
-import type { FastifyRequest } from "fastify";
 
 function digest(s: string): Buffer {
   return createHash("sha256").update(s).digest();
@@ -34,13 +33,13 @@ export function isValidKey(presented: string, validKeys: string[]): boolean {
   return matchKey(presented, validKeys) !== null;
 }
 
-export function extractKey(req: FastifyRequest): string | null {
-  const auth = req.headers["authorization"];
-  if (typeof auth === "string" && auth.startsWith("Bearer ")) {
+export function extractKey(headers: Headers): string | null {
+  const auth = headers.get("authorization");
+  if (auth && auth.startsWith("Bearer ")) {
     return auth.slice("Bearer ".length).trim();
   }
-  const xkey = req.headers["x-api-key"];
-  if (typeof xkey === "string" && xkey.length > 0) return xkey;
+  const xkey = headers.get("x-api-key");
+  if (xkey && xkey.length > 0) return xkey;
   return null;
 }
 
@@ -51,16 +50,15 @@ export interface AuthResult {
   keyFp?: string;
 }
 
-export function checkAuth(req: FastifyRequest, validKeys: string[]): AuthResult {
+export function checkAuth(headers: Headers, ip: string, validKeys: string[]): AuthResult {
   if (validKeys.length === 0) {
     // No keys configured — allow loopback only, block external requests.
-    const ip = req.ip;
     if (ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1") {
       return { ok: true };
     }
     return { ok: false, status: 403, error: "no api_keys configured — remote access blocked. Set server.api_keys in config." };
   }
-  const key = extractKey(req);
+  const key = extractKey(headers);
   if (!key) return { ok: false, status: 401, error: "missing API key" };
   const matched = matchKey(key, validKeys);
   if (!matched) return { ok: false, status: 401, error: "invalid API key" };
@@ -82,11 +80,11 @@ export interface AdminVerifier {
  * If no password is set, admin routes LOCK (503) rather than open — admin
  * surfaces provider keys, so failing open would leak secrets.
  */
-export function checkAdminAuth(req: FastifyRequest, auth: AdminVerifier | undefined): AuthResult {
+export function checkAdminAuth(headers: Headers, auth: AdminVerifier | undefined): AuthResult {
   if (!auth || !auth.enabled) {
     return { ok: false, status: 503, error: "admin disabled (set AIGLOO_ADMIN_PASSWORD)" };
   }
-  const key = extractKey(req);
+  const key = extractKey(headers);
   if (!key) return { ok: false, status: 401, error: "missing admin password" };
   if (!auth.verify(key)) return { ok: false, status: 401, error: "invalid admin password" };
   return { ok: true };

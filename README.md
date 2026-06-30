@@ -182,10 +182,9 @@ Headroom is the only external dependency — install from [chopratejas/headroom]
 |----------|---------|
 | `AIGLOO_CONFIG` | Config file path |
 | `AIGLOO_DATA_DIR` | Usage DB directory |
-| `AIGLOO_ADMIN_PASSWORD` | Admin + dashboard auth |
-| `AIGLOO_PORT` | Listen port |
-
-Dashboard (`dashboard/.env.local`): `GATEWAY_URL`, `ADMIN_PASSWORD`, `SESSION_SECRET`.
+| `AIGLOO_ADMIN_PASSWORD` | Admin password — seeds on first boot, then stored as scrypt hash in `auth.json`. Default `123456` |
+| `AIGLOO_PORT` | Listen port (default 18080) |
+| `SESSION_SECRET` | Dashboard session cookie signing key. Auto-generated and persisted if unset |
 
 Admin password and provider keys never reach the browser — the dashboard proxies `/admin/*` server-side.
 

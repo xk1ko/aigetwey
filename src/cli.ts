@@ -1,16 +1,18 @@
 #!/usr/bin/env node
 /**
  * `aigloo` launcher — one command brings up the whole stack:
- *   - the gateway (Fastify) on its configured port (default 18080)
- *   - the dashboard (Next.js) on port 3000, pointed at the gateway
+ *   - the Next.js dashboard + gateway on one port (default 18080)
  *
- * Both run as child processes in THIS terminal (stdio inherited), so Ctrl-C
- * tears down both cleanly — no orphaned background servers. An admin password
- * and session secret are generated if not already in the environment, and the
- * browser is opened once the gateway answers.
+ * Gateway logic (routing, translation, auth, budgets) runs inside Next.js
+ * API routes — no separate Fastify process, no proxy hop. The standalone
+ * build (`dashboard/.next/standalone/server.js`) serves everything.
  *
- * Prefers a production build when present (dist/server.js, dashboard/.next),
- * otherwise falls back to the tsx / Next dev flow for live reload.
+ * Ctrl-C tears down cleanly. An admin password and session secret are
+ * generated if not already in the environment, and the browser is opened
+ * once the server answers /health.
+ *
+ * Prefers a production build when present (dashboard/.next/standalone,
+ * dist/), otherwise falls back to the tsx / Next dev flow for live reload.
  */
 import { spawn, execSync, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
@@ -69,7 +71,6 @@ const HELP = `
 `;
 
 const GATEWAY_PORT = opts.port ?? Number(process.env.AIGLOO_PORT ?? 18080);
-const DASHBOARD_PORT = Number(process.env.DASHBOARD_PORT ?? 18081);
 
 const adminPassword = process.env.AIGLOO_ADMIN_PASSWORD ?? "123456";
 const generatedPw = !process.env.AIGLOO_ADMIN_PASSWORD;
@@ -224,61 +225,37 @@ process.on("SIGTERM", () => {
   process.exit(0);
 });
 
-function spawnGateway(): ChildProcess {
-  const built = existsSync(join(root, "dist", "server.js"));
-  const [cmd, args] = built ? ["node", ["dist/server.js"]] : ["npx", ["tsx", "src/server.ts"]];
-  return spawn(cmd, args, {
-    cwd: root,
-    stdio: "inherit",
-    detached: true, // own process group → killTree reaps tsx→node grandchildren
-    env: {
-      ...process.env,
-      AIGLOO_ADMIN_PASSWORD: adminPassword,
-      AIGLOO_PORT: String(GATEWAY_PORT),
-      AIGLOO_DATA_DIR: getDataDir(),
-      AIGLOO_CONFIG: getConfigPath(),
-      AIGLOO_DASHBOARD_PORT: String(DASHBOARD_PORT),
-    },
-  });
-}
-
 function spawnDashboard(): ChildProcess {
   const standaloneDir = join(dashboardDir, ".next", "standalone");
   const standaloneServer = join(standaloneDir, "server.js");
 
-  // Standalone build ships pre-bundled deps in vendor/ (renamed from node_modules
-  // to survive npm pack which strips node_modules/). NODE_PATH resolves them.
+  const env = {
+    ...process.env,
+    PORT: String(GATEWAY_PORT),
+    HOSTNAME: "127.0.0.1",
+    AIGLOO_ADMIN_PASSWORD: adminPassword,
+    AIGLOO_PORT: String(GATEWAY_PORT),
+    AIGLOO_DATA_DIR: getDataDir(),
+    AIGLOO_CONFIG: getConfigPath(),
+    SESSION_SECRET: sessionSecret,
+  };
+
   if (existsSync(standaloneServer)) {
     return spawn("node", [standaloneServer], {
       cwd: standaloneDir,
       stdio: "inherit",
       detached: true,
-      env: {
-        ...process.env,
-        PORT: String(DASHBOARD_PORT),
-        HOSTNAME: "127.0.0.1",
-        NODE_PATH: join(standaloneDir, "vendor"),
-        GATEWAY_URL: `http://127.0.0.1:${GATEWAY_PORT}`,
-        ADMIN_PASSWORD: adminPassword,
-        SESSION_SECRET: sessionSecret,
-      },
+      env: { ...env, NODE_PATH: join(standaloneDir, "vendor") },
     });
   }
 
-  // Fallback: dev mode or legacy non-standalone build
   const prod = existsSync(join(dashboardDir, ".next", "BUILD_ID"));
   const args = prod ? ["run", "start"] : ["run", "dev"];
   return spawn("npm", args, {
     cwd: dashboardDir,
     stdio: "inherit",
     detached: true,
-    env: {
-      ...process.env,
-      PORT: String(DASHBOARD_PORT),
-      GATEWAY_URL: `http://127.0.0.1:${GATEWAY_PORT}`,
-      ADMIN_PASSWORD: adminPassword,
-      SESSION_SECRET: sessionSecret,
-    },
+    env,
   });
 }
 
@@ -419,53 +396,28 @@ async function main(): Promise<void> {
   }
   const wantBrowser = mode === "web";
 
-  console.log("\n  aigloo — starting gateway + dashboard\n");
+  console.log("\n  aigloo — starting\n");
 
   if (mode === "tray") ensureSetup();
 
-  await ensurePortFree(GATEWAY_PORT, "AIGLOO_PORT");
-
-  const gw = spawnGateway();
-  children.push(gw);
-  gw.on("exit", (code) => {
-    console.error(`\n  gateway exited (${code}). shutting down.`);
-    shutdown();
-    process.exit(code ?? 1);
-  });
-
-  const up = await waitForGateway(`http://127.0.0.1:${GATEWAY_PORT}/health`);
-  if (!up) {
-    console.error("  gateway did not come up in time — check config.yaml / logs above.");
-    shutdown();
+  if (!existsSync(join(dashboardDir, "package.json"))) {
+    console.error("  dashboard not found (dashboard/ not scaffolded). cannot start.");
     process.exit(1);
   }
 
-  // the dashboard is optional: skip it cleanly if it hasn't been scaffolded yet.
-  if (!existsSync(join(dashboardDir, "package.json"))) {
-    console.log(`\n  gateway   http://localhost:${GATEWAY_PORT}`);
-    console.log("  dashboard not found (dashboard/ not scaffolded) — running gateway only.\n");
-    if (generatedPw) console.log(`  admin password (generated): ${adminPassword}\n`);
-    return;
-  }
-
-  await ensurePortFree(DASHBOARD_PORT, "DASHBOARD_PORT");
+  await ensurePortFree(GATEWAY_PORT, "AIGLOO_PORT");
 
   const dash = spawnDashboard();
   children.push(dash);
   dash.on("exit", (code) => {
-    console.error(`\n  dashboard exited (${code}). shutting down.`);
+    console.error(`\n  aigloo exited (${code}).`);
     shutdown();
     process.exit(code ?? 1);
   });
 
-  // one URL for everything — the gateway reverse-proxies the dashboard. Wait for
-  // the dashboard to be READY before opening the browser. Probe it directly on
-  // its own port (not through the proxy) and require a non-5xx answer: a proxy
-  // hit during boot returns 500 (ECONNREFUSED upstream), which a bare "port up"
-  // check would mistake for ready and open the browser into a wall of 500s.
   const appUrl = `http://localhost:${GATEWAY_PORT}`;
-  await waitForGateway(`http://127.0.0.1:${DASHBOARD_PORT}/login`, 30000, (s) => s > 0 && s < 500);
-  console.log(`\n  aigloo   ${appUrl}   (dashboard + API, one URL)`);
+  await waitForGateway(`http://127.0.0.1:${GATEWAY_PORT}/health`, 30000, (s) => s > 0 && s < 500);
+  console.log(`\n  aigloo   ${appUrl}`);
   if (generatedPw) {
     console.log(`\n  admin password (generated): ${adminPassword}`);
     console.log("  set AIGLOO_ADMIN_PASSWORD to keep it stable across runs.\n");

@@ -1,19 +1,7 @@
 import "server-only";
-import { currentPassword } from "./session";
+import { handleAdmin, type AdminDeps } from "@/gw/core/admin-handler.js";
+import { gw } from "./gw";
 import type { CapsTables } from "./capabilities";
-
-/**
- * Server-side proxy to the gateway admin API. Runs only in Next.js server
- * context (route handlers / server components) — injects the admin password as
- * a Bearer token so it never reaches the browser.
- *
- * Scoped to the admin surface the gateway exposes today (usage, logs, providers,
- * budgets, whole-config CRUD). Granular provider/combo mutation helpers are added
- * alongside the pages that drive them in phase 11.
- */
-function gatewayUrl(): string {
-  return (process.env.GATEWAY_URL ?? "http://127.0.0.1:18080").replace(/\/$/, "");
-}
 
 export interface GatewayResult<T> {
   ok: boolean;
@@ -22,48 +10,26 @@ export interface GatewayResult<T> {
   error?: string;
 }
 
-async function call<T>(method: string, path: string, body?: unknown): Promise<GatewayResult<T>> {
-  let res: Response;
-  try {
-    res = await fetch(gatewayUrl() + path, {
-      method,
-      headers: {
-        authorization: `Bearer ${await currentPassword()}`,
-        ...(body !== undefined ? { "content-type": "application/json" } : {}),
-      },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-      cache: "no-store",
-    });
-  } catch (e) {
-    return { ok: false, status: 0, data: null, error: `gateway unreachable: ${(e as Error).message}` };
-  }
-
-  const text = await res.text();
-  let data: T | null = null;
-  try {
-    data = text ? (JSON.parse(text) as T) : null;
-  } catch {
-    data = null;
-  }
-  if (!res.ok) {
-    const err = (data as { error?: string } | null)?.error ?? `gateway returned ${res.status}`;
-    return { ok: false, status: res.status, data, error: err };
-  }
-  return { ok: true, status: res.status, data };
+function deps(): AdminDeps {
+  const g = gw();
+  return { state: g.state, db: g.db, auth: g.auth, notifier: g.notifier, log: g.log };
 }
 
-/** Verify a specific admin password against the gateway (used at login, before a
- * session cookie exists). */
-export async function checkGatewayAuth(password: string): Promise<boolean> {
-  try {
-    const res = await fetch(gatewayUrl() + "/admin/providers", {
-      headers: { authorization: `Bearer ${password}` },
-      cache: "no-store",
-    });
-    return res.ok;
-  } catch {
-    return false;
+function parsePath(path: string): { segments: string[]; search: URLSearchParams } {
+  const [pathOnly, queryString] = path.split("?");
+  const segments = pathOnly.replace(/^\/admin\//, "").split("/").filter(Boolean);
+  return { segments, search: new URLSearchParams(queryString) };
+}
+
+async function call<T>(method: string, path: string, body?: unknown): Promise<GatewayResult<T>> {
+  const { segments, search } = parsePath(path);
+  const result = await handleAdmin(method, segments, search, body, deps());
+  const data = result.body as T;
+  if (result.status >= 400) {
+    const err = (result.body as { error?: string } | null)?.error ?? `request failed (${result.status})`;
+    return { ok: false, status: result.status, data, error: err };
   }
+  return { ok: true, status: result.status, data };
 }
 
 export const gateway = {

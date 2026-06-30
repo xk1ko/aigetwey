@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { gw } from "@/lib/gw";
 import { handleAdmin } from "@/gw/core/admin-handler.js";
-import { checkAdminAuth, extractKey } from "@/gw/middleware/auth.js";
-import { consoleBuffer } from "@/gw/core/console-buffer.js";
+import { checkAdminAuth } from "@/gw/middleware/auth.js";
 
-type Ctx = { params: Promise<{ path: string[] }> };
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const SECURITY_HEADERS: Record<string, string> = {
   "X-Content-Type-Options": "nosniff",
@@ -15,19 +15,16 @@ const SECURITY_HEADERS: Record<string, string> = {
   "Cache-Control": "no-store",
 };
 
-async function proxy(req: NextRequest, path: string[]): Promise<NextResponse | Response> {
-  const sub = path.join("/");
-  if (!sub.startsWith("admin/")) {
-    return NextResponse.json({ error: "not found" }, { status: 404 });
-  }
+type Ctx = { params: Promise<{ path: string[] }> };
 
+async function handle(req: NextRequest, ctx: Ctx): Promise<Response> {
   const g = gw();
   const authRes = checkAdminAuth(req.headers, g.auth);
   if (!authRes.ok) {
-    return NextResponse.json({ error: authRes.error }, { status: authRes.status ?? 401, headers: SECURITY_HEADERS });
+    return Response.json({ error: authRes.error }, { status: authRes.status ?? 401, headers: SECURITY_HEADERS });
   }
 
-  const segments = sub.split("/").slice(1);
+  const segments = (await ctx.params).path;
   const url = new URL(req.url);
   const search = url.searchParams;
 
@@ -47,10 +44,7 @@ async function proxy(req: NextRequest, path: string[]): Promise<NextResponse | R
   if (result.stream) {
     return new Response(result.stream, {
       status: result.status,
-      headers: {
-        ...SECURITY_HEADERS,
-        ...(result.headers ?? {}),
-      },
+      headers: { ...SECURITY_HEADERS, ...(result.headers ?? {}) },
     });
   }
 
@@ -67,18 +61,8 @@ async function proxy(req: NextRequest, path: string[]): Promise<NextResponse | R
   });
 }
 
-export async function GET(req: NextRequest, ctx: Ctx) {
-  return proxy(req, (await ctx.params).path);
-}
-export async function POST(req: NextRequest, ctx: Ctx) {
-  return proxy(req, (await ctx.params).path);
-}
-export async function PUT(req: NextRequest, ctx: Ctx) {
-  return proxy(req, (await ctx.params).path);
-}
-export async function DELETE(req: NextRequest, ctx: Ctx) {
-  return proxy(req, (await ctx.params).path);
-}
-export async function PATCH(req: NextRequest, ctx: Ctx) {
-  return proxy(req, (await ctx.params).path);
-}
+export async function GET(req: NextRequest, ctx: Ctx) { return handle(req, ctx); }
+export async function POST(req: NextRequest, ctx: Ctx) { return handle(req, ctx); }
+export async function PUT(req: NextRequest, ctx: Ctx) { return handle(req, ctx); }
+export async function DELETE(req: NextRequest, ctx: Ctx) { return handle(req, ctx); }
+export async function PATCH(req: NextRequest, ctx: Ctx) { return handle(req, ctx); }

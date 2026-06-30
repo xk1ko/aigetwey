@@ -7,7 +7,7 @@ import { openSession, SESSION_COOKIE } from "@/lib/session";
  * and the auth endpoints stay open; everything else redirects to /login (pages)
  * or 401s (api). This is Next 16's `proxy` convention (formerly `middleware`).
  */
-const OPEN = ["/login", "/api/login", "/api/logout"];
+const OPEN = ["/login", "/api/login", "/api/logout", "/health", "/v1", "/admin"];
 
 export function proxy(req: NextRequest): NextResponse {
   const { pathname } = req.nextUrl;

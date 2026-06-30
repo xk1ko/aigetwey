@@ -45,8 +45,8 @@
     "LICENSE"
   ],
   "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "start": "node dist/server.js",
+    "dev": "./dev.sh",
+    "start": "node dist/cli.js",
     "run:all": "tsx src/cli.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -58,14 +58,13 @@
     "access": "public"
   },
   "dependencies": {
-    "@fastify/http-proxy": "^11.5.0",
-    "fastify": "^5.2.0",
     "undici": "^7.2.0",
     "yaml": "^2.6.1",
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
+    "fastify": "^5.2.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
