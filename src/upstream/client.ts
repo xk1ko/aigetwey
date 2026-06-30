@@ -170,15 +170,25 @@ export async function pingProvider(provider: Provider, key: string | undefined):
   const t0 = Date.now();
   try {
     const res = await request(url, { method: "GET", headers, headersTimeout: 10_000, bodyTimeout: 10_000 });
-    await res.body.dump();
+    const text = await res.body.text();
     const latencyMs = Date.now() - t0;
     const ok = res.statusCode >= 200 && res.statusCode < 300;
+    let error: string | undefined;
+    if (!ok) {
+      try {
+        const parsed = JSON.parse(text);
+        error = parsed?.error?.message ?? parsed?.error ?? parsed?.message ?? text.slice(0, 200);
+      } catch {
+        error = text.slice(0, 200) || undefined;
+      }
+    }
     return {
       reachable: true,
       status: res.statusCode,
       ok,
+      error,
       latencyMs,
-      errorType: ok ? undefined : classifyError(res.statusCode, ""),
+      errorType: ok ? undefined : classifyError(res.statusCode, error ?? ""),
     };
   } catch (e) {
     const msg = (e as Error).message;

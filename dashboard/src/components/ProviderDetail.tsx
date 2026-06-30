@@ -142,6 +142,9 @@ export function ProviderDetail({ id }: { id: string }) {
                 </div>
               </div>
               {provider.disabled && <Badge tone="down">disabled</Badge>}
+            </div>
+
+            <div className="flex items-center gap-2">
               {ping && (
                 <div className="flex items-center gap-1.5">
                   {ping.latencyMs != null && (
@@ -150,11 +153,11 @@ export function ProviderDetail({ id }: { id: string }) {
                   <Badge tone={ping.ok ? "live" : ping.status === 429 ? "warn" : "down"}>
                     {ping.ok ? `${ping.status ?? 200}` : ping.reachable ? `${ping.status}` : "—"}
                   </Badge>
+                  {!ping.ok && ping.error && (
+                    <span className="text-[11px] text-danger/70 truncate max-w-[200px]">{ping.error}</span>
+                  )}
                 </div>
               )}
-            </div>
-
-            <div className="flex items-center gap-2">
               <Button variant="ghost" onClick={() => { setEditingConn(true); setConnUrl(provider.base_url); setConnPrefix(provider.id); setConnLabel(provider.name ?? ""); }}>
                 <Icon name="edit" size={15} /> Edit
               </Button>
