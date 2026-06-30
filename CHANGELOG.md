@@ -5,6 +5,14 @@ All notable changes to **aigloo** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] — 2026-06-30
+
+### Fixed
+- **Version display** — `readVersion()` now receives version via `AIGLOO_VERSION`
+  env var from `cli.ts`. Previously, the one-port architecture changed
+  `process.cwd()` to the standalone directory, which has a Next.js-generated
+  `package.json` without `name: "aigloo"` — causing version to show as `0.0.0`
+
 ## [1.1.0] — 2026-06-30
 
 ### Added
