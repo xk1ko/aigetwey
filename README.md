@@ -41,7 +41,7 @@ First run bootstraps everything. Subsequent runs start instantly.
   ──────────        ────────────────────         ──────────────
   Claude Code  ──┐                           ┌──► Anthropic
   opencode     ──┤  format translation       ├──► OpenAI
-  Cursor       ──┼─► combo routing  ─────────┼──► OpenRouter
+  Cursor       ──┼─► routing & fallback ─────┼──► OpenRouter
   Codex        ──┤  token compression        ├──► Gemini
   any app*     ──┘  spend tracking            └──► Ollama / custom
                      ▲
@@ -52,7 +52,7 @@ First run bootstraps everything. Subsequent runs start instantly.
   * any app that supports a custom base URL + API key
 ```
 
-1. **Set up providers + combos** — add your provider keys, define combo aliases mapped to a provider chain with fallback or round-robin strategy
+1. **Add providers** — paste your API keys, pick models. Use `provider/model` directly (key round-robin) or define combo aliases for multi-provider fallback chains
 2. **Point your tools** at `http://localhost:18080` with a gateway key
 3. **Track everything** — per-request cost, token usage, budgets, alerts
 
@@ -61,7 +61,7 @@ First run bootstraps everything. Subsequent runs start instantly.
 ## Features
 
 - **Format translation** — OpenAI ↔ Anthropic on the fly, streaming included
-- **Fallback routing** — combo alias → provider chain; auto-rotates keys on 429/5xx/timeout
+- **Routing & fallback** — use `provider/model` directly (key round-robin) or define combo aliases for multi-provider fallback chains; auto-rotates keys on 429/5xx/timeout
 - **Token savers** — RTK compresses tool results, caveman trims prose, ponytail nudges minimal code, headroom compresses context
 - **Access keys** — share gateway keys with model allowlist, rate limit, spend cap, and expiry
 - **Budgets** — rolling spend caps (global/provider/model/key) with live countdown and per-token-type cost tracking
