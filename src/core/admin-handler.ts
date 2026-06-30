@@ -154,6 +154,7 @@ function isLevel(v: unknown): v is EndpointSettings["caveman"] {
 
 /** Current package version, read from the repo's package.json (cwd). */
 function readVersion(): string {
+  if (process.env.AIGLOO_VERSION) return process.env.AIGLOO_VERSION;
   for (const dir of [process.cwd(), resolve(process.cwd(), "..")]) {
     try {
       const pkg = JSON.parse(readFileSync(resolve(dir, "package.json"), "utf8")) as { name?: string; version?: string };

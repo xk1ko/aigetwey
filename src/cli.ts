@@ -27,6 +27,7 @@ import { getDataDir, getConfigPath } from "./appDirs.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const dashboardDir = join(root, "dashboard");
+const pkgVersion = (() => { try { return JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version ?? "0.0.0"; } catch { return "0.0.0"; } })();
 
 // ── CLI flags (aigloo-style): -p/--port, -n/--no-browser, -y/--yes, -h/--help ──
 interface CliOpts {
@@ -248,6 +249,7 @@ function spawnDashboard(): ChildProcess {
     AIGLOO_DATA_DIR: getDataDir(),
     AIGLOO_CONFIG: getConfigPath(),
     SESSION_SECRET: sessionSecret,
+    AIGLOO_VERSION: pkgVersion,
   };
 
   if (existsSync(standaloneServer)) {
