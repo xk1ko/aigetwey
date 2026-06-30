@@ -32,13 +32,11 @@
   },
   "files": [
     "dist",
-    "src",
     "dashboard/.next/standalone",
     "dashboard/package.json",
     "dashboard/.env.example",
     "assets",
     "config.example.yaml",
-    "tsconfig.json",
     "run.sh",
     "README.md",
     "CHANGELOG.md",
