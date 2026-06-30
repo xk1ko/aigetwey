@@ -383,7 +383,7 @@ export function ProviderDetail({ id }: { id: string }) {
                               {tested.ok ? `${tested.status ?? 200}` : tested.reachable ? `${tested.status}` : "—"}
                             </Badge>
                           </div>
-                        ) : ks?.last_error ? (
+                        ) : ks?.last_error && !ks.healthy ? (
                           <div className="flex items-center gap-1.5">
                             <Badge tone={ks.last_error.status === 429 ? "warn" : "down"}>
                               {ks.last_error.status ?? "err"}
