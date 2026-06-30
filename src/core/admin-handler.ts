@@ -154,12 +154,13 @@ function isLevel(v: unknown): v is EndpointSettings["caveman"] {
 
 /** Current package version, read from the repo's package.json (cwd). */
 function readVersion(): string {
-  try {
-    const pkg = JSON.parse(readFileSync(resolve(process.cwd(), "package.json"), "utf8")) as { version?: string };
-    return pkg.version ?? "0.0.0";
-  } catch {
-    return "0.0.0";
+  for (const dir of [process.cwd(), resolve(process.cwd(), "..")]) {
+    try {
+      const pkg = JSON.parse(readFileSync(resolve(dir, "package.json"), "utf8")) as { name?: string; version?: string };
+      if (pkg.name === "aigloo" && pkg.version) return pkg.version;
+    } catch { /* try next */ }
   }
+  return "0.0.0";
 }
 
 /** True if semver `a` is strictly newer than `b` (numeric compare, ignores pre-release). */
