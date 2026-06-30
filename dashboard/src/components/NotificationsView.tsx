@@ -89,6 +89,24 @@ export function NotificationsView() {
     if (r.ok) setTimeout(() => setMsg((m) => ({ ...m, [id]: "" })), 2000);
   }
 
+  async function toggleEnabled(id: string) {
+    const cfg = getCfg(id);
+    const next = { ...cfg, enabled: !cfg.enabled };
+    patch(id, { enabled: next.enabled });
+    setSaving(id);
+    setMsg((m) => ({ ...m, [id]: "" }));
+    const r = await adminApi.setNotification(id, {
+      enabled: next.enabled,
+      url: next.url,
+      token: next.token,
+      chat_id: next.chat_id,
+      events: next.events,
+    });
+    setSaving("");
+    setMsg((m) => ({ ...m, [id]: r.ok ? (next.enabled ? "Enabled ✓" : "Disabled ✓") : r.error ?? "failed" }));
+    if (r.ok) setTimeout(() => setMsg((m) => ({ ...m, [id]: "" })), 2000);
+  }
+
   async function test(id: string) {
     setTesting(id);
     setMsg((m) => ({ ...m, [id]: "" }));
@@ -127,8 +145,9 @@ export function NotificationsView() {
                   />
                   <button
                     type="button"
-                    onClick={() => patch(ch.id, { enabled: !cfg.enabled })}
-                    className={`relative h-6 w-11 rounded-full transition-colors ${cfg.enabled ? "bg-accent" : "bg-surface-3"}`}
+                    onClick={() => void toggleEnabled(ch.id)}
+                    disabled={saving === ch.id}
+                    className={`relative h-6 w-11 rounded-full transition-colors disabled:opacity-50 ${cfg.enabled ? "bg-accent" : "bg-surface-3"}`}
                     aria-label={cfg.enabled ? "disable" : "enable"}
                   >
                     <span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${cfg.enabled ? "translate-x-5" : "translate-x-0"}`} />
