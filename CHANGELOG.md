@@ -5,6 +5,58 @@ All notable changes to **aigloo** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] — 2026-06-30
+
+### Added
+- **Budget alert notifications** — webhook, Telegram, and Discord alerts when
+  budgets hit their threshold or run out. Deduped per budget window so you
+  get one alert per cycle, not a flood. Alert log with delivery status
+- **Rich notification format** — Discord embeds, Telegram HTML, and webhook
+  structured JSON. Each channel renders alerts natively instead of plain text
+- **OpenAI-compatible error body** — upstream errors now return provider
+  context in OpenAI error format, so LLM clients surface meaningful messages
+  instead of raw HTTP status codes
+
+### Changed
+- **One-port architecture** — gateway API + dashboard now served by a single
+  Next.js server. Previously Fastify (API) + Next.js (dashboard) ran on
+  separate ports. Simpler deployment, fewer moving parts, one URL for
+  everything
+- **README** — added "How it works" section with architecture diagram
+
+### Fixed
+- **Session auth** — proxy route now uses session cookie auth instead of
+  Bearer token, fixing 401 on all `/admin/*` calls after login
+- **Login loop** — `Cache-Control: no-store` on redirects prevents Next.js
+  from caching 401 responses that force repeated re-login
+- **Autostart port detection** — checks `/proc/PID/cwd` + matches
+  `server.js`/`cli.js` patterns. Previously stale processes weren't detected
+  because the command line didn't contain "aigloo"
+- **Key test indicators** — `keypool.success()` now clears `lastError`;
+  error badge only shows when key is actively in cooldown, not as historical
+  record
+- **Provider test isolation** — provider-level "Test connection" and "Test
+  all" no longer affect individual key health state
+- **Test badge UI** — unified into one row with color-coded badges
+  (green=200, yellow=429, red=other), moved to button row, shows actual
+  provider error messages with hover tooltips for full text
+- **Error messages for all HTTP status codes** — `pingProvider` extracts
+  error from response body JSON + provides fallback messages for 401, 403,
+  404, 408, 422, 429, 500, 502, 503, 504 when body is empty
+- **Per-key error messages** — `penalize()` now stores actual provider error
+  (e.g. "Authentication failed — invalid API key") instead of generic
+  "upstream returned 401"
+- **Version detection** — `readVersion()` scans for `package.json` with
+  `name: "aigloo"` instead of reading `process.cwd()/package.json` directly
+- **EADDRINUSE** — human-readable error message instead of raw JSON
+- **Upstream 401/403 remapping** — remapped to 502 to trigger fallback
+  instead of blocking the request
+- **Branded loading state** — replaced plain "Loading…" text with three-dot
+  lime pulse animation across all pages
+- **Notification toggle** — auto-saves enable/disable without needing Save
+  button. Save button remains for text fields and event selection
+- **package-lock.json** — fixed package name from "aigetwey" to "aigloo"
+
 ## [1.0.1] — 2026-06-28
 
 ### Added

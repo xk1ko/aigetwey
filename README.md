@@ -34,6 +34,30 @@ First run bootstraps everything. Subsequent runs start instantly.
 
 ---
 
+## How it works
+
+```
+  Your tools              aigloo                      Providers
+  ──────────        ────────────────────         ──────────────
+  Claude Code  ──┐                           ┌──► Anthropic
+  opencode     ──┤  format translation       ├──► OpenAI
+  Cursor       ──┼─► combo routing  ─────────┼──► OpenRouter
+  Codex        ──┤  token compression        ├──► Gemini
+  any app*     ──┘  spend tracking            └──► Ollama / custom
+                     ▲
+                     │
+                one endpoint
+                one API key
+
+  * any app that supports a custom base URL + API key
+```
+
+1. **Set up providers + combos** — add your provider keys, define combo aliases mapped to a provider chain with fallback or round-robin strategy
+2. **Point your tools** at `http://localhost:18080` with a gateway key
+3. **Track everything** — per-request cost, token usage, budgets, alerts
+
+---
+
 ## Features
 
 - **Format translation** — OpenAI ↔ Anthropic on the fly, streaming included
