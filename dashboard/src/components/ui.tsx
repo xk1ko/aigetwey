@@ -61,7 +61,7 @@ export function Empty({ children }: { children: React.ReactNode }) {
 /** Branded three-dot loading animation for in-page data fetch states. */
 export function LoadingDots({ className = "" }: { className?: string }) {
   return (
-    <div className={`flex items-center justify-center gap-1.5 py-8 ${className}`}>
+    <div className={`flex min-h-[60vh] items-center justify-center gap-1.5 ${className}`}>
       <span className="h-2 w-2 animate-pulse rounded-full bg-accent [animation-delay:-0.3s]" />
       <span className="h-2 w-2 animate-pulse rounded-full bg-accent [animation-delay:-0.15s]" />
       <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
