@@ -155,6 +155,19 @@ export function ProviderDetail({ id }: { id: string }) {
               })}>
                 <Icon name="wifi_tethering" size={16} /> {busy === "test" ? "Testing…" : "Test connection"}
               </Button>
+              {ping && (
+                <div className="flex items-center gap-1.5">
+                  {ping.latencyMs != null && (
+                    <span className="text-[10px] text-dim">{ping.latencyMs}ms</span>
+                  )}
+                  <Badge tone={ping.ok ? "live" : ping.status === 429 ? "warn" : "down"}>
+                    {ping.ok ? `${ping.status ?? 200}` : ping.reachable ? `${ping.status}` : "—"}
+                  </Badge>
+                  {!ping.ok && ping.error && (
+                    <span className="text-[10px] text-danger/70 truncate max-w-[140px]">{ping.error}</span>
+                  )}
+                </div>
+              )}
               <Button variant="ghost" disabled={busy === "discover"} onClick={() => run("discover", async () => {
                 const r = await adminApi.discoverModels(id);
                 if (r.ok) setDiscovered(r.data?.models ?? []);
@@ -164,22 +177,6 @@ export function ProviderDetail({ id }: { id: string }) {
               </Button>
             </div>
           </div>
-
-          {ping && (
-            <div className={`mt-3 flex items-center gap-2 rounded-brand border px-3 py-2 text-[12px] ${ping.ok ? "border-live/30 bg-live/5 text-live" : "border-danger/30 bg-danger/5 text-danger"}`}>
-              <span>
-                {ping.ok
-                  ? `connected (${ping.status})`
-                  : ping.error || (ping.reachable ? `server returned ${ping.status}` : "could not reach the endpoint")}
-              </span>
-              {ping.latencyMs != null && (
-                <span className="opacity-60">· {ping.latencyMs}ms</span>
-              )}
-              {!ping.ok && ping.errorType && (
-                <span className="rounded px-1.5 py-0.5 text-[10px] uppercase opacity-70 bg-current/10">{ping.errorType}</span>
-              )}
-            </div>
-          )}
           {actionErr && (
             <div className="mt-3 rounded-brand border border-danger/30 bg-danger/5 px-3 py-2 text-[12px] text-danger">
               {actionErr}
@@ -377,19 +374,23 @@ export function ProviderDetail({ id }: { id: string }) {
                           {name && <div className="text-[12px] font-semibold text-text-muted">{name}</div>}
                           <span className="block truncate font-mono text-[13px] text-text">{revealedKeys[i] ?? k}</span>
                         </div>
-                        {tested && (
+                        {tested ? (
                           <div className="flex items-center gap-1.5">
                             {tested.latencyMs != null && (
                               <span className="text-[10px] text-dim">{tested.latencyMs}ms</span>
                             )}
-                            <Badge tone={tested.ok ? "live" : tested.reachable ? "warn" : "down"}>
-                              {tested.ok ? "valid" : tested.reachable ? `reachable (${tested.status})` : "invalid"}
+                            <Badge tone={tested.ok ? "live" : tested.status && tested.status === 429 ? "warn" : "down"}>
+                              {tested.ok ? `${tested.status ?? 200}` : tested.reachable ? `${tested.status}` : "—"}
                             </Badge>
-                            {!tested.ok && tested.errorType && (
-                              <span className="text-[10px] uppercase text-danger/60">{tested.errorType}</span>
-                            )}
                           </div>
-                        )}
+                        ) : ks?.last_error ? (
+                          <div className="flex items-center gap-1.5">
+                            <Badge tone={ks.last_error.status === 429 ? "warn" : "down"}>
+                              {ks.last_error.status ?? "err"}
+                            </Badge>
+                            <span className="text-[10px] text-danger/70 truncate max-w-[100px]">{ks.last_error.message}</span>
+                          </div>
+                        ) : null}
                         {revealedKeys[i] && (
                           <button
                             onClick={() => { void navigator.clipboard.writeText(revealedKeys[i]!); }}
@@ -446,12 +447,6 @@ export function ProviderDetail({ id }: { id: string }) {
                           <Icon name="delete" size={15} />
                         </button>
                       </div>
-                      {ks?.last_error && (
-                        <div className="mt-1.5 pl-8 text-[12px]">
-                          <p className="text-danger">{ks.last_error.status ? `${ks.last_error.status}: ` : ""}{ks.last_error.message}</p>
-                          <span className="text-text-subtle">{new Date(ks.last_error.at).toLocaleTimeString()}</span>
-                        </div>
-                      )}
                     </div>
                   );
                 })}
