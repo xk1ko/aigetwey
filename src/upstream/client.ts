@@ -163,6 +163,20 @@ function classifyError(status: number | undefined, msg: string): PingErrorType {
  * Any HTTP status means the host is reachable; 2xx means the key is accepted.
  * Never throws — returns a structured result for the dashboard.
  */
+const STATUS_ERRORS: Record<number, string> = {
+  400: "Bad request — check API parameters",
+  401: "Authentication failed — invalid API key",
+  403: "Access forbidden — key lacks permission",
+  404: "Endpoint not found — check base URL",
+  408: "Request timeout",
+  422: "Unprocessable request",
+  429: "Rate limit exceeded — too many requests",
+  500: "Internal server error on provider side",
+  502: "Bad gateway — provider upstream is down",
+  503: "Service unavailable — provider is overloaded",
+  504: "Gateway timeout — provider took too long",
+};
+
 export async function pingProvider(provider: Provider, key: string | undefined): Promise<PingResult> {
   const base = provider.base_url.replace(/\/$/, "");
   const url = `${base}/models`;
@@ -175,11 +189,15 @@ export async function pingProvider(provider: Provider, key: string | undefined):
     const ok = res.statusCode >= 200 && res.statusCode < 300;
     let error: string | undefined;
     if (!ok) {
+      const fallback = STATUS_ERRORS[res.statusCode] ?? `HTTP ${res.statusCode}`;
       try {
         const parsed = JSON.parse(text);
-        error = parsed?.error?.message ?? parsed?.error ?? parsed?.message ?? text.slice(0, 200);
+        error = parsed?.error?.message
+          ?? (typeof parsed?.error === "string" ? parsed.error : null)
+          ?? parsed?.message
+          ?? fallback;
       } catch {
-        error = text.slice(0, 200) || undefined;
+        error = text.slice(0, 200).trim() || fallback;
       }
     }
     return {

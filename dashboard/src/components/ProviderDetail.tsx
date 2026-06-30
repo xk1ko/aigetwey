@@ -382,6 +382,9 @@ export function ProviderDetail({ id }: { id: string }) {
                             <Badge tone={tested.ok ? "live" : tested.status && tested.status === 429 ? "warn" : "down"}>
                               {tested.ok ? `${tested.status ?? 200}` : tested.reachable ? `${tested.status}` : "—"}
                             </Badge>
+                            {!tested.ok && tested.error && (
+                              <span className="text-[10px] text-danger/70 truncate max-w-[120px]">{tested.error}</span>
+                            )}
                           </div>
                         ) : ks?.last_error && !ks.healthy ? (
                           <div className="flex items-center gap-1.5">

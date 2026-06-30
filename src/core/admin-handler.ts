@@ -477,7 +477,7 @@ export async function handleAdmin(
             deps.state.pool.success(provider, key);
           } else if (result.reachable && result.status) {
             deps.state.pool.penalize(provider, key, {
-              message: `upstream returned ${result.status}`,
+              message: result.error ?? `upstream returned ${result.status}`,
               status: result.status,
             });
           }
