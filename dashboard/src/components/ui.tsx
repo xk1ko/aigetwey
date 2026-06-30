@@ -57,3 +57,14 @@ export function Stat({ label, value, sub }: { label: string; value: React.ReactN
 export function Empty({ children }: { children: React.ReactNode }) {
   return <div className="px-1 py-8 text-center text-[13px] text-text-muted">{children}</div>;
 }
+
+/** Branded three-dot loading animation for in-page data fetch states. */
+export function LoadingDots({ className = "" }: { className?: string }) {
+  return (
+    <div className={`flex items-center justify-center gap-1.5 py-8 ${className}`}>
+      <span className="h-2 w-2 animate-pulse rounded-full bg-accent [animation-delay:-0.3s]" />
+      <span className="h-2 w-2 animate-pulse rounded-full bg-accent [animation-delay:-0.15s]" />
+      <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
+    </div>
+  );
+}

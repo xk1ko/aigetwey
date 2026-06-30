@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { adminApi } from "@/lib/client";
 import { Button, Input } from "@/components/Button";
 import { Icon } from "@/components/Icon";
-import { Empty } from "@/components/ui";
+import { Empty, LoadingDots } from "@/components/ui";
 import type { EndpointPayload, HeadroomStatusReply, InjectLevel } from "@/lib/gateway";
 
 const LEVELS: InjectLevel[] = ["off", "lite", "full", "ultra"];
@@ -47,7 +47,7 @@ export function EndpointView() {
   }
 
   if (error) return <Empty>{error}</Empty>;
-  if (!ep) return <Empty>Loading…</Empty>;
+  if (!ep) return <LoadingDots />;
 
   const baseUrl = `http://localhost:${ep.port}`;
 

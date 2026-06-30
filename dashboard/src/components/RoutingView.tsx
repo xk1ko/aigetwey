@@ -22,7 +22,7 @@ import { Button, Input, Select, Field } from "@/components/Button";
 import { ModelPicker, type ModelGroup } from "@/components/ModelPicker";
 import { Icon } from "@/components/Icon";
 import { ConfirmModal } from "@/components/ConfirmModal";
-import { fmt, Empty } from "@/components/ui";
+import { fmt, Empty, LoadingDots } from "@/components/ui";
 import type { MaskedConfig, MaskedRoute, ProviderSnapshot } from "@/lib/gateway";
 
 function modelFor(route: MaskedRoute, i: number): string {
@@ -61,7 +61,7 @@ export function RoutingView() {
   }, [reload]);
 
   if (error) return <Empty>{error}</Empty>;
-  if (!config) return <Empty>Loading…</Empty>;
+  if (!config) return <LoadingDots />;
 
   const healthy = (pid: string) => {
     const h = health.find((x) => x.id === pid);

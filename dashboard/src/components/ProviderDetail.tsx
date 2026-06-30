@@ -8,7 +8,7 @@ import { Badge } from "@/components/Badge";
 import { CooldownTimer } from "@/components/CooldownTimer";
 import { Button, Input, Field } from "@/components/Button";
 import { Icon } from "@/components/Icon";
-import { fmt, Empty } from "@/components/ui";
+import { fmt, Empty, LoadingDots } from "@/components/ui";
 import { ModelSelectModal, type DiscoveredModel } from "@/components/ModelSelectModal";
 import { CapacityBadges } from "@/components/CapacityBadges";
 import { ConfirmModal } from "@/components/ConfirmModal";
@@ -102,7 +102,7 @@ export function ProviderDetail({ id }: { id: string }) {
   }, [reload]);
 
   if (error) return <Empty>{error}</Empty>;
-  if (!provider) return <Empty>Loading…</Empty>;
+  if (!provider) return <LoadingDots />;
 
   const keys = provider.api_keys ?? (provider.api_key ? [provider.api_key] : []);
   const q = modelFilter.trim().toLowerCase();
@@ -154,7 +154,7 @@ export function ProviderDetail({ id }: { id: string }) {
                     {ping.ok ? `${ping.status ?? 200}` : ping.reachable ? `${ping.status}` : "—"}
                   </Badge>
                   {!ping.ok && ping.error && (
-                    <span className="text-[11px] text-danger/70 truncate max-w-[200px]">{ping.error}</span>
+                    <span className="text-[11px] text-danger/70 truncate max-w-[200px]" title={ping.error}>{ping.error}</span>
                   )}
                 </div>
               )}
@@ -383,7 +383,7 @@ export function ProviderDetail({ id }: { id: string }) {
                               {tested.ok ? `${tested.status ?? 200}` : tested.reachable ? `${tested.status}` : "—"}
                             </Badge>
                             {!tested.ok && tested.error && (
-                              <span className="text-[10px] text-danger/70 truncate max-w-[120px]">{tested.error}</span>
+                              <span className="text-[10px] text-danger/70 truncate max-w-[120px]" title={tested.error}>{tested.error}</span>
                             )}
                           </div>
                         ) : ks?.last_error && !ks.healthy ? (
@@ -391,7 +391,7 @@ export function ProviderDetail({ id }: { id: string }) {
                             <Badge tone={ks.last_error.status === 429 ? "warn" : "down"}>
                               {ks.last_error.status ?? "err"}
                             </Badge>
-                            <span className="text-[10px] text-danger/70 truncate max-w-[100px]">{ks.last_error.message}</span>
+                            <span className="text-[10px] text-danger/70 truncate max-w-[100px]" title={ks.last_error.message}>{ks.last_error.message}</span>
                           </div>
                         ) : null}
                         {revealedKeys[i] && (

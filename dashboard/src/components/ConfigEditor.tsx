@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/Button";
 import { Badge } from "@/components/Badge";
 import { Icon } from "@/components/Icon";
-import { Empty } from "@/components/ui";
+import { Empty, LoadingDots } from "@/components/ui";
 import { PricingEditor } from "@/components/PricingEditor";
 import { PasswordEditor } from "@/components/PasswordEditor";
 import { AutostartToggle } from "@/components/AutostartToggle";
@@ -116,7 +116,7 @@ export function ConfigEditor() {
                   </Row>
                 </>
               ) : (
-                <Empty>Loading…</Empty>
+                <LoadingDots />
               )}
             </div>
           </div>
@@ -205,7 +205,7 @@ export function ConfigEditor() {
             </pre>
           )}
           {loading ? (
-            <Empty>Loading…</Empty>
+            <LoadingDots />
           ) : (
             <textarea
               value={text}

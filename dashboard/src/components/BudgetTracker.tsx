@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { adminApi } from "@/lib/client";
 import { Badge } from "@/components/Badge";
 import { CooldownTimer } from "@/components/CooldownTimer";
-import { fmt, Empty } from "@/components/ui";
+import { fmt, Empty, LoadingDots } from "@/components/ui";
 import { BudgetForm } from "@/components/BudgetForm";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { Button } from "@/components/Button";
@@ -43,7 +43,7 @@ export function BudgetTracker() {
   useEffect(() => { refresh(); }, []);
 
   if (error) return <Empty>{error}</Empty>;
-  if (!loaded) return <Empty>Loading...</Empty>;
+  if (!loaded) return <LoadingDots />;
 
   const overall = budgets.filter((b) => b.scope.type !== "key");
   const totalSpend = overall.reduce((s, b) => s + b.spent, 0);

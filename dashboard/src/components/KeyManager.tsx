@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { adminApi } from "@/lib/client";
 import { Button, Input } from "@/components/Button";
 import { Icon } from "@/components/Icon";
-import { Empty } from "@/components/ui";
+import { Empty, LoadingDots } from "@/components/ui";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { KeyScopeModal } from "@/components/KeyScopeModal";
 import type { EndpointPayload, MaskedConfig } from "@/lib/gateway";
@@ -85,7 +85,7 @@ export function KeyManager() {
     await reload();
   }
 
-  if (!ep) return <Empty>Loading…</Empty>;
+  if (!ep) return <LoadingDots />;
 
   const activeKey = scopeKey !== null ? ep.keys[scopeKey] : null;
   const filtered = ep.keys.filter((k) => {

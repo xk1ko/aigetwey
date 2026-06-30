@@ -22,7 +22,7 @@ import { Badge, FormatBadge } from "@/components/Badge";
 import { CooldownTimer } from "@/components/CooldownTimer";
 import { Button, Input, Field } from "@/components/Button";
 import { Icon } from "@/components/Icon";
-import { Empty } from "@/components/ui";
+import { Empty, LoadingDots } from "@/components/ui";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import type { MaskedConfig, PingResult, ProviderSnapshot, WireFormat, ImportResult, BatchTestResponse, BatchTestResult } from "@/lib/gateway";
 
@@ -159,7 +159,7 @@ export function ProviderManager() {
   }
 
   if (error) return <Empty>{error}</Empty>;
-  if (!data) return <Empty>Loading…</Empty>;
+  if (!data) return <LoadingDots />;
 
   const healthById = new Map(data.health.map((h) => [h.id, h]));
   const providerMap = new Map(data.config.providers.map((p) => [p.id, p]));

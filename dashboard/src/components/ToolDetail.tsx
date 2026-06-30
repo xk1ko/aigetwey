@@ -7,7 +7,7 @@ import { Badge } from "@/components/Badge";
 import { Button, Select } from "@/components/Button";
 import { ModelPicker, type ModelGroup } from "@/components/ModelPicker";
 import { Icon } from "@/components/Icon";
-import { Empty } from "@/components/ui";
+import { Empty, LoadingDots } from "@/components/ui";
 import { adminApi, cliConfig, type CliStatus } from "@/lib/client";
 import { toolById } from "@/lib/cliTools";
 import { modalitiesForModel } from "@/lib/capabilities";
@@ -185,7 +185,7 @@ export function ToolDetail({ id }: { id: string }) {
 
   if (!tool) return <Empty>Unknown tool.</Empty>;
   if (error) return <Empty>{error}</Empty>;
-  if (!ep) return <Empty>Loading…</Empty>;
+  if (!ep) return <LoadingDots />;
 
   const autoBase = `http://127.0.0.1:${ep.port}`;
   const base = selectedBase || autoBase;

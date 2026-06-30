@@ -5,6 +5,7 @@ import { RichCard, CardTitle } from "@/components/RichCard";
 import { Badge } from "@/components/Badge";
 import { Button } from "@/components/Button";
 import { Icon } from "@/components/Icon";
+import { LoadingDots } from "@/components/ui";
 import { adminApi } from "@/lib/client";
 import type { NotificationConfig, AlertLogEntry } from "@/lib/gateway";
 
@@ -103,7 +104,7 @@ export function NotificationsView() {
     patch(id, { events: has ? cfg.events.filter((e) => e !== eventId) : [...cfg.events, eventId] });
   }
 
-  if (loading) return <p className="text-text-subtle">Loading…</p>;
+  if (loading) return <LoadingDots />;
 
   return (
     <div>
