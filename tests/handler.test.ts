@@ -159,7 +159,7 @@ describe("scoped budget hard-stop", () => {
     const deps = { ...depsWith(), budget: globalExhausted };
     await expect(
       handle(deps, "openai", { model: "smart", messages: [{ role: "user", content: "hi" }] }),
-    ).rejects.toMatchObject({ status: 402, payload: { error: expect.stringContaining("budget exceeded"), reset_in_ms: 1234 } });
+    ).rejects.toMatchObject({ status: 402, payload: { error: { message: expect.stringContaining("budget exceeded"), reset_in_ms: 1234 } } });
   });
 
   it("402 when all routes are blocked by scoped budgets", async () => {
@@ -171,7 +171,7 @@ describe("scoped budget hard-stop", () => {
     const deps = { ...depsWith(), budget: allBlocked };
     await expect(
       handle(deps, "openai", { model: "smart", messages: [{ role: "user", content: "hi" }] }),
-    ).rejects.toMatchObject({ status: 402, payload: { error: expect.stringContaining("budget exceeded"), reset_in_ms: 777 } });
+    ).rejects.toMatchObject({ status: 402, payload: { error: { message: expect.stringContaining("budget exceeded"), reset_in_ms: 777 } } });
   });
 
   it("200 when only the first provider is blocked and fallback serves an unblocked route", async () => {
@@ -272,7 +272,7 @@ describe("per-key budget hard-stop", () => {
   it("402 when the caller key is over budget", async () => {
     const deps = { ...depsWith(), budget: keyBlocked, clientKeyFp: "aaaa1111" };
     await expect(handle(deps, "openai", { model: "smart", messages: [{ role: "user", content: "hi" }] }))
-      .rejects.toMatchObject({ status: 402, payload: { error: expect.stringContaining("budget exceeded"), reset_in_ms: 42 } });
+      .rejects.toMatchObject({ status: 402, payload: { error: { message: expect.stringContaining("budget exceeded"), reset_in_ms: 42 } } });
   });
   it("passes a different key through", async () => {
     const upstreamJson = {

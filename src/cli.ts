@@ -16,7 +16,7 @@
  */
 import { spawn, execSync, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { existsSync, copyFileSync, readFileSync, writeFileSync, mkdirSync, statSync } from "node:fs";
+import { existsSync, copyFileSync, readFileSync, writeFileSync, mkdirSync, statSync, readlinkSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createInterface } from "node:readline";
@@ -191,7 +191,17 @@ async function ensurePortFree(port: number, envVar: string): Promise<void> {
     // ps failed — fall through to the unknown-owner branch
   }
 
-  if (!/aigloo/.test(cmd)) {
+  // also check the process CWD — standalone server.js runs with a relative
+  // path, so "aigloo" won't appear in the command string. Read /proc/PID/cwd
+  // (Linux) to see if it's inside the aigloo package directory.
+  let cwd = "";
+  try {
+    cwd = readlinkSync(`/proc/${pid}/cwd`);
+  } catch {}
+
+  const isOurs = /aigloo/.test(cmd) || /aigloo/.test(cwd) || /\.(\/)?(dist\/(server|cli)\.js|dashboard\/\.next\/standalone\/server\.js)/.test(cmd);
+
+  if (!isOurs) {
     console.error(
       `  port ${port} is in use by another process (pid ${pid}). free it or set ${envVar}.`,
     );

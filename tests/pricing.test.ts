@@ -26,6 +26,6 @@ describe("cost from resolved pricing", () => {
   it("computes a non-zero cost from the table rate", () => {
     const p = getPricingForModel(null, "claude-opus-4-6")!;
     // 1M in + 1M out at 5/25 per 1M = $30
-    expect(computeCost(1_000_000, 1_000_000, p.input, p.output)).toBeCloseTo(30, 5);
+    expect(computeCost({ tokensIn: 1_000_000, tokensOut: 1_000_000, cachedTokens: 0, cacheCreationTokens: 0, reasoningTokens: 0, priceIn: p.input, priceOut: p.output, priceCached: 0, priceCacheCreation: 0, priceReasoning: 0 })).toBeCloseTo(30, 5);
   });
 });

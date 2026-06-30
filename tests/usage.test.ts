@@ -8,13 +8,13 @@ function db(now = () => 1_000_000) {
 
 describe("computeCost", () => {
   it("prices input and output per 1M tokens", () => {
-    expect(computeCost(1_000_000, 1_000_000, 3, 15)).toBeCloseTo(18);
+    expect(computeCost({ tokensIn: 1_000_000, tokensOut: 1_000_000, cachedTokens: 0, cacheCreationTokens: 0, reasoningTokens: 0, priceIn: 3, priceOut: 15, priceCached: 0, priceCacheCreation: 0, priceReasoning: 0 })).toBeCloseTo(18);
   });
   it("is zero when no prices are set", () => {
-    expect(computeCost(1000, 2000)).toBe(0);
+    expect(computeCost({ tokensIn: 1000, tokensOut: 2000, cachedTokens: 0, cacheCreationTokens: 0, reasoningTokens: 0, priceIn: 0, priceOut: 0, priceCached: 0, priceCacheCreation: 0, priceReasoning: 0 })).toBe(0);
   });
   it("prices only the side that has a price", () => {
-    expect(computeCost(2_000_000, 500_000, 2)).toBeCloseTo(4);
+    expect(computeCost({ tokensIn: 2_000_000, tokensOut: 500_000, cachedTokens: 0, cacheCreationTokens: 0, reasoningTokens: 0, priceIn: 2, priceOut: 0, priceCached: 0, priceCacheCreation: 0, priceReasoning: 0 })).toBeCloseTo(4);
   });
 });
 

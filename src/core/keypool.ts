@@ -103,6 +103,7 @@ export class KeyPool {
     if (!state) return;
     state.failCount = 0;
     state.cooldownUntil = 0;
+    state.lastError = undefined;
   }
 
   /** True if at least one key is currently usable. */

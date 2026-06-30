@@ -22,11 +22,11 @@ export function proxy(req: NextRequest): NextResponse {
   if (openSession(token)) return NextResponse.next();
 
   if (pathname.startsWith("/api/")) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "unauthorized" }, { status: 401, headers: { "Cache-Control": "no-store" } });
   }
   const url = req.nextUrl.clone();
   url.pathname = "/login";
-  return NextResponse.redirect(url);
+  return NextResponse.redirect(url, { headers: { "Cache-Control": "no-store" } });
 }
 
 export const config = {

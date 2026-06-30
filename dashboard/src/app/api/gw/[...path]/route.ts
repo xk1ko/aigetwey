@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { gw } from "@/lib/gw";
 import { handleAdmin } from "@/gw/core/admin-handler.js";
-import { checkAdminAuth, extractKey } from "@/gw/middleware/auth.js";
-import { consoleBuffer } from "@/gw/core/console-buffer.js";
+import { currentPassword } from "@/lib/session";
 
 type Ctx = { params: Promise<{ path: string[] }> };
 
@@ -22,9 +21,9 @@ async function proxy(req: NextRequest, path: string[]): Promise<NextResponse | R
   }
 
   const g = gw();
-  const authRes = checkAdminAuth(req.headers, g.auth);
-  if (!authRes.ok) {
-    return NextResponse.json({ error: authRes.error }, { status: authRes.status ?? 401, headers: SECURITY_HEADERS });
+  const password = await currentPassword();
+  if (!password || !g.auth.verify(password)) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401, headers: SECURITY_HEADERS });
   }
 
   const segments = sub.split("/").slice(1);
