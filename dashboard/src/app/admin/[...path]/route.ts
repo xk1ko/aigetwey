@@ -1,19 +1,11 @@
-import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { gw } from "@/lib/gw";
 import { handleAdmin } from "@/gw/core/admin-handler.js";
 import { checkAdminAuth } from "@/gw/middleware/auth.js";
+import { SECURITY_HEADERS, adminResultToResponse, bodyTooLarge } from "@/lib/http";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const SECURITY_HEADERS: Record<string, string> = {
-  "X-Content-Type-Options": "nosniff",
-  "X-Frame-Options": "DENY",
-  "X-XSS-Protection": "0",
-  "Referrer-Policy": "no-referrer",
-  "Cache-Control": "no-store",
-};
 
 type Ctx = { params: Promise<{ path: string[] }> };
 
@@ -22,6 +14,10 @@ async function handle(req: NextRequest, ctx: Ctx): Promise<Response> {
   const authRes = checkAdminAuth(req.headers, g.auth);
   if (!authRes.ok) {
     return Response.json({ error: authRes.error }, { status: authRes.status ?? 401, headers: SECURITY_HEADERS });
+  }
+
+  if (bodyTooLarge(req)) {
+    return Response.json({ error: "request body too large" }, { status: 413, headers: SECURITY_HEADERS });
   }
 
   const segments = (await ctx.params).path;
@@ -41,24 +37,7 @@ async function handle(req: NextRequest, ctx: Ctx): Promise<Response> {
     log: g.log,
   });
 
-  if (result.stream) {
-    return new Response(result.stream, {
-      status: result.status,
-      headers: { ...SECURITY_HEADERS, ...(result.headers ?? {}) },
-    });
-  }
-
-  if (typeof result.body === "string") {
-    return new NextResponse(result.body, {
-      status: result.status,
-      headers: { ...SECURITY_HEADERS, ...(result.headers ?? {}) },
-    });
-  }
-
-  return NextResponse.json(result.body ?? {}, {
-    status: result.status,
-    headers: { ...SECURITY_HEADERS, ...(result.headers ?? {}) },
-  });
+  return adminResultToResponse(result);
 }
 
 export async function GET(req: NextRequest, ctx: Ctx) { return handle(req, ctx); }

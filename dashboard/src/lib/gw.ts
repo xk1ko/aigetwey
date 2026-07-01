@@ -8,7 +8,7 @@ import { AuthStore } from "@/gw/core/authStore.js";
 import { Notifier } from "@/gw/core/notifier.js";
 import { RateLimiter } from "@/gw/core/ratelimit.js";
 import { consoleBuffer } from "@/gw/core/console-buffer.js";
-import { getPricingForModel, setRuntimePricingOverrides, type Pricing } from "@/gw/providers/pricing.js";
+import { initAdmin } from "@/gw/core/admin-handler.js";
 
 export interface Gw {
   state: GatewayState;
@@ -17,10 +17,15 @@ export interface Gw {
   notifier: Notifier;
   limiter: RateLimiter;
   log: (msg: string) => void;
-  close: () => void;
 }
 
-let _gw: Gw | null = null;
+// Anchored on globalThis (not a plain module-level `let`) so Next.js dev-mode
+// HMR — which re-evaluates this module on every edit to its dependency graph —
+// doesn't reset it and silently open a second sqlite/AuthStore handle. Same
+// pattern Next's own docs recommend for a Prisma-style singleton.
+declare global {
+  var __aigloo_gw: Gw | undefined;
+}
 
 function init(): Gw {
   const configPath = getConfigPath();
@@ -32,38 +37,30 @@ function init(): Gw {
   const notifier = new Notifier(db);
   const limiter = new RateLimiter();
 
-  const rows = db.listPricingOverrides();
-  const map: Record<string, Pricing> = {};
-  for (const r of rows) {
-    const base = getPricingForModel(null, r.model);
-    map[r.model] = {
-      input: r.input ?? base?.input ?? 0,
-      output: r.output ?? base?.output ?? 0,
-      cached: r.cached ?? base?.cached,
-      cache_creation: r.cache_creation ?? base?.cache_creation,
-      reasoning: r.reasoning ?? base?.reasoning,
-    };
-  }
-  setRuntimePricingOverrides(map);
-
   const log = (msg: string) => {
     consoleBuffer.push("INFO", msg);
     console.log(msg);
   };
 
+  // Also seeds the runtime pricing-override map — same function handleAdmin()
+  // calls lazily on its own first request, so calling it here up front means
+  // that lazy path sees `pricingInitialized` already true and skips its own
+  // (previously duplicate) reload.
+  initAdmin({ state, db, auth, notifier, log });
+
   consoleBuffer.push("INFO", "aigloo gateway initialized");
 
-  return { state, db, auth, notifier, limiter, log, close: () => db.close() };
+  return { state, db, auth, notifier, limiter, log };
 }
 
 export function gw(): Gw {
-  if (!_gw) {
+  if (!globalThis.__aigloo_gw) {
     try {
-      _gw = init();
+      globalThis.__aigloo_gw = init();
     } catch (e) {
       console.error("[gw] init FAILED:", e);
       throw e;
     }
   }
-  return _gw;
+  return globalThis.__aigloo_gw;
 }

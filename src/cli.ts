@@ -24,6 +24,7 @@ import { ensureTrayRuntime } from "./cli/tray/trayRuntime.js";
 import { initTray, killTray } from "./cli/tray/tray.js";
 import { enableAutoStart } from "./cli/tray/autostart.js";
 import { getDataDir, getConfigPath } from "./appDirs.js";
+import { loadConfig } from "./config.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const dashboardDir = join(root, "dashboard");
@@ -236,6 +237,17 @@ process.on("SIGTERM", () => {
   process.exit(0);
 });
 
+/** config.server.host, falling back to loopback (never wide-open) if config
+ *  can't be read — ensureSetup() has already seeded it by the time this runs,
+ *  so a failure here means something is actually wrong with config.yaml. */
+function resolveHostname(): string {
+  try {
+    return loadConfig(getConfigPath()).server.host;
+  } catch {
+    return "127.0.0.1";
+  }
+}
+
 function spawnDashboard(): ChildProcess {
   const standaloneDir = join(dashboardDir, ".next", "standalone");
   const standaloneServer = join(standaloneDir, "server.js");
@@ -251,7 +263,7 @@ function spawnDashboard(): ChildProcess {
   const env = {
     ...process.env,
     PORT: String(GATEWAY_PORT),
-    HOSTNAME: "127.0.0.1",
+    HOSTNAME: resolveHostname(),
     AIGLOO_ADMIN_PASSWORD: adminPassword,
     AIGLOO_PORT: String(GATEWAY_PORT),
     AIGLOO_DATA_DIR: getDataDir(),

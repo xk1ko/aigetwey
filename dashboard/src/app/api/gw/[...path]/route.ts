@@ -3,16 +3,9 @@ import type { NextRequest } from "next/server";
 import { gw } from "@/lib/gw";
 import { handleAdmin } from "@/gw/core/admin-handler.js";
 import { isSessionValid, SESSION_COOKIE } from "@/lib/session";
+import { SECURITY_HEADERS, adminResultToResponse, bodyTooLarge } from "@/lib/http";
 
 type Ctx = { params: Promise<{ path: string[] }> };
-
-const SECURITY_HEADERS: Record<string, string> = {
-  "X-Content-Type-Options": "nosniff",
-  "X-Frame-Options": "DENY",
-  "X-XSS-Protection": "0",
-  "Referrer-Policy": "no-referrer",
-  "Cache-Control": "no-store",
-};
 
 async function proxy(req: NextRequest, path: string[]): Promise<NextResponse | Response> {
   const sub = path.join("/");
@@ -28,6 +21,10 @@ async function proxy(req: NextRequest, path: string[]): Promise<NextResponse | R
   const token = req.cookies.get(SESSION_COOKIE)?.value;
   if (!isSessionValid(token, g.auth.version)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401, headers: SECURITY_HEADERS });
+  }
+
+  if (bodyTooLarge(req)) {
+    return NextResponse.json({ error: "request body too large" }, { status: 413, headers: SECURITY_HEADERS });
   }
 
   const segments = sub.split("/").slice(1);
@@ -47,27 +44,7 @@ async function proxy(req: NextRequest, path: string[]): Promise<NextResponse | R
     log: g.log,
   });
 
-  if (result.stream) {
-    return new Response(result.stream, {
-      status: result.status,
-      headers: {
-        ...SECURITY_HEADERS,
-        ...(result.headers ?? {}),
-      },
-    });
-  }
-
-  if (typeof result.body === "string") {
-    return new NextResponse(result.body, {
-      status: result.status,
-      headers: { ...SECURITY_HEADERS, ...(result.headers ?? {}) },
-    });
-  }
-
-  return NextResponse.json(result.body ?? {}, {
-    status: result.status,
-    headers: { ...SECURITY_HEADERS, ...(result.headers ?? {}) },
-  });
+  return adminResultToResponse(result);
 }
 
 export async function GET(req: NextRequest, ctx: Ctx) {

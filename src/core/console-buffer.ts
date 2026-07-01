@@ -18,7 +18,19 @@ class ConsoleBuffer {
     const entry: LogEntry = { ts: Date.now(), level, message };
     this.entries.push(entry);
     if (this.entries.length > MAX_ENTRIES) this.entries.shift();
-    for (const fn of this.listeners) fn(entry);
+    // A subscriber (the SSE console-stream) can be writing to an already-dead
+    // connection if its cancel() didn't fire on disconnect — isolate that so
+    // one stale listener can't throw out of push() and break every other
+    // caller's log() on the next line of business logic. Self-heals: a
+    // listener that throws is proven dead, so drop it instead of throwing on
+    // every future push() too.
+    for (const fn of this.listeners) {
+      try {
+        fn(entry);
+      } catch {
+        this.listeners.delete(fn);
+      }
+    }
   }
 
   recent(): LogEntry[] {

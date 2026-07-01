@@ -4,6 +4,7 @@ import { handle, GatewayError, type HandleDeps } from "@/gw/core/handler.js";
 import type { WireFormat } from "@/gw/core/canonical.js";
 import { handleEmbeddings, type EmbeddingsRequest } from "@/gw/core/embeddings.js";
 import { gw } from "./gw";
+import { SECURITY_HEADERS, corsHeaders, bodyTooLarge } from "./http";
 
 function getClientIp(req: Request): string {
   // Set by the net-preload.cjs http.createServer patch (see src/cli.ts), which
@@ -14,23 +15,7 @@ function getClientIp(req: Request): string {
   return req.headers.get("x-aigloo-real-ip") ?? "unknown";
 }
 
-function corsHeaders(req: Request): Record<string, string> {
-  return {
-    "Access-Control-Allow-Origin": req.headers.get("origin") ?? "*",
-    "Access-Control-Allow-Headers": "Authorization, Content-Type, x-api-key, anthropic-version",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  };
-}
-
-const SECURITY_HEADERS: Record<string, string> = {
-  "X-Content-Type-Options": "nosniff",
-  "X-Frame-Options": "DENY",
-  "X-XSS-Protection": "0",
-  "Referrer-Policy": "no-referrer",
-  "Cache-Control": "no-store",
-};
-
-function sseToStream(sse: AsyncIterable<Uint8Array>): ReadableStream<Uint8Array> {
+function sseToStream(sse: AsyncIterable<Uint8Array>, log: (msg: string) => void): ReadableStream<Uint8Array> {
   const iter = sse[Symbol.asyncIterator]();
   return new ReadableStream<Uint8Array>({
     async pull(controller) {
@@ -38,7 +23,8 @@ function sseToStream(sse: AsyncIterable<Uint8Array>): ReadableStream<Uint8Array>
         const { done, value } = await iter.next();
         if (done) controller.close();
         else controller.enqueue(value);
-      } catch {
+      } catch (e) {
+        log(`[v1] stream error: ${(e as Error).message}`);
         controller.close();
       }
     },
@@ -65,6 +51,10 @@ function authenticateV1(req: Request, g: ReturnType<typeof gw>): AuthOutcome {
   const authRes = checkAuth(req.headers, ip, state.config.server.api_keys);
   if (!authRes.ok) {
     return { ok: false, response: Response.json({ error: authRes.error }, { status: authRes.status ?? 401, headers }) };
+  }
+
+  if (bodyTooLarge(req)) {
+    return { ok: false, response: Response.json({ error: "request body too large" }, { status: 413, headers }) };
   }
 
   const presented = extractKey(req.headers);
@@ -125,7 +115,7 @@ export async function dispatchV1(req: Request, clientFormat: WireFormat): Promis
   const baseHeaders = { ...SECURITY_HEADERS, ...corsHeaders(req) };
 
   if (result.sse) {
-    return new Response(sseToStream(result.sse), {
+    return new Response(sseToStream(result.sse, log), {
       status: result.status,
       headers: {
         ...baseHeaders,
