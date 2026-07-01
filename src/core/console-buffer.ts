@@ -47,5 +47,13 @@ class ConsoleBuffer {
   }
 }
 
-export const consoleBuffer = new ConsoleBuffer();
+// Anchored on globalThis (not a plain module-level const) so Next.js dev-mode
+// HMR — which re-evaluates modules under the @/gw/* alias when dist/ changes —
+// doesn't reset it and silently drop the whole log history. Same pattern as
+// gw()'s singleton in dashboard/src/lib/gw.ts.
+declare global {
+  var __aigloo_console_buffer: ConsoleBuffer | undefined;
+}
+
+export const consoleBuffer = globalThis.__aigloo_console_buffer ?? (globalThis.__aigloo_console_buffer = new ConsoleBuffer());
 export type { LogEntry, LogLevel };
