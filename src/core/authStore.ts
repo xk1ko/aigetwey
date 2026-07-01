@@ -15,6 +15,10 @@ interface AuthRecord {
   algo: "scrypt";
   salt: string;
   hash: string;
+  /** Regenerated on every seed/change — session cookies embed this, so rotating
+   *  the password invalidates every outstanding session in one place (see
+   *  dashboard/src/lib/session.ts). Not a secret, just a change fingerprint. */
+  version: string;
 }
 
 function hashPassword(password: string, salt: Buffer): Buffer {
@@ -24,7 +28,12 @@ function hashPassword(password: string, salt: Buffer): Buffer {
 
 function makeRecord(password: string): AuthRecord {
   const salt = randomBytes(16);
-  return { algo: "scrypt", salt: salt.toString("hex"), hash: hashPassword(password, salt).toString("hex") };
+  return {
+    algo: "scrypt",
+    salt: salt.toString("hex"),
+    hash: hashPassword(password, salt).toString("hex"),
+    version: randomBytes(8).toString("hex"),
+  };
 }
 
 export class AuthStore {
@@ -44,7 +53,26 @@ export class AuthStore {
     }
     // seed from the env password when there's nothing stored yet.
     if (!store.record && seed) store.persist(makeRecord(seed));
+    // upgrade path: a record written before `version` existed — stamp one in
+    // now so session binding has something to compare against, and so every
+    // outstanding pre-upgrade session cookie is invalidated once (expected: a
+    // one-time re-login after upgrading, same as a password rotation).
+    else if (store.record && !store.record.version) {
+      store.persist({ ...store.record, version: randomBytes(8).toString("hex") });
+    }
     return store;
+  }
+
+  /** Cheap read of the current password version without booting a full
+   *  AuthStore/gateway instance — safe to call from middleware on every
+   *  request. Returns "" if no auth.json exists yet (admin disabled). */
+  static currentVersion(dataDir: string): string {
+    try {
+      const rec = JSON.parse(readFileSync(join(dataDir, "auth.json"), "utf8")) as AuthRecord;
+      return rec.version ?? "";
+    } catch {
+      return "";
+    }
   }
 
   /** In-memory store seeded from a password — for tests (file under tmpdir). */
@@ -57,6 +85,11 @@ export class AuthStore {
   /** True once a password is set (stored or seeded). */
   get enabled(): boolean {
     return this.record !== null;
+  }
+
+  /** Current password's change-fingerprint — see AuthRecord.version. */
+  get version(): string {
+    return this.record?.version ?? "";
   }
 
   private persist(rec: AuthRecord): void {

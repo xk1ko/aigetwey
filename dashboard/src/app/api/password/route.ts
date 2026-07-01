@@ -2,11 +2,14 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { sealSession, SESSION_COOKIE } from "@/lib/session";
 import { gateway } from "@/lib/gateway";
+import { gw } from "@/lib/gw";
 
 /**
  * Change the admin password. The gateway verifies the current password and
- * persists the new hash; on success we re-issue the session cookie carrying the
- * new password so this browser stays logged in (other sessions must re-login).
+ * persists the new hash (which also rotates AuthStore.version); on success we
+ * re-issue this browser's session cookie bound to the new version so it stays
+ * logged in — every other outstanding session's cookie now carries a stale
+ * version and gets rejected on its next request, no separate revocation step.
  */
 export async function POST(req: Request): Promise<NextResponse> {
   const { current, next } = (await req.json().catch(() => ({}))) as { current?: string; next?: string };
@@ -23,7 +26,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
 
   const jar = await cookies();
-  jar.set(SESSION_COOKIE, sealSession(next), {
+  jar.set(SESSION_COOKIE, sealSession(gw().auth.version), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

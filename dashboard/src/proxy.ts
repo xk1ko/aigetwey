@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { openSession, SESSION_COOKIE } from "@/lib/session";
+import { isSessionValid, SESSION_COOKIE } from "@/lib/session";
+import { AuthStore } from "@/gw/core/authStore.js";
+import { getDataDir } from "@/gw/appDirs.js";
 
 /**
  * Gate every page and admin-proxy route behind a valid session. The login page
@@ -15,11 +17,12 @@ export function proxy(req: NextRequest): NextResponse {
     return NextResponse.next();
   }
 
-  // a session is valid only if its cookie decrypts to a password — this also
-  // rejects stale cookies from an older format (which would yield an empty
-  // Bearer and a confusing "missing admin password" from the gateway).
+  // a session is valid only if its signature checks out AND its embedded
+  // password-version still matches the current one — rotating the password
+  // invalidates every outstanding session at once (also rejects stale
+  // cookies from the older password-carrying cookie format, which had no `v`).
   const token = req.cookies.get(SESSION_COOKIE)?.value;
-  if (openSession(token)) return NextResponse.next();
+  if (isSessionValid(token, AuthStore.currentVersion(getDataDir()))) return NextResponse.next();
 
   if (pathname.startsWith("/api/")) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401, headers: { "Cache-Control": "no-store" } });

@@ -1,72 +1,57 @@
-import { createHmac, timingSafeEqual, createCipheriv, createDecipheriv, scryptSync, randomBytes } from "node:crypto";
-import { cookies } from "next/headers";
+import { createHmac, timingSafeEqual } from "node:crypto";
 
 /**
- * Dashboard session. The browser never holds the admin password in readable
- * form: on login we verify it against the gateway, encrypt it (AES-256-GCM) and
- * sign the ciphertext (HMAC), then store that in an httpOnly cookie. The proxy
- * and server-side fetches decrypt it to use as the gateway Bearer; the password
- * itself never reaches client JS.
+ * Dashboard session. The cookie carries no secret — just a signed claim
+ * `{ v, iat }` where `v` is the admin password's current change-fingerprint
+ * (AuthStore.version). A session is valid only if the signature checks out
+ * AND `v` still matches the CURRENT password version — so rotating the
+ * password invalidates every outstanding session in one place, instead of
+ * each route having to independently re-verify a forwarded password.
  *
- * Cookie token = `<b64(iv|tag|ciphertext)>.<hmac(payload)>`. Middleware only
- * needs the HMAC check (cheap, edge-safe); decryption happens in node handlers.
+ * Cookie token = `<base64url(payload)>.<hmac(payload)>`.
  */
 const _port = process.env.AIGLOO_PORT ?? process.env.PORT ?? "18080";
 const COOKIE = `aigloo_session_${_port}`;
+
+// Defense in depth on top of the cookie's own Max-Age (12h, set by the login/
+// password routes) — a raw stolen token replayed directly (bypassing the
+// browser's own expiry enforcement) still dies after this long.
+const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 function secret(): string {
   return process.env.SESSION_SECRET ?? "";
 }
 
-function aesKey(): Buffer {
-  return scryptSync(secret(), "aigloo-session-aes", 32);
-}
-
-export function sign(value: string): string {
+function sign(value: string): string {
   return createHmac("sha256", secret()).update(value).digest("hex");
 }
 
-/** Encrypt + sign the password into a cookie token. */
-export function sealSession(password: string): string {
-  const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", aesKey(), iv);
-  const ct = Buffer.concat([cipher.update(password, "utf8"), cipher.final()]);
-  const tag = cipher.getAuthTag();
-  const payload = Buffer.concat([iv, tag, ct]).toString("base64url");
+/** Issue a signed session token bound to the given password version. */
+export function sealSession(version: string): string {
+  const payload = Buffer.from(JSON.stringify({ v: version, iat: Date.now() }), "utf8").toString("base64url");
   return `${payload}.${sign(payload)}`;
 }
 
-/** Verify the token's signature only — no decryption (edge/middleware-safe). */
-export function verifyToken(token: string | undefined): boolean {
-  if (!token || !secret()) return false;
+/** Verify signature, freshness, and that the token's version matches current. */
+export function isSessionValid(token: string | undefined, currentVersion: string): boolean {
+  if (!token || !currentVersion || !secret()) return false;
   const [payload, sig] = token.split(".");
   if (!payload || !sig) return false;
+
   const expected = sign(payload);
   const a = Buffer.from(sig);
   const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return false;
 
-/** Verify + decrypt the token back to the password, or null if tampered. */
-export function openSession(token: string | undefined): string | null {
-  if (!verifyToken(token) || !token) return null;
+  let claims: { v?: string; iat?: number };
   try {
-    const payload = Buffer.from(token.split(".")[0], "base64url");
-    const iv = payload.subarray(0, 12);
-    const tag = payload.subarray(12, 28);
-    const ct = payload.subarray(28);
-    const decipher = createDecipheriv("aes-256-gcm", aesKey(), iv);
-    decipher.setAuthTag(tag);
-    return Buffer.concat([decipher.update(ct), decipher.final()]).toString("utf8");
+    claims = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
   } catch {
-    return null;
+    return false;
   }
-}
-
-/** The logged-in admin password, read from the session cookie (server-side). */
-export async function currentPassword(): Promise<string> {
-  const token = (await cookies()).get(COOKIE)?.value;
-  return openSession(token) ?? "";
+  if (claims.v !== currentVersion) return false;
+  if (typeof claims.iat !== "number" || Date.now() - claims.iat > MAX_AGE_MS) return false;
+  return true;
 }
 
 export const SESSION_COOKIE = COOKIE;

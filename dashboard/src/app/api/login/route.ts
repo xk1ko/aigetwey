@@ -8,12 +8,13 @@ export async function POST(req: Request): Promise<NextResponse> {
   if (!password) {
     return NextResponse.json({ error: "password required" }, { status: 400 });
   }
-  if (!gw().auth.verify(password)) {
+  const g = gw();
+  if (!g.auth.verify(password)) {
     return NextResponse.json({ error: "wrong password" }, { status: 401 });
   }
 
   const jar = await cookies();
-  jar.set(SESSION_COOKIE, sealSession(password), {
+  jar.set(SESSION_COOKIE, sealSession(g.auth.version), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
