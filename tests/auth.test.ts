@@ -47,6 +47,26 @@ describe("checkAuth", () => {
     expect(checkAuth(headersWith({ authorization: "Bearer secret" }), "127.0.0.1", ["secret"]).ok).toBe(true);
     expect(checkAuth(headersWith({ "x-api-key": "secret" }), "127.0.0.1", ["secret"]).ok).toBe(true);
   });
+
+  // The loopback-vs-remote branch that bug #1 (spoofable client IP) broke —
+  // every other case in this describe block hardcodes ip="127.0.0.1" and
+  // never exercised this. The actual fix lives in net-preload.cjs's
+  // resolveRealIp() (see tests/net-preload.test.ts) — this test guards the
+  // other half: that checkAuth() itself still blocks a genuinely non-loopback
+  // ip when no api_keys are configured, however that ip was derived.
+  it("blocks a non-loopback ip when no api_keys are configured (auth disabled ≠ auth open)", () => {
+    const r = checkAuth(headersWith({}), "203.0.113.5", []);
+    expect(r.ok).toBe(false);
+    expect(r.status).toBe(403);
+  });
+  it("also blocks IPv6 non-loopback addresses", () => {
+    expect(checkAuth(headersWith({}), "2001:db8::1", []).ok).toBe(false);
+  });
+  it("accepts all three loopback representations", () => {
+    expect(checkAuth(headersWith({}), "127.0.0.1", []).ok).toBe(true);
+    expect(checkAuth(headersWith({}), "::1", []).ok).toBe(true);
+    expect(checkAuth(headersWith({}), "::ffff:127.0.0.1", []).ok).toBe(true);
+  });
 });
 
 describe("clientKeyFingerprint", () => {

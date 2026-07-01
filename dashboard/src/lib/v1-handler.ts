@@ -34,7 +34,7 @@ function sseToStream(sse: AsyncIterable<Uint8Array>, log: (msg: string) => void)
   });
 }
 
-type AuthOutcome =
+export type AuthOutcome =
   | { ok: true; presented: string | null; clientKeyFp: string | undefined; clientKeyModels: string[] | undefined }
   | { ok: false; response: Response };
 
@@ -42,8 +42,12 @@ type AuthOutcome =
  * Shared auth preamble for every /v1/* endpoint: loopback-safe IP → api-key
  * check → expiry → rpm limit. Kept in one place so a new endpoint (like
  * embeddings previously) can't skip a check by not being wired up here.
+ * Exported for direct unit testing (tests/key-expiry-route.test.ts) — it only
+ * needs `g.state.config.server.*` and `g.limiter`, so tests build a minimal
+ * fake `g` instead of driving the whole gw() singleton through real config
+ * files and a real sqlite db.
  */
-function authenticateV1(req: Request, g: ReturnType<typeof gw>): AuthOutcome {
+export function authenticateV1(req: Request, g: ReturnType<typeof gw>): AuthOutcome {
   const { state, limiter } = g;
   const ip = getClientIp(req);
   const headers = { ...SECURITY_HEADERS, ...corsHeaders(req) };
