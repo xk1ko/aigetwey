@@ -19,6 +19,8 @@ const LABELS: Record<string, string> = {
   tools: "CLI Tools",
   console: "Server Console",
   config: "Settings",
+  notifications: "Notifications",
+  pricing: "Pricing",
 };
 
 const CMD = "npm i -g aigloo@latest --prefer-online";

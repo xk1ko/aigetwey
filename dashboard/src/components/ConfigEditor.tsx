@@ -6,7 +6,6 @@ import { Button } from "@/components/Button";
 import { Badge } from "@/components/Badge";
 import { Icon } from "@/components/Icon";
 import { Empty, LoadingDots } from "@/components/ui";
-import { PricingEditor } from "@/components/PricingEditor";
 import { PasswordEditor } from "@/components/PasswordEditor";
 import { AutostartToggle } from "@/components/AutostartToggle";
 import { stringify } from "yaml";
@@ -127,7 +126,25 @@ export function ConfigEditor() {
 
         {/* RIGHT: pricing + backup */}
         <div className="space-y-4">
-          <PricingEditor />
+          {/* pricing */}
+          <div className="overflow-hidden rounded-brand-lg card">
+            <div className="flex items-center justify-between border-b border-border-subtle px-5 py-3">
+              <div>
+                <h2 className="text-[14px] font-semibold text-text">Pricing</h2>
+                <p className="text-[12px] text-text-muted">per-model $/1M overrides</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Link href="/pricing" className="inline-flex items-center justify-center gap-1.5 rounded-brand px-3.5 py-2 text-[13px] font-medium transition-all duration-150 cursor-pointer glass text-text-muted border-transparent hover:text-text whitespace-nowrap">
+                  <Icon name="arrow_forward" size={14} /> Configure
+                </Link>
+              </div>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-[13px] text-text-muted">
+                Override the auto-resolved rate per model, per provider — or set a global override across every provider.
+              </p>
+            </div>
+          </div>
 
           {/* backup */}
           <div className="overflow-hidden rounded-brand-lg card">
