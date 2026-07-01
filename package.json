@@ -38,6 +38,7 @@
     "assets",
     "config.example.yaml",
     "run.sh",
+    "net-preload.cjs",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"

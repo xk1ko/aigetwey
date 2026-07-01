@@ -240,6 +240,14 @@ function spawnDashboard(): ChildProcess {
   const standaloneDir = join(dashboardDir, ".next", "standalone");
   const standaloneServer = join(standaloneDir, "server.js");
 
+  // Preload patches http.createServer to tag the real TCP peer address onto
+  // every request (see net-preload.cjs) — getClientIp() in v1-handler.ts
+  // trusts only that tagged header, never a raw client-supplied
+  // X-Forwarded-For. Appended (not replaced) so any NODE_OPTIONS the operator
+  // already set keeps working.
+  const preload = `--require ${join(root, "net-preload.cjs")}`;
+  const nodeOptions = [process.env.NODE_OPTIONS, preload].filter(Boolean).join(" ");
+
   const env = {
     ...process.env,
     PORT: String(GATEWAY_PORT),
@@ -250,6 +258,7 @@ function spawnDashboard(): ChildProcess {
     AIGLOO_CONFIG: getConfigPath(),
     SESSION_SECRET: sessionSecret,
     AIGLOO_VERSION: pkgVersion,
+    NODE_OPTIONS: nodeOptions,
   };
 
   if (existsSync(standaloneServer)) {

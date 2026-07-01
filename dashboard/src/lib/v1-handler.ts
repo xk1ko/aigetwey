@@ -6,11 +6,12 @@ import { handleEmbeddings, type EmbeddingsRequest } from "@/gw/core/embeddings.j
 import { gw } from "./gw";
 
 function getClientIp(req: Request): string {
-  const xff = req.headers.get("x-forwarded-for");
-  if (xff) return xff.split(",")[0].trim();
-  const xreal = req.headers.get("x-real-ip");
-  if (xreal) return xreal;
-  return "127.0.0.1";
+  // Set by the net-preload.cjs http.createServer patch (see src/cli.ts), which
+  // only forwards X-Forwarded-For/X-Real-IP when the TCP peer itself is
+  // loopback. If the header is missing (preload didn't load), fail SAFE —
+  // "unknown" never matches the loopback check in checkAuth(), so auth blocks
+  // rather than silently trusting a client-supplied header.
+  return req.headers.get("x-aigloo-real-ip") ?? "unknown";
 }
 
 function corsHeaders(req: Request): Record<string, string> {
@@ -47,17 +48,23 @@ function sseToStream(sse: AsyncIterable<Uint8Array>): ReadableStream<Uint8Array>
   });
 }
 
-export async function dispatchV1(req: Request, clientFormat: WireFormat): Promise<Response> {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders(req) });
-  }
+type AuthOutcome =
+  | { ok: true; presented: string | null; clientKeyFp: string | undefined; clientKeyModels: string[] | undefined }
+  | { ok: false; response: Response };
 
-  const { state, db, notifier, limiter, log } = gw();
+/**
+ * Shared auth preamble for every /v1/* endpoint: loopback-safe IP → api-key
+ * check → expiry → rpm limit. Kept in one place so a new endpoint (like
+ * embeddings previously) can't skip a check by not being wired up here.
+ */
+function authenticateV1(req: Request, g: ReturnType<typeof gw>): AuthOutcome {
+  const { state, limiter } = g;
   const ip = getClientIp(req);
+  const headers = { ...SECURITY_HEADERS, ...corsHeaders(req) };
 
   const authRes = checkAuth(req.headers, ip, state.config.server.api_keys);
   if (!authRes.ok) {
-    return Response.json({ error: authRes.error }, { status: authRes.status ?? 401, headers: { ...SECURITY_HEADERS, ...corsHeaders(req) } });
+    return { ok: false, response: Response.json({ error: authRes.error }, { status: authRes.status ?? 401, headers }) };
   }
 
   const presented = extractKey(req.headers);
@@ -65,14 +72,32 @@ export async function dispatchV1(req: Request, clientFormat: WireFormat): Promis
   if (presented && isKeyExpired(state.config.server, presented, Date.now())) {
     const expAt = state.config.server.key_expires?.[presented];
     const expDate = expAt ? new Date(expAt).toISOString() : undefined;
-    return Response.json({ error: "access key expired", expired_at: expDate }, { status: 403, headers: { ...SECURITY_HEADERS, ...corsHeaders(req) } });
+    return { ok: false, response: Response.json({ error: "access key expired", expired_at: expDate }, { status: 403, headers }) };
   }
 
   const rpm = presented ? state.config.server.key_rpm?.[presented] : undefined;
   if (presented && rpm && limiter.over(clientKeyFingerprint(presented), rpm)) {
-    return Response.json({ error: `rate limit exceeded — max ${rpm} req/min`, retry_after_ms: 60000 }, { status: 429, headers: { ...SECURITY_HEADERS, ...corsHeaders(req) } });
+    return { ok: false, response: Response.json({ error: `rate limit exceeded — max ${rpm} req/min`, retry_after_ms: 60000 }, { status: 429, headers }) };
   }
 
+  return {
+    ok: true,
+    presented,
+    clientKeyFp: presented ? clientKeyFingerprint(presented) : undefined,
+    clientKeyModels: presented ? state.config.server.key_models?.[presented] : undefined,
+  };
+}
+
+export async function dispatchV1(req: Request, clientFormat: WireFormat): Promise<Response> {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders(req) });
+  }
+
+  const g = gw();
+  const auth = authenticateV1(req, g);
+  if (!auth.ok) return auth.response;
+
+  const { state, db, notifier, log } = g;
   const body = await req.json().catch(() => ({}));
 
   const deps: HandleDeps = {
@@ -81,8 +106,8 @@ export async function dispatchV1(req: Request, clientFormat: WireFormat): Promis
     budget: state.budget,
     db,
     notifier,
-    clientKeyModels: presented ? state.config.server.key_models?.[presented] : undefined,
-    clientKeyFp: presented ? clientKeyFingerprint(presented) : undefined,
+    clientKeyModels: auth.clientKeyModels,
+    clientKeyFp: auth.clientKeyFp,
     log,
   };
 
@@ -120,13 +145,11 @@ export async function dispatchEmbeddings(req: Request): Promise<Response> {
     return new Response(null, { status: 204, headers: corsHeaders(req) });
   }
 
-  const { state, db, limiter, log } = gw();
-  const ip = getClientIp(req);
+  const g = gw();
+  const auth = authenticateV1(req, g);
+  if (!auth.ok) return auth.response;
 
-  const authRes = checkAuth(req.headers, ip, state.config.server.api_keys);
-  if (!authRes.ok) {
-    return Response.json({ error: authRes.error }, { status: authRes.status ?? 401, headers: { ...SECURITY_HEADERS, ...corsHeaders(req) } });
-  }
+  const { state, db, log } = g;
 
   const body = await req.json().catch(() => ({})) as Record<string, unknown>;
   if (!body?.model) return Response.json({ error: "missing 'model'" }, { status: 400, headers: SECURITY_HEADERS });
@@ -138,6 +161,8 @@ export async function dispatchEmbeddings(req: Request): Promise<Response> {
     pool: state.pool,
     budget: state.budget,
     db,
+    clientKeyModels: auth.clientKeyModels,
+    clientKeyFp: auth.clientKeyFp,
     log,
   };
 
@@ -147,8 +172,8 @@ export async function dispatchEmbeddings(req: Request): Promise<Response> {
   }
 
   if (deps.budget) {
-    const g = deps.budget.globalStatus();
-    if (g?.exhausted) return Response.json({ error: "budget exceeded" }, { status: 402, headers: SECURITY_HEADERS });
+    const budgetStatus = deps.budget.globalStatus();
+    if (budgetStatus?.exhausted) return Response.json({ error: "budget exceeded" }, { status: 402, headers: SECURITY_HEADERS });
     if (deps.clientKeyFp) {
       const kb = deps.budget.blocksKey(deps.clientKeyFp);
       if (kb?.exhausted) return Response.json({ error: "budget exceeded" }, { status: 402, headers: SECURITY_HEADERS });
