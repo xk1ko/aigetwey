@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { RichCard, CardTitle } from "@/components/RichCard";
 import { Badge } from "@/components/Badge";
 import { Button } from "@/components/Button";
@@ -42,6 +43,7 @@ const EVENTS = [
 ];
 
 export function NotificationsView() {
+  const router = useRouter();
   const [configs, setConfigs] = useState<Record<string, NotificationConfig>>({});
   const [alerts, setAlerts] = useState<AlertLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -126,6 +128,13 @@ export function NotificationsView() {
 
   return (
     <div>
+      <button
+        onClick={() => router.push("/config")}
+        className="mb-4 inline-flex items-center gap-1 rounded-brand border border-border bg-surface-2 px-2.5 py-1 text-[12px] font-medium text-text-muted transition-colors hover:border-text-subtle hover:bg-surface-3 hover:text-text"
+      >
+        <Icon name="arrow_back" size={14} /> Settings
+      </button>
+
       <div className="mb-5">
         <h1 className="text-[30px] font-bold tracking-tight heading-gradient heading-accent">Notifications</h1>
         <p className="mt-1 text-[13px] text-text-muted">Get alerted when budgets hit their threshold or run out.</p>
