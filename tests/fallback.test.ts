@@ -67,12 +67,22 @@ describe("executeWithFallback", () => {
     expect(requestMock).toHaveBeenCalledTimes(3);
   });
 
-  it("does NOT fall back on a non-retryable error (e.g. 400)", async () => {
-    requestMock.mockResolvedValueOnce(fail(400, "bad request"));
+  it("does NOT retry more keys within the same provider on a non-retryable error (e.g. 400)", async () => {
+    // primary's first key 400s (non-retryable) — should NOT try primary's second
+    // key (pk2), should move straight to the backup provider instead.
+    requestMock.mockResolvedValueOnce(fail(400, "bad request")).mockResolvedValueOnce(ok(REPLY));
+    const won = await executeWithFallback(routes(), new KeyPool(), REQ, { stream: false });
+    expect(won.route.provider.id).toBe("backup");
+    expect(requestMock).toHaveBeenCalledTimes(2); // primary (1 try, no retry) + backup
+  });
+
+  it("still throws when a non-retryable error hits the last route in the chain", async () => {
+    // both providers in the chain get a non-retryable 400 — nothing left to fall back to.
+    requestMock.mockResolvedValueOnce(fail(400, "bad request")).mockResolvedValueOnce(fail(400, "bad request"));
     await expect(executeWithFallback(routes(), new KeyPool(), REQ, { stream: false })).rejects.toMatchObject({
       status: 400,
     });
-    expect(requestMock).toHaveBeenCalledTimes(1); // stopped immediately
+    expect(requestMock).toHaveBeenCalledTimes(2); // one try per provider, no same-provider retries
   });
 
   it("treats a network error as retryable and falls through", async () => {

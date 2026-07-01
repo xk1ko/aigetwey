@@ -82,9 +82,18 @@ export async function executeWithFallback(
         lastError = err;
 
         if (!err.retryable) {
-          // the request itself is bad — falling back won't help
+          // Non-retryable on THIS route doesn't mean non-retryable everywhere: a
+          // malformed request (400/404/422) will fail identically on every
+          // provider, but a 401/403 is frequently provider/key-specific (an
+          // expired key, or a provider that mislabels "no balance" as "invalid
+          // key" — this happens in practice) and a different provider in the
+          // chain may serve it fine. Don't retry more keys within this same
+          // route (that would just repeat the same rejection), but do move on
+          // to the next route rather than aborting the whole chain. Only
+          // surfaces as a real failure if every route in the chain fails too
+          // (see `if (lastError) throw lastError` below).
           log({ provider: provider.id, model: route.model, status: err.status, outcome: "fatal" });
-          throw err;
+          break;
         }
 
         pool.penalize(provider, key, { message: err.message ?? `HTTP ${err.status}`, status: err.status });
