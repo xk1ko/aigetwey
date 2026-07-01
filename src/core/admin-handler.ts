@@ -322,7 +322,7 @@ export async function handleAdmin(
     const results = await Promise.all(
       providers.map(async (p) => {
         const key = p.api_keys?.[0] ?? p.api_key;
-        const result = await pingProvider(p, key);
+        const result = await pingProvider(p, key, p.models[0]?.id);
         return { id: p.id, name: p.name ?? p.id, ...result };
       }),
     );
@@ -398,7 +398,7 @@ export async function handleAdmin(
       const provider = deps.state.config.raw.providers.find((p) => p.id === id);
       if (!provider) return { status: 404, body: { error: `provider "${id}" not found` } };
       const key = provider.api_keys?.[0] ?? provider.api_key;
-      return { status: 200, body: await pingProvider(provider, key) };
+      return { status: 200, body: await pingProvider(provider, key, provider.models[0]?.id) };
     }
 
     if (m === "POST" && s.length === 3 && s[2] === "connect") {
@@ -430,7 +430,7 @@ export async function handleAdmin(
         if (!provider) return { status: 404, body: { error: `provider "${id}" not found` } };
         const key = (b as { key?: string }).key;
         if (!key?.trim()) return { status: 400, body: { error: "key is required" } };
-        return { status: 200, body: await pingProvider(provider, key.trim()) };
+        return { status: 200, body: await pingProvider(provider, key.trim(), provider.models[0]?.id) };
       }
 
       // providers/:id/keys/:index
@@ -474,7 +474,7 @@ export async function handleAdmin(
             return { status: 404, body: { error: "key index out of range" } };
           }
           const key = keys[i]!;
-          const result = await pingProvider(provider, key);
+          const result = await pingProvider(provider, key, provider.models[0]?.id);
           if (result.ok) {
             deps.state.pool.success(provider, key);
           } else if (result.reachable && result.status) {
@@ -524,8 +524,11 @@ export async function handleAdmin(
           return { status: 200, body: { ok: true } };
         } catch (e) {
           if (e instanceof GatewayError) {
+            const payloadError = (e.payload as { error?: unknown })?.error;
             const msg = typeof e.payload === "string" ? e.payload
-              : (e.payload as { error?: string })?.error ?? JSON.stringify(e.payload);
+              : typeof payloadError === "string" ? payloadError
+              : typeof (payloadError as { message?: string })?.message === "string" ? (payloadError as { message: string }).message
+              : JSON.stringify(e.payload);
             return { status: 200, body: { ok: false, status: e.status, error: msg } };
           }
           return { status: 200, body: { ok: false, error: (e as Error).message } };

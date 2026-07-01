@@ -158,11 +158,6 @@ function classifyError(status: number | undefined, msg: string): PingErrorType {
   return "unknown";
 }
 
-/**
- * Lightweight connectivity check: GET {base}/models with the provider's auth.
- * Any HTTP status means the host is reachable; 2xx means the key is accepted.
- * Never throws — returns a structured result for the dashboard.
- */
 const STATUS_ERRORS: Record<number, string> = {
   400: "Bad request — check API parameters",
   401: "Authentication failed — invalid API key",
@@ -177,7 +172,57 @@ const STATUS_ERRORS: Record<number, string> = {
   504: "Gateway timeout — provider took too long",
 };
 
-export async function pingProvider(provider: Provider, key: string | undefined): Promise<PingResult> {
+function parseErrorBody(status: number, text: string): string {
+  const fallback = STATUS_ERRORS[status] ?? `HTTP ${status}`;
+  try {
+    const parsed = JSON.parse(text);
+    return parsed?.error?.message
+      ?? (typeof parsed?.error === "string" ? parsed.error : null)
+      ?? parsed?.message
+      ?? fallback;
+  } catch {
+    return text.slice(0, 200).trim() || fallback;
+  }
+}
+
+/**
+ * Real-usability check: a genuine 1-token completion against `model`, through
+ * the same callUpstream() path real traffic uses. Unlike the /models-only
+ * check below, this actually exercises billing/balance — a provider whose
+ * /models endpoint is a free metadata call (no billing check) will otherwise
+ * report a zero-balance key as "valid" even though no real request can
+ * succeed. Never throws — returns a structured result for the dashboard.
+ */
+async function pingProviderCompletion(provider: Provider, key: string | undefined, model: string): Promise<PingResult> {
+  const t0 = Date.now();
+  try {
+    await callUpstream(provider, { model, messages: [{ role: "user", content: "ping" }], max_tokens: 1, stream: false }, model, { stream: false, key });
+    return { reachable: true, status: 200, ok: true, latencyMs: Date.now() - t0 };
+  } catch (e) {
+    const err = e as UpstreamError;
+    const latencyMs = Date.now() - t0;
+    if (err.status === undefined) {
+      return { reachable: false, ok: false, error: err.message, latencyMs, errorType: classifyError(undefined, err.message) };
+    }
+    const error = err.body ? parseErrorBody(err.status, err.body) : (STATUS_ERRORS[err.status] ?? `HTTP ${err.status}`);
+    return { reachable: true, status: err.status, ok: false, error, latencyMs, errorType: classifyError(err.status, error) };
+  }
+}
+
+/**
+ * Connectivity + usability check. With `model`, does a real 1-token
+ * completion (see pingProviderCompletion) — the accurate but slightly more
+ * expensive check, used whenever the provider already has a model configured
+ * to test against. Without one (e.g. validating a brand-new provider before
+ * it has any models yet), falls back to a lightweight GET {base}/models —
+ * any HTTP status means the host is reachable, 2xx means the key is accepted,
+ * but note this does NOT exercise billing on providers whose /models endpoint
+ * is a free metadata call. Never throws — returns a structured result for
+ * the dashboard.
+ */
+export async function pingProvider(provider: Provider, key: string | undefined, model?: string): Promise<PingResult> {
+  if (model) return pingProviderCompletion(provider, key, model);
+
   const base = provider.base_url.replace(/\/$/, "");
   const url = `${base}/models`;
   const headers = buildHeaders(provider, key);
@@ -187,19 +232,7 @@ export async function pingProvider(provider: Provider, key: string | undefined):
     const text = await res.body.text();
     const latencyMs = Date.now() - t0;
     const ok = res.statusCode >= 200 && res.statusCode < 300;
-    let error: string | undefined;
-    if (!ok) {
-      const fallback = STATUS_ERRORS[res.statusCode] ?? `HTTP ${res.statusCode}`;
-      try {
-        const parsed = JSON.parse(text);
-        error = parsed?.error?.message
-          ?? (typeof parsed?.error === "string" ? parsed.error : null)
-          ?? parsed?.message
-          ?? fallback;
-      } catch {
-        error = text.slice(0, 200).trim() || fallback;
-      }
-    }
+    const error = ok ? undefined : parseErrorBody(res.statusCode, text);
     return {
       reachable: true,
       status: res.statusCode,
