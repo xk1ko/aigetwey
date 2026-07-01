@@ -33,7 +33,7 @@ export function ProviderDetail({ id }: { id: string }) {
   const [newModel, setNewModel] = useState("");
   const [modelFilter, setModelFilter] = useState("");
   const [discovered, setDiscovered] = useState<DiscoveredModel[] | null>(null);
-  const [modelTest, setModelTest] = useState<Record<string, "testing" | "ok" | "fail">>({});
+  const [modelTest, setModelTest] = useState<Record<string, "testing" | "ok" | { status?: number; error?: string }>>({});
   const [keyTest, setKeyTest] = useState<Record<number, "testing" | PingResult>>({});
   const [testingAll, setTestingAll] = useState(false);
   const [testAllSummary, setTestAllSummary] = useState<{ total: number; passed: number; failed: number } | null>(null);
@@ -48,7 +48,11 @@ export function ProviderDetail({ id }: { id: string }) {
   async function testModel(mid: string) {
     setModelTest((t) => ({ ...t, [mid]: "testing" }));
     const r = await adminApi.testModel(id, mid);
-    setModelTest((t) => ({ ...t, [mid]: r.ok && r.data?.ok ? "ok" : "fail" }));
+    if (r.ok && r.data?.ok) {
+      setModelTest((t) => ({ ...t, [mid]: "ok" }));
+    } else {
+      setModelTest((t) => ({ ...t, [mid]: { status: r.data?.status, error: r.data?.error ?? r.error } }));
+    }
   }
 
   async function testKey(i: number) {
@@ -557,8 +561,9 @@ export function ProviderDetail({ id }: { id: string }) {
                   <div className="max-h-[280px] divide-y divide-border-subtle overflow-y-auto rounded-brand border border-border-subtle">
                     {shownModels.map((m) => {
                       const st = modelTest[m.id];
-                      const statusIcon = st === "ok" ? "check_circle" : st === "fail" ? "cancel" : "smart_toy";
-                      const statusColor = st === "ok" ? "text-success" : st === "fail" ? "text-danger" : "text-text-subtle";
+                      const failed = typeof st === "object";
+                      const statusIcon = st === "ok" ? "check_circle" : failed ? "cancel" : "smart_toy";
+                      const statusColor = st === "ok" ? "text-success" : failed ? "text-danger" : "text-text-subtle";
                       return (
                         <div key={m.id} className="group flex items-center justify-between gap-3 px-3 py-2 hover:bg-bg">
                           <div className="flex min-w-0 items-center gap-2">
@@ -571,6 +576,15 @@ export function ProviderDetail({ id }: { id: string }) {
                             {(m.price_in !== undefined || m.price_out !== undefined) && (
                               <span className="tnum whitespace-nowrap text-[11px] text-text-subtle">
                                 {fmt.cost(m.price_in ?? 0)}/{fmt.cost(m.price_out ?? 0)} per 1M
+                              </span>
+                            )}
+                            {failed && st.error && (
+                              <span
+                                className="text-[11px] text-danger/70 truncate max-w-[200px]"
+                                title={`${st.status ?? ""} ${st.error}`.trim()}
+                              >
+                                {st.status ? `${st.status} ` : ""}
+                                {st.error}
                               </span>
                             )}
                           </div>
@@ -588,7 +602,7 @@ export function ProviderDetail({ id }: { id: string }) {
                               disabled={st === "testing"}
                               className="rounded p-1 text-text-subtle transition-colors hover:bg-surface hover:text-accent disabled:opacity-60"
                               aria-label={`Test ${m.id}`}
-                              title={st === "fail" ? "Test failed — click to retry" : "Test this model"}
+                              title={failed ? `Test failed — click to retry${st.error ? `: ${st.error}` : ""}` : "Test this model"}
                             >
                               <Icon name={st === "testing" ? "progress_activity" : "wifi_tethering"} size={15} />
                             </button>
