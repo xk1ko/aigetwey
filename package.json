@@ -47,7 +47,7 @@
     "dev": "./dev.sh",
     "start": "node dist/cli.js",
     "run:all": "tsx src/cli.ts",
-    "build": "tsc -p tsconfig.json",
+    "build": "rm -rf dist && tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
