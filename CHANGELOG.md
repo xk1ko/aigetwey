@@ -5,6 +5,41 @@ All notable changes to **aigloo** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2] — 2026-07-02
+
+### Added
+- **Dedicated Pricing page** — moved out of Settings into its own page
+  (`/pricing`), no new rail icon, per-provider + global price override
+
+### Fixed
+- **Key "Check" test gave false valid on zero-balance keys** — check only hit
+  a free `/models` metadata endpoint, which doesn't touch billing. Now runs a
+  real 1-token completion (same path as live traffic) whenever the provider
+  has a model configured, so a key with no balance is correctly reported as
+  failing instead of "valid"
+- **Model-test error message discarded** — dashboard only tracked
+  ok/fail, dropping the actual status/error text from the provider. Now shows
+  the real error inline next to the model row
+- **Fallback/round-robin chain aborted on one provider's non-retryable
+  error** — a 401/403 from one provider (e.g. a reseller mislabeling
+  "no balance" as "invalid key") killed the whole chain instead of trying the
+  next provider. Now only skips further keys on that provider and moves on;
+  still fails if every route in the chain fails
+- **Spoofable client-IP auth bypass** — IP resolution could be spoofed via
+  headers, undermining IP-keyed rate-limit/auth logic. `/v1/embeddings` also
+  skipped key-check entirely; now goes through the same auth path as
+  chat/messages
+- **Password rotation didn't revoke sessions** — changing password now bumps
+  session version, invalidating outstanding dashboard sessions
+- **HMR-unsafe singletons** — `gw()` and console buffer state duplicated on
+  dev-server hot reload; now HMR-safe
+- **Missing security headers, body-size limit** — added after 1-port
+  migration review
+- **Notifications page** — missing "Back to Settings" button
+
+### Removed
+- **`Rail.tsx`** — dead code, superseded rail implementation, unused
+
 ## [1.1.1] — 2026-06-30
 
 ### Fixed
